@@ -1,67 +1,48 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { LogOut, MonitorPlay, Moon, ShieldCheck, Sun } from 'lucide-react';
-import {
-  PrepItem,
-  RoundScore,
-  TeamRecord,
-  TeamRole,
-  WORKSHOP_META,
-} from './data/workshopData';
+import { Award, LogOut, Moon, ShieldCheck, Sun } from 'lucide-react';
+import { BADGES, getLearnerRank, WORKSHOP_META } from './data/workshopData';
 import {
   auth,
-  isFacilitatorAdmin,
   isGenuineGoogleUser,
   signOutUser,
 } from './firebase';
 import {
-  addTeamMemberFirestore,
+  awardLevelCompletion,
   ConnectionPostDoc,
   createConnectionPost,
-  createPrepItemDoc,
-  deleteTeamScoreFirestore,
+  createDefaultProgress,
+  LearnerProgressDoc,
   LearnerWorkspaceDoc,
-  recordTeamScoreFirestore,
-  rotateSpeakersFirestore,
+  recordWheelCompletion,
   saveLearnerWorkspace,
-  seedDefaultPrepItems,
-  seedDefaultTeamsFirestore,
-  subscribeChampionshipTeams,
   subscribeConnections,
+  subscribeLearnerProgress,
   subscribeLearnerWorkspace,
-  subscribePrepItems,
-  togglePrepItemDoc,
-  updateTeamMemberFirestore,
-  updateTeamNameFirestore,
   upsertUserAccount,
 } from './services/firestoreService';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { GoogleAuthGate } from './components/GoogleAuthGate';
-import { OverviewStudio } from './components/OverviewStudio';
+import { AppView, OverviewStudio } from './components/OverviewStudio';
 import { ActivitiesStudio } from './components/ActivitiesStudio';
-import { ChallengesStudio } from './components/ChallengesStudio';
-import { ChampionshipArena } from './components/ChampionshipArena';
-import { PlaybookView } from './components/PlaybookView';
-import { StageProjectorModal } from './components/StageProjectorModal';
+import { SpinWheelStudio } from './components/SpinWheelStudio';
+import { AchievementsCertificate } from './components/AchievementsCertificate';
 
-type AppView = 'overview' | 'activities' | 'challenges' | 'championship' | 'playbook';
-
-const THEME_STORAGE_KEY = 'pcwk_theme_v1';
+const THEME_STORAGE_KEY = 'pcwk_theme_v2';
 
 function PictureConnectWorkspace() {
   const [authReady, setAuthReady] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  const [view, setView] = useState<AppView>('overview');
-  const [activeActivityNumber, setActiveActivityNumber] = useState<number>(1);
-  const [stageOpen, setStageOpen] = useState(false);
+  const [view, setView] = useState<AppView>('journey');
+  const [activeLevel, setActiveLevel] = useState<number>(1);
 
   const [connections, setConnections] = useState<ConnectionPostDoc[]>([]);
   const [workspace, setWorkspace] = useState<LearnerWorkspaceDoc>({ ownerId: '' });
-  const [teams, setTeams] = useState<TeamRecord[]>([]);
-  const [prepItems, setPrepItems] = useState<PrepItem[]>([]);
-  const seededPrepRef = useRef<string | null>(null);
+  const [progress, setProgress] = useState<LearnerProgressDoc>(() =>
+    createDefaultProgress('pending')
+  );
 
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     try {
@@ -100,6 +81,7 @@ function PictureConnectWorkspace() {
 
       setAuthError(null);
       setUser(nextUser);
+      setProgress(createDefaultProgress(nextUser.uid));
       setAuthReady(true);
       try {
         await upsertUserAccount(nextUser);
@@ -116,20 +98,12 @@ function PictureConnectWorkspace() {
 
     const unsubConnections = subscribeConnections(setConnections);
     const unsubWorkspace = subscribeLearnerWorkspace(user.uid, setWorkspace);
-    const unsubTeams = subscribeChampionshipTeams(setTeams);
-    const unsubPrep = subscribePrepItems(user.uid, (items) => {
-      setPrepItems(items);
-      if (items.length === 0 && seededPrepRef.current !== user.uid) {
-        seededPrepRef.current = user.uid;
-        seedDefaultPrepItems(user.uid).catch(console.error);
-      }
-    });
+    const unsubProgress = subscribeLearnerProgress(user.uid, setProgress);
 
     return () => {
       unsubConnections();
       unsubWorkspace();
-      unsubTeams();
-      unsubPrep();
+      unsubProgress();
     };
   }, [authReady, user]);
 
@@ -147,11 +121,12 @@ function PictureConnectWorkspace() {
     return <GoogleAuthGate authError={authError} />;
   }
 
-  const admin = isFacilitatorAdmin(user);
+  const learnerName = user.displayName || user.email?.split('@')[0] || 'Verified Learner';
+  const rank = getLearnerRank(progress.xp);
 
-  const handleNavigateView = (target: AppView, activityNum?: number) => {
-    if (activityNum) {
-      setActiveActivityNumber(activityNum);
+  const handleNavigateView = (target: AppView, levelNum?: number) => {
+    if (levelNum) {
+      setActiveLevel(levelNum);
     }
     setView(target);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -174,11 +149,10 @@ function PictureConnectWorkspace() {
   const challengePosts = connections.filter((c) => c.kind === 'challenge');
 
   const navItems: { id: AppView; label: string }[] = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'activities', label: 'Activities' },
-    { id: 'challenges', label: 'Challenges' },
-    { id: 'championship', label: 'Championship' },
-    { id: 'playbook', label: 'Playbook' },
+    { id: 'journey', label: 'Journey' },
+    { id: 'levels', label: 'Levels 1–10' },
+    { id: 'wheel', label: 'Spin Wheel' },
+    { id: 'achievements', label: 'Badges & XP' },
   ];
 
   return (
@@ -188,7 +162,7 @@ function PictureConnectWorkspace() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-8">
           <button
             type="button"
-            onClick={() => handleNavigateView('overview')}
+            onClick={() => handleNavigateView('journey')}
             className="font-display text-lg font-bold tracking-tight text-slate-950 dark:text-white whitespace-nowrap shrink-0 cursor-pointer"
           >
             {WORKSHOP_META.shortTitle}
@@ -220,11 +194,11 @@ function PictureConnectWorkspace() {
           <div className="shrink-0">
             <button
               type="button"
-              onClick={() => setStageOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+              onClick={() => handleNavigateView('achievements')}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 tabular-nums"
             >
-              <MonitorPlay className="w-4 h-4" />
-              <span>Stage Mode</span>
+              <Award className="w-4 h-4" />
+              <span>Certificate · {progress.xp} XP</span>
             </button>
           </div>
         </div>
@@ -252,18 +226,24 @@ function PictureConnectWorkspace() {
 
       {/* Main Content Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* Verified Google Identity Workspace Strip */}
+        {/* Verified Google Learner Identity & Live XP Strip */}
         <div className="no-print flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200/70 dark:border-slate-800/80 text-xs text-slate-600 dark:text-slate-400">
           <div className="flex flex-wrap items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span className="font-semibold text-slate-900 dark:text-white">
-              {user.displayName || 'Verified Learner'}
+              {learnerName}
             </span>
             <span aria-hidden="true">·</span>
-            <span>{user.email}</span>
-            <span aria-hidden="true">·</span>
             <span className="font-medium text-blue-700 dark:text-blue-400">
-              {admin ? 'Facilitator Admin' : 'Verified Google Learner'}
+              {rank.title}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span className="font-mono tabular-nums">
+              {progress.completedLevels.length}/10 Levels
+            </span>
+            <span aria-hidden="true">·</span>
+            <span className="font-mono tabular-nums">
+              {progress.unlockedBadges.length}/{BADGES.length} Badges
             </span>
           </div>
 
@@ -277,8 +257,10 @@ function PictureConnectWorkspace() {
           </button>
         </div>
 
-        {view === 'overview' && (
+        {view === 'journey' && (
           <OverviewStudio
+            learnerName={learnerName}
+            progress={progress}
             onNavigateView={handleNavigateView}
             learnerConnections={conceptConnections}
             onAddConnection={async (picture, concept, explanation) => {
@@ -293,11 +275,15 @@ function PictureConnectWorkspace() {
           />
         )}
 
-        {view === 'activities' && (
+        {view === 'levels' && (
           <ActivitiesStudio
-            activeActivityNumber={activeActivityNumber}
-            onSelectActivity={setActiveActivityNumber}
-            onGoToChampionship={() => handleNavigateView('championship')}
+            activeLevel={activeLevel}
+            onSelectLevel={setActiveLevel}
+            onGoToCertificate={() => handleNavigateView('achievements')}
+            progress={progress}
+            onCompleteLevel={async (levelNum) => {
+              return awardLevelCompletion(user.uid, progress, levelNum);
+            }}
             sharedPerspectives={perspectivePosts}
             onAddPerspective={async (sceneTitle, text) => {
               await createConnectionPost(
@@ -315,54 +301,34 @@ function PictureConnectWorkspace() {
           />
         )}
 
-        {view === 'challenges' && (
-          <ChallengesStudio
+        {view === 'wheel' && (
+          <SpinWheelStudio
+            progress={progress}
             sharedReflections={challengePosts}
-            onAddReflection={async (challengeId, challengeTitle, body) => {
+            onCompleteWheelPrompt={async (promptId, promptTitle, reflectionText, xpReward) => {
               await createConnectionPost(
                 user,
                 'challenge',
-                challengeId,
-                challengeTitle,
-                body
+                promptId,
+                promptTitle,
+                reflectionText
               );
+              return recordWheelCompletion(user.uid, progress, promptId, xpReward);
             }}
           />
         )}
 
-        {view === 'championship' && (
-          <ChampionshipArena
-            teams={teams}
-            isAdmin={admin}
-            onSeedTeams={seedDefaultTeamsFirestore}
-            onUpdateTeamName={updateTeamNameFirestore}
-            onRotateAllSpeakers={() => rotateSpeakersFirestore(teams)}
-            onUpdateMember={updateTeamMemberFirestore}
-            onAddMember={addTeamMemberFirestore}
-            onRecordScore={(teamId, score: Omit<RoundScore, 'id' | 'recordedAt'>) =>
-              recordTeamScoreFirestore(teamId, user, score)
-            }
-            onDeleteScore={deleteTeamScoreFirestore}
-          />
-        )}
-
-        {view === 'playbook' && (
-          <PlaybookView
-            prepItems={prepItems}
-            onTogglePrep={async (id) => {
-              const target = prepItems.find((i) => i.id === id);
-              if (target) {
-                await togglePrepItemDoc(id, !target.completed);
-              }
-            }}
-            onAddPrepItem={async (label, category) => {
-              await createPrepItemDoc(user.uid, label, category);
-            }}
+        {view === 'achievements' && (
+          <AchievementsCertificate
+            learnerName={learnerName}
+            learnerEmail={user.email || ''}
+            progress={progress}
+            onNavigateToLevels={(lvl) => handleNavigateView('levels', lvl)}
           />
         )}
       </main>
 
-      {/* Clean Footer with Theme Switcher & Attribution */}
+      {/* Clean Footer with Theme Switcher & Powered By Kapil Attribution */}
       <footer className="no-print border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-slate-600 dark:text-slate-400">
           <div className="space-y-1">
@@ -380,16 +346,10 @@ function PictureConnectWorkspace() {
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-900 text-xs font-medium text-slate-800 dark:text-slate-200 cursor-pointer whitespace-nowrap"
           >
             {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
-            <span>{darkMode ? 'Light Classroom Mode' : 'Dark Auditorium Mode'}</span>
+            <span>{darkMode ? 'Light Studio Mode' : 'Dark Executive Mode'}</span>
           </button>
         </div>
       </footer>
-
-      <StageProjectorModal
-        open={stageOpen}
-        onClose={() => setStageOpen(false)}
-        initialActivityNumber={activeActivityNumber}
-      />
     </div>
   );
 }

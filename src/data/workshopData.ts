@@ -1,3 +1,5 @@
+import { PhotoAssetKey } from './imageAssets';
+
 export type ArtworkId =
   | 'bridge'
   | 'broken_pencil'
@@ -34,28 +36,43 @@ export type ArtworkId =
   | 'coffee_cup'
   | 'lighthouse'
   | 'mountain_peak'
-  | 'gears'
-  | 'backpack'
   | 'notebook';
 
 export interface ConceptPair {
   id: string;
   pictureTitle: string;
   artwork: ArtworkId;
+  photoKey?: PhotoAssetKey;
   abstractConcept: string;
   explanation: string;
-  discussionPrompt: string;
+  reflectionPrompt: string;
 }
 
-export interface SessionBlock {
-  id: string;
-  phase: string;
+export interface LevelDefinition {
+  level: number;
   title: string;
-  startMinute: number;
-  durationMinutes: number;
-  targetView: 'overview' | 'activities' | 'challenges' | 'championship' | 'playbook';
-  activityNumber?: number;
-  summary: string;
+  subtitle: string;
+  skillTag: string;
+  xpReward: number;
+  durationLabel: string;
+  timerSeconds: number;
+  learningOutcome: string;
+  instructions: string[];
+  highlightRule?: string;
+}
+
+export interface BadgeDefinition {
+  id: string;
+  title: string;
+  description: string;
+  criteriaLabel: string;
+  accent: 'blue' | 'emerald' | 'amber' | 'violet' | 'rose' | 'cyan';
+  checkUnlocked: (stats: {
+    completedLevels: number[];
+    xp: number;
+    wheelSpins: number;
+    completedWheelPrompts: string[];
+  }) => boolean;
 }
 
 export interface ImpossiblePair {
@@ -64,6 +81,7 @@ export interface ImpossiblePair {
   leftArtwork: ArtworkId;
   rightTitle: string;
   rightArtwork: ArtworkId;
+  photoKey?: PhotoAssetKey;
   possibleConnection: string;
   reasoningHint: string;
 }
@@ -109,17 +127,6 @@ export interface MemoryObject {
   isMissingHint?: boolean;
 }
 
-export interface ActivityDefinition {
-  number: number;
-  title: string;
-  subtitle: string;
-  durationLabel: string;
-  timerSeconds: number;
-  learningOutcome: string;
-  instructions: string[];
-  highlightRule?: string;
-}
-
 export interface SurpriseChallenge {
   id: string;
   number: number;
@@ -130,54 +137,30 @@ export interface SurpriseChallenge {
   employabilityLens: string;
 }
 
-export interface RubricCriterion {
-  id: 'creativity' | 'logic' | 'clarity' | 'participation' | 'confidence' | 'time';
-  label: string;
-  maxMarks: number;
-  guidance: string;
-}
-
-export interface TeamMember {
-  id: string;
-  name: string;
-  role: TeamRole;
-  spokeCount: number;
-}
-
-export type TeamRole = 'Leader' | 'Speaker' | 'Observer' | 'Creator' | 'Presenter';
-
-export interface RoundScore {
-  id: string;
-  activityTitle: string;
-  judgePanel: {
-    studentJudge1: number;
-    studentJudge2: number;
-    facultyJudge: number;
-  };
-  criteria: Record<RubricCriterion['id'], number>;
-  total: number;
-  notes: string;
-  recordedAt: string;
-}
-
-export interface TeamRecord {
-  id: string;
-  name: string;
-  members: TeamMember[];
-  scores: RoundScore[];
-}
-
-export interface PrepItem {
+export interface WheelSegment {
   id: string;
   label: string;
-  category: string;
-  completed: boolean;
+  shortLabel: string;
+  color: string;
+  promptTitle: string;
+  promptQuestion: string;
+  hint: string;
+  artwork: ArtworkId;
+  timerSeconds: number;
+  xpReward: number;
+}
+
+export interface WheelDeck {
+  id: 'challenges' | 'mashup' | 'ceo_pitch';
+  name: string;
+  subtitle: string;
+  segments: WheelSegment[];
 }
 
 export const WORKSHOP_META = {
   title: 'PICTURE CONNECT WITH KAPIL',
   shortTitle: 'Picture Connect',
-  subtitle: '3-Hour Experiential Learning Experience',
+  subtitle: 'Experiential Visual Thinking Academy',
   institution: 'JIET Universe, Jodhpur',
   positioning: 'See Beyond. Think Beyond. Connect Beyond.',
   poweredBy: 'Powered By Kapil',
@@ -189,11 +172,55 @@ export const WORKSHOP_META = {
   ],
   corePhilosophy:
     'The magic is not in identifying the picture. It is in explaining the connection!',
-  biggestOutcome:
-    'The biggest outcome should be that even the shyest student speaks at least once, every team collaborates, and students leave realising that communication is not merely about English proficiency. It is about the ability to organise thoughts and express ideas.',
-  closingCallout:
-    "Let's make these three hours an experience, not just another classroom session!",
+  learnerPromise:
+    'Communication is not merely about English proficiency. It is about your ability to observe clearly, organise thoughts rapidly, and express ideas with confidence.',
 };
+
+export function getLearnerRank(xp: number): {
+  title: string;
+  nextTitle: string | null;
+  minXp: number;
+  nextXp: number | null;
+} {
+  if (xp >= 1500) {
+    return {
+      title: 'Visionary Strategist',
+      nextTitle: null,
+      minXp: 1500,
+      nextXp: null,
+    };
+  }
+  if (xp >= 1000) {
+    return {
+      title: 'Executive Communicator',
+      nextTitle: 'Visionary Strategist',
+      minXp: 1000,
+      nextXp: 1500,
+    };
+  }
+  if (xp >= 550) {
+    return {
+      title: 'Pattern Architect',
+      nextTitle: 'Executive Communicator',
+      minXp: 550,
+      nextXp: 1000,
+    };
+  }
+  if (xp >= 200) {
+    return {
+      title: 'Sharp Observer',
+      nextTitle: 'Pattern Architect',
+      minXp: 200,
+      nextXp: 550,
+    };
+  }
+  return {
+    title: 'Visual Explorer',
+    nextTitle: 'Sharp Observer',
+    minXp: 0,
+    nextXp: 200,
+  };
+}
 
 export const CENTRAL_CONCEPT_PAIRS: ConceptPair[] = [
   {
@@ -202,17 +229,18 @@ export const CENTRAL_CONCEPT_PAIRS: ConceptPair[] = [
     artwork: 'bridge',
     abstractConcept: 'Trust',
     explanation:
-      'A bridge carries heavy weight across an uncertain gap only when both sides are anchored firmly—just like trust in teams and relationships.',
-    discussionPrompt: 'What breaks a bridge, and how do you rebuild trust once cracked?',
+      'A bridge carries heavy weight across an uncertain gap only when both sides are anchored firmly—just like trust in professional relationships.',
+    reflectionPrompt: 'What breaks a bridge, and how do you rebuild trust once cracked?',
   },
   {
     id: 'pencil-failure',
     pictureTitle: 'A Broken Pencil',
     artwork: 'broken_pencil',
+    photoKey: 'broken_pencil',
     abstractConcept: 'Failure',
     explanation:
-      'A pencil snaps under pressure, yet sharpening it gives it a fresh point. Failure does not end utility—it reshapes focus.',
-    discussionPrompt: 'When did a setback sharpen your clarity?',
+      'A pencil snaps under pressure, yet sharpening it gives it a fresh, finer point. Failure does not end utility—it reshapes focus.',
+    reflectionPrompt: 'When did a setback sharpen your clarity?',
   },
   {
     id: 'signal-career',
@@ -221,7 +249,7 @@ export const CENTRAL_CONCEPT_PAIRS: ConceptPair[] = [
     abstractConcept: 'Career',
     explanation:
       'Careers are not endless green lights. Red signals force reflection, amber signals demand preparation, and green rewards readiness.',
-    discussionPrompt: 'Which light are you currently standing at in your career journey?',
+    reflectionPrompt: 'Which light are you standing at in your career journey today?',
   },
   {
     id: 'mirror-awareness',
@@ -230,7 +258,7 @@ export const CENTRAL_CONCEPT_PAIRS: ConceptPair[] = [
     abstractConcept: 'Self-awareness',
     explanation:
       'A mirror shows reality without flattery. Growth begins when you inspect yourself honestly before asking others to trust your image.',
-    discussionPrompt: 'What does your reflection reveal that your resume hides?',
+    reflectionPrompt: 'What does your reflection reveal that your resume hides?',
   },
   {
     id: 'ladder-ambition',
@@ -239,7 +267,7 @@ export const CENTRAL_CONCEPT_PAIRS: ConceptPair[] = [
     abstractConcept: 'Ambition',
     explanation:
       'Climbing higher requires steady rungs below you and a stable wall to lean against. Ambition without grounding collapses.',
-    discussionPrompt: 'Which wall is your ladder leaning against right now?',
+    reflectionPrompt: 'Which wall is your ladder leaning against right now?',
   },
   {
     id: 'tree-leadership',
@@ -247,287 +275,245 @@ export const CENTRAL_CONCEPT_PAIRS: ConceptPair[] = [
     artwork: 'tree',
     abstractConcept: 'Leadership',
     explanation:
-      'Deep unseen roots sustain wide visible shade. True leaders weather storms quietly while sheltering the team beneath them.',
-    discussionPrompt: 'Do people remember your leaves, or the shelter you provide?',
+      'Deep unseen roots sustain wide visible shade. True leaders weather storms quietly while creating room for others to grow beneath them.',
+    reflectionPrompt: 'Do people remember your leaves, or the shelter you provide?',
   },
 ];
 
-export const SESSION_BLUEPRINT: SessionBlock[] = [
+export const LEVELS: LevelDefinition[] = [
   {
-    id: 'block-opening',
-    phase: 'Opening',
-    title: 'Curiosity Hook & Central Concept',
-    startMinute: 0,
-    durationMinutes: 15,
-    targetView: 'playbook',
-    summary:
-      'Deliver the Opening Script, divide 50+ learners into 10 teams of 5–6, assign Team Roles, and warm up with the 6 Central Concept pairings.',
-  },
-  {
-    id: 'block-act-1',
-    phase: 'Perspective',
-    title: 'Activity 1: One Picture, 50 Perspectives',
-    startMinute: 15,
-    durationMinutes: 12,
-    targetView: 'activities',
-    activityNumber: 1,
-    summary:
-      'Project the crossroads scene; collect 10+ distinct interpretations from learners across teams.',
-  },
-  {
-    id: 'block-act-2',
-    phase: 'Agility',
-    title: 'Activity 2: The Impossible Connection',
-    startMinute: 27,
-    durationMinutes: 15,
-    targetView: 'activities',
-    activityNumber: 2,
-    summary:
-      'Pair two unrelated pictures and challenge speakers to connect them creatively and logically in 45 seconds.',
-  },
-  {
-    id: 'block-act-3',
-    phase: 'Storytelling',
-    title: 'Activity 3: Picture Story Relay',
-    startMinute: 42,
-    durationMinutes: 18,
-    targetView: 'activities',
-    activityNumber: 3,
-    summary:
-      '5–6 students per team weave a sequential story (beginning, conflict, solution, conclusion, title) across 5 unrelated cards.',
-  },
-  {
-    id: 'block-act-4',
-    phase: 'Observation',
-    title: 'Activity 4: What Is Missing?',
-    startMinute: 60,
-    durationMinutes: 12,
-    targetView: 'activities',
-    activityNumber: 4,
-    summary:
-      '15-second visual flash memory drill testing observation, inference of missing items, and before/after storytelling.',
-  },
-  {
-    id: 'block-act-5',
-    phase: 'Employability',
-    title: 'Activity 5: Picture to Profession + CEO Twist',
-    startMinute: 72,
-    durationMinutes: 15,
-    targetView: 'activities',
-    activityNumber: 5,
-    summary:
-      'Map everyday objects to careers and elevate thinking with the CEO business problem-solving twist.',
-  },
-  {
-    id: 'block-act-6',
-    phase: 'Workplace',
-    title: 'Activity 6: Picture Detective – Find the Problem',
-    startMinute: 87,
-    durationMinutes: 15,
-    targetView: 'activities',
-    activityNumber: 6,
-    summary:
-      '3-minute team sprint to spot 8–10 deliberate safety, communication, etiquette, time, and security flaws.',
-  },
-  {
-    id: 'block-act-7',
-    phase: 'Persuasion',
-    title: 'Activity 7: Sell Me This Picture! (ConnectPro)',
-    startMinute: 102,
-    durationMinutes: 18,
-    targetView: 'activities',
-    activityNumber: 7,
-    summary:
-      'Transform an ordinary object like a paper clip into a premium brand with tagline, 3 USPs, and a 30-second pitch.',
-  },
-  {
-    id: 'block-act-8',
-    phase: 'Empathy',
-    title: 'Activity 8: Emotion Behind the Picture',
-    startMinute: 120,
-    durationMinutes: 12,
-    targetView: 'activities',
-    activityNumber: 8,
-    summary:
-      'Diagnose emotion, perspective, and supportive dialogue with reasoning rather than assumptions.',
-  },
-  {
-    id: 'block-act-9',
-    phase: 'Strategy',
-    title: 'Activity 9: Picture to Corporate Boardroom',
-    startMinute: 132,
-    durationMinutes: 18,
-    targetView: 'activities',
-    activityNumber: 9,
-    summary:
-      'Investigate a 40% sales drop across 5 visual clue domains and deliver a 2-minute boardroom turnaround pitch.',
-  },
-  {
-    id: 'block-act-10',
-    phase: 'Grand Finale',
-    title: 'Activity 10: Six Pictures, One Vision',
-    startMinute: 150,
-    durationMinutes: 20,
-    targetView: 'activities',
-    activityNumber: 10,
-    summary:
-      'Championship finale: 5 min prep, 2 min presentation, 1 min Q&A uniting 6 unrelated images into one theme.',
-  },
-  {
-    id: 'block-closing',
-    phase: 'Closing',
-    title: 'Surprise Challenges, Awards & Closing Script',
-    startMinute: 170,
-    durationMinutes: 10,
-    targetView: 'championship',
-    summary:
-      'Spontaneous reflection from the 6 Picture Challenges, judge scoring tally, Championship winner announcement, and Closing Script.',
-  },
-];
-
-export const ACTIVITIES: ActivityDefinition[] = [
-  {
-    number: 1,
+    level: 1,
     title: 'One Picture, 50 Perspectives',
     subtitle: 'Divergent Interpretation',
-    durationLabel: '12 min · 10 Speakers',
+    skillTag: 'Perspective Agility',
+    xpReward: 100,
+    durationLabel: '3 min focus',
     timerSeconds: 180,
-    learningOutcome: 'There can be multiple perspectives to the same situation.',
+    learningOutcome: 'There can be multiple valid perspectives to the exact same situation.',
     instructions: [
-      'Display one picture to the entire class (e.g., A person standing at a crossroads).',
-      'Ask 10 different students to interpret what the picture means to them.',
-      'Capture every unique lens without repeating an interpretation already shared.',
+      'Inspect the crossroads scene carefully—notice light, pathways, posture, and contrast.',
+      'Write a sharp, original interpretation of what this moment represents in career or life.',
+      'Publish your perspective to the live Learner Wall and complete Level 1 to claim +100 XP.',
     ],
   },
   {
-    number: 2,
+    level: 2,
     title: 'The Impossible Connection',
     subtitle: '45-Second Lateral Bridge',
-    durationLabel: '45 sec challenge',
+    skillTag: 'Lateral Synthesis',
+    xpReward: 120,
+    durationLabel: '45 sec sprint',
     timerSeconds: 45,
-    learningOutcome: 'Rapid lateral thinking and structured, persuasive justification.',
+    learningOutcome: 'Rapid lateral thinking and structured, logical justification under time pressure.',
     instructions: [
-      'Give students two completely unrelated pictures.',
-      'Challenge them to connect both pictures in 45 seconds.',
-      'Make the connections creative but logical.',
+      'Study two seemingly unrelated objects side by side (e.g., Apple + Rocket).',
+      'Start the 45-second sprint timer and draft a connection that is both creative and logical.',
+      'Save your connection pitch to unlock Level 2 mastery and +120 XP.',
     ],
-    highlightRule: 'Make the connections creative but logical.',
+    highlightRule: 'Make the connection creative, memorable, and logically defensible.',
   },
   {
-    number: 3,
-    title: 'Picture Story Relay',
-    subtitle: 'Collaborative Team Narrative',
-    durationLabel: '5–6 Students · 5 Cards',
-    timerSeconds: 180,
-    learningOutcome: 'Listening, spontaneous speaking, creativity and team coordination.',
+    level: 3,
+    title: 'Five-Picture Story Architect',
+    subtitle: 'Sequential Narrative Craft',
+    skillTag: 'Structured Storytelling',
+    xpReward: 130,
+    durationLabel: '4 min build',
+    timerSeconds: 240,
+    learningOutcome: 'Structuring spontaneous ideas into a cohesive narrative arc with clear tension and resolution.',
     instructions: [
-      'Divide students into teams of 5–6 and deal five unrelated pictures.',
-      'Student 1 starts using Picture 1; Student 2 continues using Picture 2; Student 3 adds Picture 3; continue until everyone contributes.',
-      'The last student gives the story a memorable title.',
+      'Review the 5 visual story cards in sequence from Scene 1 to Scene 5.',
+      'Write one concise story beat for each card: Beginning, Rising Conflict, Turning Point, Resolution, and Impact.',
+      'Crown your 5-part narrative with a memorable story title and claim +130 XP.',
     ],
-    highlightRule: 'The story must have a beginning, conflict, solution and conclusion.',
+    highlightRule: 'Your narrative must contain a clear beginning, conflict, solution, and conclusion.',
   },
   {
-    number: 4,
+    level: 4,
     title: 'What Is Missing?',
     subtitle: '15-Second Visual Flash',
-    durationLabel: '15 sec view window',
+    skillTag: 'Observation & Inference',
+    xpReward: 130,
+    durationLabel: '15 sec flash',
     timerSeconds: 15,
-    learningOutcome: 'Observation, memory, attention to detail and inference.',
+    learningOutcome: 'Sharp observation, active recall, attention to detail, and logical inference.',
     instructions: [
-      'Show the picture for exactly 15 seconds, then hide it.',
-      'Ask: What objects did you observe? What was missing? What could have happened before? What might happen next?',
-      'Increase difficulty by switching to the dense scene with additional objects.',
+      'Run the 15-second visual flash of the Executive Desk photograph, then watch it hide automatically.',
+      'Record every object you noticed, spot what essential item is missing (e.g., laptop charger), and infer what happened right before.',
+      'Submit your memory audit to unlock +130 XP.',
     ],
   },
   {
-    number: 5,
-    title: 'Picture to Profession',
-    subtitle: 'Career Lens & CEO Twist',
-    durationLabel: '15 min · CEO Challenge',
-    timerSeconds: 90,
-    learningOutcome: 'Career awareness and professional thinking.',
+    level: 5,
+    title: 'Picture to Profession + CEO Mindset',
+    subtitle: 'Career Lens & Executive Pivot',
+    skillTag: 'Executive Thinking',
+    xpReward: 140,
+    durationLabel: '2 min challenge',
+    timerSeconds: 120,
+    learningOutcome: 'Career awareness and translating everyday metaphors into strategic executive decisions.',
     instructions: [
-      'Show students pictures of everyday objects and connect them with different professions.',
-      'Push beyond obvious associations into real workplace roles.',
-      'Ask the CEO Twist: "What if you were the CEO? How would you use this object to solve a business problem?"',
+      'Pick an everyday object card and connect it beyond its obvious profession.',
+      'Accept the CEO Challenge: "What if you were the CEO? How would you apply this object to solve a real business bottleneck?"',
+      'Save your CEO turnaround insight to earn +140 XP.',
     ],
   },
   {
-    number: 6,
-    title: 'Picture Detective – Find the Problem',
-    subtitle: 'Workplace Audit Sprint',
-    durationLabel: '3 min team audit',
+    level: 6,
+    title: 'Workplace Detective',
+    subtitle: 'Find the Hidden Violations',
+    skillTag: 'Workplace Readiness',
+    xpReward: 150,
+    durationLabel: '3 min audit',
     timerSeconds: 180,
-    learningOutcome: 'Critical thinking and workplace readiness.',
+    learningOutcome: 'Critical observation, safety vigilance, security hygiene, and professional standards.',
     instructions: [
-      'Display a complicated workplace scene containing 8–10 deliberate mistakes.',
-      'Teams get 3 minutes to spot workplace safety violations, communication failures, time management problems, etiquette issues, and security risks.',
-      'Click directly on the visual clues inside the scene to log each violation.',
+      'Inspect the modern corporate office photograph containing 10 deliberate workplace issues.',
+      'Click directly on hazards across safety, security, communication, time management, and etiquette.',
+      'Discover at least 6 violations in the photo (or all 10 for perfection) and lock in +150 XP.',
     ],
   },
   {
-    number: 7,
+    level: 7,
     title: 'Sell Me This Picture!',
-    subtitle: 'Branding & Persuasion Pitch',
-    durationLabel: '30 sec sales pitch',
+    subtitle: 'Brand & 30-Second Pitch Studio',
+    skillTag: 'Persuasive Branding',
+    xpReward: 150,
+    durationLabel: '30 sec pitch',
     timerSeconds: 30,
-    learningOutcome: 'Marketing, persuasion, branding and confidence.',
+    learningOutcome: 'Marketing positioning, value framing, persuasion, and executive presence.',
     instructions: [
-      'Give every team one ordinary object or its photograph (e.g., a paper clip).',
-      'Sell it to the class as a premium product (e.g., "Introducing ConnectPro – the smallest collaboration technology in the world!").',
-      'Create: Product name, Tagline, Target audience, Three unique selling points, and a 30-second sales pitch.',
+      'Transform an ordinary object like a minimalist titanium paperclip into a luxury flagship brand.',
+      'Define your Product Name, Tagline, Target Audience, 3 Unique Selling Points, and a crisp 30-second pitch.',
+      'Save your brand blueprint to earn +150 XP.',
     ],
   },
   {
-    number: 8,
+    level: 8,
     title: 'Emotion Behind the Picture',
-    subtitle: 'Empathy & Reasoning',
-    durationLabel: '12 min reflection',
+    subtitle: 'Empathy & Deepening Reasoning',
+    skillTag: 'Emotional Intelligence',
+    xpReward: 160,
+    durationLabel: '2 min reflection',
     timerSeconds: 120,
-    learningOutcome: 'Empathy, emotional intelligence and interpersonal communication.',
+    learningOutcome: 'Empathy, active perspective-taking, and thoughtful interpersonal communication.',
     instructions: [
-      'Show an emotionally rich human scene.',
-      'Identify: The possible emotion, the situation, the person’s perspective, and what you would say to that person.',
-      'Multiple interpretations are acceptable—explain your reasoning rather than assuming.',
+      'Observe the rain-window portrait—notice posture, gaze, reflection, and quiet atmosphere.',
+      'Articulate the possible emotion, context, the person’s inner perspective, and what supportive words you would offer.',
+      'Explain the visual cues behind your reasoning to earn +160 XP.',
     ],
-    highlightRule:
-      'Multiple interpretations are acceptable. Students must explain their reasoning rather than assume what someone is feeling.',
+    highlightRule: 'Multiple interpretations are valid—justify your insight with reasoning rather than assumptions.',
   },
   {
-    number: 9,
-    title: 'Picture to Corporate Boardroom',
-    subtitle: '40% Sales Decline Turnaround',
-    durationLabel: '2 min boardroom pitch',
+    level: 9,
+    title: 'Corporate Boardroom Turnaround',
+    subtitle: '40% Sales Decline Analysis',
+    skillTag: 'Business Strategy',
+    xpReward: 180,
+    durationLabel: '2 min boardroom brief',
     timerSeconds: 120,
-    learningOutcome: 'Business communication, analytical thinking and decision-making.',
+    learningOutcome: 'Structured business communication, multi-factor root-cause analysis, and decisive strategy.',
     instructions: [
-      'Show a picture of a business problem (e.g., a company experiencing a sudden 40% decline in sales).',
-      'Inspect the 5 visual clue zones: Customers, Employees, Product quality, Marketing, and Competition.',
-      'Prepare a 2-minute boardroom presentation proposing an actionable solution.',
+      'Inspect the dusk corporate boardroom scene showing a sudden 40% sales decline against a rising competitor line.',
+      'Tap all 5 strategic clue hotspots (Customers, Employees, Product Quality, Marketing, Competition).',
+      'Draft your 2-minute executive turnaround proposal and claim +180 XP.',
     ],
   },
   {
-    number: 10,
+    level: 10,
     title: 'Six Pictures, One Vision',
-    subtitle: 'Grand Finale Championship',
-    durationLabel: '5m prep · 2m pitch · 1m Q&A',
+    subtitle: 'Grand Capstone Synthesis',
+    skillTag: 'Visionary Mastery',
+    xpReward: 250,
+    durationLabel: '5 min capstone',
     timerSeconds: 300,
-    learningOutcome: 'Leadership, storytelling, teamwork and presentation skills.',
+    learningOutcome: 'Synthesising disparate ideas into one unforgettable leadership narrative.',
     instructions: [
-      'Give each team six unrelated pictures.',
-      'Connect all six into one meaningful theme (e.g., "The Journey of an Engineer – From Classroom to Boardroom").',
-      'Execute across three phases: 5 minutes preparation, 2 minutes presentation, and 1 minute Q&A.',
+      'Unite all 6 unrelated cards—Notebook, Bridge, Broken Pencil, Compass, Mountain Peak, Boardroom Chart—under one overarching vision.',
+      'Craft an inspiring Capstone Theme Title and a structured 3-part keynote outline.',
+      'Submit Level 10 Capstone to earn +250 XP and unlock your Official Mastery Certificate Powered By Kapil!',
     ],
+  },
+];
+
+export const BADGES: BadgeDefinition[] = [
+  {
+    id: 'badge_first_spark',
+    title: 'First Spark',
+    description: 'Completed your opening visual perception mission.',
+    criteriaLabel: 'Complete Level 1',
+    accent: 'blue',
+    checkUnlocked: ({ completedLevels }) => completedLevels.includes(1),
+  },
+  {
+    id: 'badge_lateral_weaver',
+    title: 'Lateral Weaver',
+    description: 'Connected unrelated visuals with speed and logic.',
+    criteriaLabel: 'Complete Levels 2 & 3',
+    accent: 'violet',
+    checkUnlocked: ({ completedLevels }) =>
+      completedLevels.includes(2) && completedLevels.includes(3),
+  },
+  {
+    id: 'badge_eagle_eye',
+    title: 'Eagle-Eye Auditor',
+    description: 'Aced flash visual recall and uncovered workplace risks.',
+    criteriaLabel: 'Complete Levels 4 & 6',
+    accent: 'emerald',
+    checkUnlocked: ({ completedLevels }) =>
+      completedLevels.includes(4) && completedLevels.includes(6),
+  },
+  {
+    id: 'badge_brand_alchemist',
+    title: 'Brand Alchemist',
+    description: 'Turned everyday objects into high-value CEO & brand pitches.',
+    criteriaLabel: 'Complete Levels 5 & 7',
+    accent: 'amber',
+    checkUnlocked: ({ completedLevels }) =>
+      completedLevels.includes(5) && completedLevels.includes(7),
+  },
+  {
+    id: 'badge_empathy_compass',
+    title: 'Empathy Compass',
+    description: 'Decoded human emotion and led a boardroom turnaround.',
+    criteriaLabel: 'Complete Levels 8 & 9',
+    accent: 'rose',
+    checkUnlocked: ({ completedLevels }) =>
+      completedLevels.includes(8) && completedLevels.includes(9),
+  },
+  {
+    id: 'badge_wheel_challenger',
+    title: 'Wheel Challenger',
+    description: 'Tested spontaneous agility on the Spinning Wheel Studio.',
+    criteriaLabel: 'Complete 3 Spinning Wheel exercises',
+    accent: 'cyan',
+    checkUnlocked: ({ completedWheelPrompts }) => completedWheelPrompts.length >= 3,
+  },
+  {
+    id: 'badge_1000_club',
+    title: '1,000 XP Club',
+    description: 'Crossed 1,000 total XP through consistent visual mastery.',
+    criteriaLabel: 'Reach 1,000+ XP',
+    accent: 'amber',
+    checkUnlocked: ({ xp }) => xp >= 1000,
+  },
+  {
+    id: 'badge_grand_visionary',
+    title: 'Kapil Visionary Scholar',
+    description: 'Conquered every single stage from Level 1 to Level 10.',
+    criteriaLabel: 'Complete all 10 Levels',
+    accent: 'blue',
+    checkUnlocked: ({ completedLevels }) =>
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].every((lvl) => completedLevels.includes(lvl)),
   },
 ];
 
 export const ACTIVITY_1_DEFAULT_INTERPRETATIONS = [
-  'Choosing a career.',
-  'Making a difficult decision.',
-  'Leaving the comfort zone.',
-  'Taking responsibility.',
-  'Overcoming confusion.',
+  'Choosing a career path with conviction.',
+  'Making a difficult decision under uncertainty.',
+  'Leaving the comfort zone to grow.',
+  'Taking personal ownership of direction.',
+  'Turning confusion into structured clarity.',
 ];
 
 export const IMPOSSIBLE_PAIRS: ImpossiblePair[] = [
@@ -537,9 +523,10 @@ export const IMPOSSIBLE_PAIRS: ImpossiblePair[] = [
     leftArtwork: 'apple',
     rightTitle: 'Rocket',
     rightArtwork: 'rocket',
+    photoKey: 'apple_rocket',
     possibleConnection: 'Innovation',
     reasoningHint:
-      'From Newton’s falling apple to space-age propulsion—curiosity about everyday gravity fuels breakthroughs that launch humanity forward.',
+      'From Newton’s falling apple to space-age propulsion—curiosity about everyday physics fuels breakthroughs that launch humanity forward.',
   },
   {
     id: 'hourglass-exam',
@@ -549,7 +536,7 @@ export const IMPOSSIBLE_PAIRS: ImpossiblePair[] = [
     rightArtwork: 'exam',
     possibleConnection: 'Time management',
     reasoningHint:
-      'Every grain of sand represents minutes in the exam hall—calm pacing matters as much as preparation.',
+      'Every grain of sand represents finite minutes—calm pacing under pressure matters just as much as raw preparation.',
   },
   {
     id: 'mirror-interview',
@@ -559,7 +546,7 @@ export const IMPOSSIBLE_PAIRS: ImpossiblePair[] = [
     rightArtwork: 'interview',
     possibleConnection: 'Self-awareness',
     reasoningHint:
-      'Before a recruiter evaluates your strengths and blind spots, your honest self-reflection sets your confidence.',
+      'Before an interviewer evaluates your strengths and blind spots, honest self-reflection sets authentic confidence.',
   },
   {
     id: 'umbrella-leadership',
@@ -569,7 +556,7 @@ export const IMPOSSIBLE_PAIRS: ImpossiblePair[] = [
     rightArtwork: 'tree',
     possibleConnection: 'Protection',
     reasoningHint:
-      'An umbrella shields people from sudden storms without asking for credit—mirroring how resilient leaders absorb pressure for their team.',
+      'An umbrella shields people from sudden storms without asking for credit—mirroring how resilient leaders absorb pressure.',
   },
   {
     id: 'camera-business',
@@ -579,7 +566,7 @@ export const IMPOSSIBLE_PAIRS: ImpossiblePair[] = [
     rightArtwork: 'business',
     possibleConnection: 'Observation',
     reasoningHint:
-      'Just as a photographer adjusts aperture and focus to notice hidden details, sharp businesses observe customer friction before competitors do.',
+      'Just as a photographer adjusts aperture and focus to catch subtle light, sharp businesses notice customer friction before rivals do.',
   },
   {
     id: 'puzzle-teamwork',
@@ -589,37 +576,40 @@ export const IMPOSSIBLE_PAIRS: ImpossiblePair[] = [
     rightArtwork: 'teamwork',
     possibleConnection: 'Collaboration',
     reasoningHint:
-      'Identical pieces cannot lock together; teams thrive precisely because different strengths interlock into one whole picture.',
+      'Identical pieces cannot lock together; initiatives thrive precisely because complementary strengths interlock into one whole picture.',
   },
 ];
 
-export const STORY_RELAY_CARDS: { id: string; title: string; artwork: ArtworkId }[] = [
-  { id: 's1', title: 'The Crossroads', artwork: 'crossroads' },
-  { id: 's2', title: 'A Broken Pencil', artwork: 'broken_pencil' },
-  { id: 's3', title: 'The Umbrella', artwork: 'umbrella' },
-  { id: 's4', title: 'A Compass', artwork: 'compass' },
-  { id: 's5', title: 'The Rocket', artwork: 'rocket' },
-  { id: 's6', title: 'The Lighthouse', artwork: 'lighthouse' },
+export const STORY_ARCHITECT_CARDS: {
+  step: number;
+  beatLabel: string;
+  id: string;
+  title: string;
+  artwork: ArtworkId;
+  photoKey?: PhotoAssetKey;
+}[] = [
+  { step: 1, beatLabel: 'Beginning', id: 's1', title: 'The Crossroads', artwork: 'crossroads', photoKey: 'crossroads' },
+  { step: 2, beatLabel: 'Conflict', id: 's2', title: 'A Broken Pencil', artwork: 'broken_pencil', photoKey: 'broken_pencil' },
+  { step: 3, beatLabel: 'Turning Point', id: 's3', title: 'The Compass', artwork: 'compass' },
+  { step: 4, beatLabel: 'Solution', id: 's4', title: 'The Titanium Clip', artwork: 'paperclip', photoKey: 'paperclip' },
+  { step: 5, beatLabel: 'Conclusion', id: 's5', title: 'Launch to Orbit', artwork: 'rocket', photoKey: 'apple_rocket' },
 ];
 
 export const MEMORY_OBJECTS_STANDARD: MemoryObject[] = [
-  { id: 'm1', label: 'Analog Wall Clock (stuck at 10:10)' },
-  { id: 'm2', label: 'Half-empty Coffee Mug with Spoon' },
-  { id: 'm3', label: 'Open Spiral Notebook' },
-  { id: 'm4', label: 'Broken Pencil on Table Edge' },
-  { id: 'm5', label: 'Red Sticky Note ("Call Client")' },
-  { id: 'm6', label: 'Pair of Reading Glasses' },
-  { id: 'm7', label: 'Desk Compass' },
-  { id: 'm8', label: 'Laptop Closed (Missing Charger Cable)', isMissingHint: true },
+  { id: 'm1', label: 'Leather Analog Wristwatch (set near 10:12)' },
+  { id: 'm2', label: 'Espresso Cup & Metal Spoon on Wood Coaster' },
+  { id: 'm3', label: 'Open Leather-bound Notebook with Sketches & Pen' },
+  { id: 'm4', label: 'Tortoiseshell Reading Glasses in Foreground' },
+  { id: 'm5', label: 'Vintage Brass Pocket Compass with Braided Cord' },
+  { id: 'm6', label: 'Closed Silver Laptop (Missing Power Charger)', isMissingHint: true },
 ];
 
 export const MEMORY_OBJECTS_HARD: MemoryObject[] = [
   ...MEMORY_OBJECTS_STANDARD,
-  { id: 'm9', label: 'ID Lanyard Left Near Door', hardOnly: true },
-  { id: 'm10', label: 'Small Potted Succulent', hardOnly: true },
-  { id: 'm11', label: 'Key Ring with Single Brass Key', hardOnly: true },
-  { id: 'm12', label: 'Water Bottle Cap (Bottle Missing)', hardOnly: true, isMissingHint: true },
-  { id: 'm13', label: 'Folded Boarding Pass', hardOnly: true },
+  { id: 'm7', label: 'Small Terracotta Potted Succulent', hardOnly: true },
+  { id: 'm8', label: 'Grey Knit Throw Draped Over Desk Chair', hardOnly: true },
+  { id: 'm9', label: 'No Smartphone Visible Anywhere on Desk', hardOnly: true, isMissingHint: true },
+  { id: 'm10', label: 'No Water Bottle Beside Workspace', hardOnly: true, isMissingHint: true },
 ];
 
 export const PROFESSION_CARDS: ProfessionCard[] = [
@@ -631,7 +621,7 @@ export const PROFESSION_CARDS: ProfessionCard[] = [
     ceoPrompt:
       'What if you were the CEO? How would you use a stethoscope to solve a business problem?',
     exampleCeoIdea:
-      'Run regular "organisational pulse checks" by listening directly to frontline support staff and dissatisfied customers before churn becomes critical.',
+      'Run weekly organisational pulse checks by listening directly to frontline customer support conversations before churn spikes.',
   },
   {
     id: 'prof-compass',
@@ -641,7 +631,7 @@ export const PROFESSION_CARDS: ProfessionCard[] = [
     ceoPrompt:
       'What if you were the CEO? How would you use a compass to solve a business problem?',
     exampleCeoIdea:
-      'Establish a clear True North metric for every department so cross-functional teams stay aligned when market priorities shift.',
+      'Establish one unambiguous True North metric across every division so priorities never drift during market shifts.',
   },
   {
     id: 'prof-calculator',
@@ -651,7 +641,7 @@ export const PROFESSION_CARDS: ProfessionCard[] = [
     ceoPrompt:
       'What if you were the CEO? How would you use a calculator to solve a business problem?',
     exampleCeoIdea:
-      'Audit unit economics across every product SKU and eliminate hidden operational costs eroding quarterly margins.',
+      'Audit unit economics across every product tier and cut silent operational bottlenecks draining quarterly margins.',
   },
   {
     id: 'prof-bridge',
@@ -661,7 +651,7 @@ export const PROFESSION_CARDS: ProfessionCard[] = [
     ceoPrompt:
       'What if you were the CEO? How would you use a bridge to solve a business problem?',
     exampleCeoIdea:
-      'Build a structured mentorship bridge between senior engineers and campus freshers to cut onboarding ramp-up time in half.',
+      'Create a structured mentorship bridge pairing senior engineers with recent graduates to halve onboarding ramp-up time.',
   },
   {
     id: 'prof-keyboard',
@@ -671,7 +661,7 @@ export const PROFESSION_CARDS: ProfessionCard[] = [
     ceoPrompt:
       'What if you were the CEO? How would you use a keyboard to solve a business problem?',
     exampleCeoIdea:
-      'Create shared internal shortcuts and asynchronous documentation templates so global teams communicate cleanly across time zones.',
+      'Standardise asynchronous decision memos and keyboard-first documentation so distributed teams ship faster without endless meetings.',
   },
   {
     id: 'prof-camera',
@@ -681,7 +671,7 @@ export const PROFESSION_CARDS: ProfessionCard[] = [
     ceoPrompt:
       'What if you were the CEO? How would you use a camera to solve a business problem?',
     exampleCeoIdea:
-      'Shift brand storytelling from polished corporate claims to real behind-the-scenes customer stories that earn authentic trust.',
+      'Shift brand storytelling away from generic corporate slogans toward authentic, unscripted customer journeys.',
   },
 ];
 
@@ -690,91 +680,91 @@ export const WORKPLACE_MISTAKES: WorkplaceMistake[] = [
     id: 'wm-1',
     number: 1,
     category: 'Workplace safety violations',
-    title: 'Spilled Liquid Near Live Power Strip',
-    detail: 'An open coffee cup spilled right beside an exposed multi-plug extension cord on the floor.',
-    xPercent: 18,
-    yPercent: 78,
+    title: 'Uncovered Coffee Beside Laptop & Live Cables',
+    detail: 'An open coffee cup rests directly beside active laptops and dense charging wires.',
+    xPercent: 28,
+    yPercent: 68,
   },
   {
     id: 'wm-2',
     number: 2,
     category: 'Workplace safety violations',
-    title: 'Blocked Fire Exit Door',
-    detail: 'Heavy cardboard archive boxes are stacked directly in front of the emergency exit.',
-    xPercent: 86,
-    yPercent: 52,
+    title: 'Blocked Emergency Exit Door',
+    detail: 'Tall stacks of heavy archive boxes obstruct direct access to the clearly marked Emergency Exit.',
+    xPercent: 75,
+    yPercent: 66,
   },
   {
     id: 'wm-3',
     number: 3,
-    category: 'Security risks',
-    title: 'Password Sticky Note on Monitor',
-    detail: 'Admin login credentials written on a bright sticky note attached to an unlocked workstation.',
-    xPercent: 34,
-    yPercent: 40,
+    category: 'Workplace safety violations',
+    title: 'Tangled Floor Power Strip & Trip Hazard',
+    detail: 'Exposed multi-plug strip and unbundled cables coil directly across the floor under active workstations.',
+    xPercent: 24,
+    yPercent: 90,
   },
   {
     id: 'wm-4',
     number: 4,
     category: 'Security risks',
-    title: 'Unattended Open File Cabinet & USB Drive',
-    detail: 'Confidential HR folders left open with an unknown USB thumb drive plugged into a visitor terminal.',
-    xPercent: 72,
-    yPercent: 68,
+    title: 'Unlocked Laptop Left Unattended',
+    detail: 'Open workstation displays active documents right at the aisle corner with nobody seated at it.',
+    xPercent: 15,
+    yPercent: 64,
   },
   {
     id: 'wm-5',
     number: 5,
-    category: 'Communication failures',
-    title: 'Contradictory Deadline Notes on Whiteboard',
-    detail: 'Whiteboard shows "Launch: Tuesday" crossed out next to "Wait for Approval?" with no owner assigned.',
-    xPercent: 51,
-    yPercent: 24,
+    category: 'Security risks',
+    title: 'Open Filing Cabinet Drawer in Walkway',
+    detail: 'A heavy metal file drawer hangs open into the aisle, exposing confidential folders and creating a physical hazard.',
+    xPercent: 42,
+    yPercent: 86,
   },
   {
     id: 'wm-6',
     number: 6,
-    category: 'Communication failures',
-    title: 'Both Teammates Wearing Headphones Ignoring Alert',
-    detail: 'Two colleagues are isolated in noise-cancelling headphones while an urgent client call flashes unanswered.',
-    xPercent: 25,
-    yPercent: 46,
+    category: 'Security risks',
+    title: 'Unsecured Loose Documents on Cabinet Top',
+    detail: 'Sensitive printed records lie unfiled in plain sight along a high-traffic office corridor.',
+    xPercent: 47,
+    yPercent: 70,
   },
   {
     id: 'wm-7',
     number: 7,
-    category: 'Time management problems',
-    title: 'Overdue Calendar & Overlapping Meetings',
-    detail: 'Wall clock reads 4:45 PM while three 2:00 PM tasks remain untouched and two overlapping meetings blink on screen.',
-    xPercent: 70,
-    yPercent: 21,
+    category: 'Communication failures',
+    title: 'Crowded & Unclear Whiteboard Workflow',
+    detail: 'Glass whiteboard overflows with crisscrossing arrows and conflicting process boxes with no clear owner.',
+    xPercent: 31,
+    yPercent: 35,
   },
   {
     id: 'wm-8',
     number: 8,
-    category: 'Time management problems',
-    title: 'Social Media Scrolling During Sprint Crunch',
-    detail: 'A team member has 14 social tabs open during a critical client delivery window.',
-    xPercent: 58,
-    yPercent: 56,
+    category: 'Communication failures',
+    title: 'Unscheduled Desk Interruption',
+    detail: 'A standing colleague interrupts focused desk work inside a quiet glass zone instead of using a huddle room.',
+    xPercent: 53,
+    yPercent: 45,
   },
   {
     id: 'wm-9',
     number: 9,
-    category: 'Professional etiquette issues',
-    title: 'Feet on Conference Table & Loud Phone Call',
-    detail: 'Staff member taking a personal speakerphone call with shoes propped up on the shared meeting table.',
-    xPercent: 44,
-    yPercent: 72,
+    category: 'Time management problems',
+    title: 'Cluttered Dual-Drink Desk Zone',
+    detail: 'Multiple bottles, wires, and scattered accessories crowd the active surface, slowing task switching.',
+    xPercent: 36,
+    yPercent: 60,
   },
   {
     id: 'wm-10',
     number: 10,
     category: 'Professional etiquette issues',
-    title: 'Overflowing Trash & Leftover Food on Shared Desk',
-    detail: 'Unwrapped lunch box and overflowing bin left on a shared hot-desk before client visitors arrive.',
-    xPercent: 12,
-    yPercent: 53,
+    title: 'Backpack Left in Central Walkway',
+    detail: 'Personal backpack dropped in the middle of the narrow corridor blocks smooth aisle movement.',
+    xPercent: 50,
+    yPercent: 61,
   },
 ];
 
@@ -782,6 +772,7 @@ export const SELL_OBJECTS: {
   id: string;
   objectName: string;
   artwork: ArtworkId;
+  photoKey?: PhotoAssetKey;
   sampleName: string;
   sampleTagline: string;
   sampleAudience: string;
@@ -792,13 +783,14 @@ export const SELL_OBJECTS: {
     id: 'sell-paperclip',
     objectName: 'A Paper Clip',
     artwork: 'paperclip',
+    photoKey: 'paperclip',
     sampleName: 'ConnectPro',
     sampleTagline: 'The smallest collaboration technology in the world!',
-    sampleAudience: 'High-velocity executives, architects, and hybrid project teams',
+    sampleAudience: 'High-velocity executives, architects, and hybrid product teams',
     sampleUsps: [
       'Zero-battery, instant physical alignment of critical ideas',
-      'Aerospace-grade spring steel engineered for 1,000+ reuses',
-      'Ultra-portable micro-footprint that fits in any pocket',
+      'Aerospace-grade anodized spring steel engineered for 1,000+ reuses',
+      'Ultra-portable micro-footprint that fits cleanly in any pocket',
     ],
     samplePitch:
       'Introducing ConnectPro — the smallest collaboration technology in the world! While apps crash and batteries die, ConnectPro unites scattered ideas in 0.2 seconds with zero Wi-Fi required.',
@@ -807,16 +799,17 @@ export const SELL_OBJECTS: {
     id: 'sell-pencil',
     objectName: 'A Broken Pencil',
     artwork: 'broken_pencil',
+    photoKey: 'broken_pencil',
     sampleName: 'DuoDraft',
     sampleTagline: 'Two minds, one shared blueprint.',
-    sampleAudience: 'Design studios, engineering learners, and co-founders',
+    sampleAudience: 'Design studios, engineering learners, and startup founders',
     sampleUsps: [
-      'Instant twin-tip sketching when split between teammates',
-      'Zero digital distraction for deep problem-solving',
-      'Biodegradable cedar craftsmanship',
+      'Precision-split form factor for rapid analog ideation',
+      'Zero digital notifications for uninterrupted deep thinking',
+      'Sustainable cedar craftsmanship engineered to be resharpened endlessly',
     ],
     samplePitch:
-      'Meet DuoDraft — one tool engineered to split into two creative instruments the moment collaboration begins.',
+      'Meet DuoDraft — built for minds who refuse to pause when pressure snaps the ordinary. Sharpen once, sketch twice as fast.',
   },
   {
     id: 'sell-umbrella',
@@ -824,14 +817,14 @@ export const SELL_OBJECTS: {
     artwork: 'umbrella',
     sampleName: 'AeroShield',
     sampleTagline: 'Portable certainty for unpredictable days.',
-    sampleAudience: 'Urban commuters and outdoor field leaders',
+    sampleAudience: 'Urban commuters and global field leaders',
     sampleUsps: [
-      'Instant canopy deployment against sun or sudden rain',
-      'Wind-vented rib architecture that refuses to invert',
-      'Doubles as a high-visibility safety beacon at dusk',
+      'Instant one-touch canopy deployment in sudden storms',
+      'Wind-vented rib architecture built to resist inversion',
+      'Minimalist matte silhouette suited for boardroom arrivals',
     ],
     samplePitch:
-      'You cannot negotiate with monsoon weather, but with AeroShield you carry personal certainty in one click.',
+      'You cannot negotiate with sudden storms, yet with AeroShield you carry personal certainty in a single click.',
   },
 ];
 
@@ -839,62 +832,67 @@ export const BOARDROOM_CLUES: BoardroomClue[] = [
   {
     id: 'bc-customers',
     dimension: 'Customers',
-    headline: 'Rising Support Tickets & Churn',
+    headline: 'Escalated Client Dossiers & Churn Signals',
     visualEvidence:
-      'Customer satisfaction thermometer dropped to 38% with an overflowing inbox of unresolved complaints.',
+      'Dense unread client audit stacks piling up along the left side of the boardroom table before review.',
     strategicQuestion: 'How do we win back lost customer trust in the next 30 days?',
-    xPercent: 18,
-    yPercent: 34,
+    xPercent: 25,
+    yPercent: 84,
   },
   {
     id: 'bc-employees',
     dimension: 'Employees',
-    headline: 'Burnout & Siloed Misalignment',
+    headline: 'Empty Executive Seats & Disconnected Alignment',
     visualEvidence:
-      'Key team members pulling away from the table with disconnected speech bubbles and empty desks.',
-    strategicQuestion: 'How do we re-energise morale and cross-team ownership?',
-    xPercent: 36,
-    yPercent: 71,
+      'Closed laptops and empty chairs line both sides of the room while urgent turnaround metrics flash unanswered.',
+    strategicQuestion: 'How do we re-ignite ownership and accountability across departments?',
+    xPercent: 32,
+    yPercent: 63,
   },
   {
     id: 'bc-quality',
     dimension: 'Product quality',
-    headline: 'Defects & Return Spikes',
+    headline: 'Post-Mortem Defect Notebooks Open in Center',
     visualEvidence:
-      'Cracked gear and "Returned Batch" crates piling up beside the inspection gauge.',
-    strategicQuestion: 'What immediate quality gate prevents flawed units from shipping?',
-    xPercent: 52,
-    yPercent: 48,
+      'Open spiral audit sheets at the head of the table flag unresolved release friction hurting retention.',
+    strategicQuestion: 'What strict quality gate stops defects before customers ever see them?',
+    xPercent: 48,
+    yPercent: 82,
   },
   {
     id: 'bc-marketing',
     dimension: 'Marketing',
-    headline: 'Stale Messaging & Low Reach',
+    headline: 'Sharp 40% Red Revenue Drop on Main Screen',
     visualEvidence:
-      'Outdated megaphone posters pointing at an empty billboard while digital channels sit dark.',
-    strategicQuestion: 'How do we reposition the brand narrative for modern buyers?',
-    xPercent: 72,
-    yPercent: 28,
+      'The flagship red sales trajectory drops steadily across four consecutive quarters on the central display.',
+    strategicQuestion: 'How must we reposition our value proposition to reverse pipeline decline?',
+    xPercent: 50,
+    yPercent: 42,
   },
   {
     id: 'bc-competition',
     dimension: 'Competition',
-    headline: 'Agile Rival Taking Market Share',
+    headline: 'Rising Blue Competitor Curve Crossing Over',
     visualEvidence:
-      'A sleek rival rocket curve overtaking our dipping 40% sales line on the wall chart.',
-    strategicQuestion: 'Where can we differentiate instead of fighting a price war?',
-    xPercent: 84,
-    yPercent: 64,
+      'An agile blue growth curve climbs smoothly past our falling red trajectory across the boardroom wall.',
+    strategicQuestion: 'Where can we differentiate boldly instead of competing on price alone?',
+    xPercent: 60,
+    yPercent: 36,
   },
 ];
 
-export const FINALE_SIX_PICTURES: { id: string; title: string; artwork: ArtworkId }[] = [
-  { id: 'f1', title: 'Classroom Notebook', artwork: 'notebook' },
-  { id: 'f2', title: 'A Bridge', artwork: 'bridge' },
-  { id: 'f3', title: 'Broken Pencil', artwork: 'broken_pencil' },
-  { id: 'f4', title: 'A Compass', artwork: 'compass' },
-  { id: 'f5', title: 'Mountain Peak', artwork: 'mountain_peak' },
-  { id: 'f6', title: 'Boardroom Chart', artwork: 'business' },
+export const FINALE_SIX_PICTURES: {
+  id: string;
+  title: string;
+  artwork: ArtworkId;
+  photoKey?: PhotoAssetKey;
+}[] = [
+  { id: 'f1', title: 'Executive Desk', artwork: 'notebook', photoKey: 'memory_scene' },
+  { id: 'f2', title: 'The Crossroads', artwork: 'crossroads', photoKey: 'crossroads' },
+  { id: 'f3', title: 'Broken Pencil', artwork: 'broken_pencil', photoKey: 'broken_pencil' },
+  { id: 'f4', title: 'Titanium Clip', artwork: 'paperclip', photoKey: 'paperclip' },
+  { id: 'f5', title: 'Human Perspective', artwork: 'emotion_scene', photoKey: 'emotion_scene' },
+  { id: 'f6', title: 'Boardroom Vision', artwork: 'boardroom_decline', photoKey: 'boardroom_decline' },
 ];
 
 export const SURPRISE_CHALLENGES: SurpriseChallenge[] = [
@@ -925,7 +923,7 @@ export const SURPRISE_CHALLENGES: SurpriseChallenge[] = [
     artwork: 'challenge_iceberg',
     question: 'What do people see versus what they don’t see about your skills?',
     deepeningPrompt:
-      'Recruiters see the 10% tip (CGPA, certificates), yet hire for the 90% below the waterline (habits, persistence, integrity).',
+      'Recruiters see the 10% tip (grades, certificates), yet hire for the 90% below the waterline (habits, persistence, integrity).',
     employabilityLens: 'Depth of character, preparation, and invisible effort',
   },
   {
@@ -935,7 +933,7 @@ export const SURPRISE_CHALLENGES: SurpriseChallenge[] = [
     artwork: 'challenge_ripple',
     question: 'How can one small decision change your future?',
     deepeningPrompt:
-      'Speaking up once in class, asking one honest question, or helping one peer creates waves years later.',
+      'Speaking up once, asking one thoughtful question, or mentoring one peer creates waves years later.',
     employabilityLens: 'Compound habits and everyday initiative',
   },
   {
@@ -945,7 +943,7 @@ export const SURPRISE_CHALLENGES: SurpriseChallenge[] = [
     artwork: 'challenge_choices',
     question: 'How do your choices shape your career?',
     deepeningPrompt:
-      'Between comfort and stretch, short-term ease and long-term craft—which door are you choosing this semester?',
+      'Between comfort and stretch, short-term ease and long-term craft—which door are you choosing right now?',
     employabilityLens: 'Decision ownership and long-term agency',
   },
   {
@@ -960,139 +958,242 @@ export const SURPRISE_CHALLENGES: SurpriseChallenge[] = [
   },
 ];
 
-export const TEAM_ROLES: TeamRole[] = [
-  'Leader',
-  'Speaker',
-  'Observer',
-  'Creator',
-  'Presenter',
-];
-
-export const RUBRIC_CRITERIA: RubricCriterion[] = [
+export const WHEEL_DECKS: WheelDeck[] = [
   {
-    id: 'creativity',
-    label: 'Creativity and originality',
-    maxMarks: 20,
-    guidance: 'Freshness of metaphor and ability to see beyond literal objects.',
-  },
-  {
-    id: 'logic',
-    label: 'Logical connections',
-    maxMarks: 20,
-    guidance: 'Coherence and believability linking unrelated images to real insight.',
-  },
-  {
-    id: 'clarity',
-    label: 'Communication clarity',
-    maxMarks: 20,
-    guidance: 'Structured flow of ideas—not fancy vocabulary, but clear expression.',
-  },
-  {
-    id: 'participation',
-    label: 'Team participation',
-    maxMarks: 15,
-    guidance: 'Every member contributes and speaker roles rotate equitably.',
-  },
-  {
-    id: 'confidence',
-    label: 'Confidence and presentation',
-    maxMarks: 15,
-    guidance: 'Eye contact, voice projection, poise, and audience engagement.',
-  },
-  {
-    id: 'time',
-    label: 'Time management',
-    maxMarks: 10,
-    guidance: 'Respecting 45s / 2m / 3m / 5m limits with clean conclusions.',
-  },
-];
-
-export const OPENING_SCRIPT_LINES: string[] = [
-  'Good morning, everyone!',
-  'Today, I am not going to teach you how to describe a picture.',
-  'I am going to challenge you to see things that others might miss.',
-  'A picture can be seen by 50 people, but can it create 50 different stories?',
-  'Can you connect a broken pencil with leadership? Can you connect an umbrella with teamwork? Can you connect a traffic signal with your career?',
-  'Welcome to PICTURE CONNECT WITH KAPIL!',
-  'Remember, there are no ordinary pictures. There are extraordinary perspectives waiting to be discovered.',
-];
-
-export const CLOSING_SCRIPT_LINES: string[] = [
-  'Your ability to see beyond what is visible determines how you think, communicate and solve problems.',
-  'In the corporate world, you will not always receive complete information, clear instructions or straightforward problems.',
-  'Your ability to observe, connect, interpret and communicate will distinguish you.',
-  "Don't just look at pictures. Learn to see possibilities!",
-];
-
-export const DEFAULT_PREP_CHECKLIST: PrepItem[] = [
-  {
-    id: 'prep-1',
-    label: 'Test projector display & Stage Mode contrast in auditorium',
-    category: 'Room & AV',
-    completed: false,
-  },
-  {
-    id: 'prep-2',
-    label: 'Verify 10 team tables (5–6 learners per team) for 50+ students',
-    category: 'Seating & Teams',
-    completed: false,
-  },
-  {
-    id: 'prep-3',
-    label: 'Appoint 2 Student Judges and 1 Faculty Judge with 100-point rubric',
-    category: 'Judging Panel',
-    completed: false,
-  },
-  {
-    id: 'prep-4',
-    label: 'Brief Team Leaders on rotating Speaker role every activity',
-    category: 'Inclusion',
-    completed: false,
-  },
-  {
-    id: 'prep-5',
-    label: 'Load Activity 4 (15s memory) & Activity 6 (workplace mistakes) cards',
-    category: 'Visual Deck',
-    completed: false,
-  },
-  {
-    id: 'prep-6',
-    label: 'Prepare physical ordinary objects for Activity 7 (paper clips, pencils)',
-    category: 'Props',
-    completed: false,
-  },
-  {
-    id: 'prep-7',
-    label: 'Rehearse Opening & Closing Scripts for maximum room curiosity',
-    category: 'Facilitation',
-    completed: false,
-  },
-];
-
-export function createInitialTeams(): TeamRecord[] {
-  const teamNames = [
-    'Team 01 · Horizon',
-    'Team 02 · Catalysts',
-    'Team 03 · Vanguard',
-    'Team 04 · Synergy',
-    'Team 05 · Spark',
-    'Team 06 · Mavericks',
-    'Team 07 · Compass',
-    'Team 08 · Keystone',
-    'Team 09 · Zenith',
-    'Team 10 · Pioneers',
-  ];
-
-  return teamNames.map((name, idx) => ({
-    id: `team-${idx + 1}`,
-    name,
-    members: [
-      { id: `t${idx + 1}-m1`, name: `Learner ${idx + 1}A`, role: 'Leader', spokeCount: 0 },
-      { id: `t${idx + 1}-m2`, name: `Learner ${idx + 1}B`, role: 'Speaker', spokeCount: 0 },
-      { id: `t${idx + 1}-m3`, name: `Learner ${idx + 1}C`, role: 'Observer', spokeCount: 0 },
-      { id: `t${idx + 1}-m4`, name: `Learner ${idx + 1}D`, role: 'Creator', spokeCount: 0 },
-      { id: `t${idx + 1}-m5`, name: `Learner ${idx + 1}E`, role: 'Presenter', spokeCount: 0 },
+    id: 'challenges',
+    name: 'Surprise Career Challenges',
+    subtitle: 'Spin one of the 6 signature Picture Connect employability reflections',
+    segments: [
+      {
+        id: 'wh-stop',
+        label: 'STOP',
+        shortLabel: 'STOP',
+        color: '#2563EB',
+        promptTitle: 'Challenge 01 · STOP',
+        promptQuestion: 'When should you stop in your career?',
+        hint: 'Consider toxic habits, misaligned goals, or sunk-cost projects versus healthy persistence.',
+        artwork: 'challenge_stop',
+        timerSeconds: 60,
+        xpReward: 60,
+      },
+      {
+        id: 'wh-growth',
+        label: 'GROWTH',
+        shortLabel: 'GROWTH',
+        color: '#059669',
+        promptTitle: 'Challenge 02 · GROWTH',
+        promptQuestion: 'How do you grow despite challenges?',
+        hint: 'Identify one constraint that pushed you to become sharper and more resourceful.',
+        artwork: 'challenge_growth',
+        timerSeconds: 60,
+        xpReward: 60,
+      },
+      {
+        id: 'wh-iceberg',
+        label: 'ICEBERG',
+        shortLabel: 'ICEBERG',
+        color: '#0284C7',
+        promptTitle: 'Challenge 03 · ICEBERG',
+        promptQuestion: 'What do people see vs. not see about your skills?',
+        hint: 'Contrast visible credentials above the surface with the unseen daily habits below.',
+        artwork: 'challenge_iceberg',
+        timerSeconds: 60,
+        xpReward: 60,
+      },
+      {
+        id: 'wh-ripple',
+        label: 'RIPPLE EFFECT',
+        shortLabel: 'RIPPLE',
+        color: '#7C3AED',
+        promptTitle: 'Challenge 04 · RIPPLE EFFECT',
+        promptQuestion: 'How can one small decision change your future?',
+        hint: 'Describe one seemingly tiny habit or decision that compounds massively over time.',
+        artwork: 'challenge_ripple',
+        timerSeconds: 60,
+        xpReward: 60,
+      },
+      {
+        id: 'wh-choices',
+        label: 'CHOICES',
+        shortLabel: 'CHOICES',
+        color: '#D97706',
+        promptTitle: 'Challenge 05 · CHOICES',
+        promptQuestion: 'How do your choices shape your career?',
+        hint: 'Connect everyday micro-choices between comfort and mastery to where you want to stand in 3 years.',
+        artwork: 'challenge_choices',
+        timerSeconds: 60,
+        xpReward: 60,
+      },
+      {
+        id: 'wh-missing',
+        label: 'MISSING PIECE',
+        shortLabel: 'MISSING',
+        color: '#DC2626',
+        promptTitle: 'Challenge 06 · THE MISSING PIECE',
+        promptQuestion: 'What is missing from your employability profile right now?',
+        hint: 'Name one honest gap—such as storytelling, confidence, or execution discipline—and your next step.',
+        artwork: 'challenge_missing_piece',
+        timerSeconds: 60,
+        xpReward: 60,
+      },
     ],
-    scores: [],
-  }));
-}
+  },
+  {
+    id: 'mashup',
+    name: 'Picture Mashup Roulette',
+    subtitle: '45-second solo sprint connecting two wildly unrelated visual prompts',
+    segments: [
+      {
+        id: 'wh-apple-rocket',
+        label: 'Apple + Rocket',
+        shortLabel: 'APPLE · ROCKET',
+        color: '#1D4ED8',
+        promptTitle: 'Apple + Rocket (45s Sprint)',
+        promptQuestion: 'Connect an ordinary Apple with a Space Rocket into one sharp leadership lesson.',
+        hint: 'Think Newton’s curiosity, gravity, fuel, or starting small before scaling.',
+        artwork: 'apple',
+        timerSeconds: 45,
+        xpReward: 50,
+      },
+      {
+        id: 'wh-pencil-bridge',
+        label: 'Broken Pencil + Bridge',
+        shortLabel: 'PENCIL · BRIDGE',
+        color: '#0F766E',
+        promptTitle: 'Broken Pencil + Bridge (45s Sprint)',
+        promptQuestion: 'How does a Broken Pencil connect to building a Bridge of Trust?',
+        hint: 'Consider tension, repair, sharp clarity, and carrying pressure.',
+        artwork: 'broken_pencil',
+        timerSeconds: 45,
+        xpReward: 50,
+      },
+      {
+        id: 'wh-mirror-interview',
+        label: 'Mirror + Interview',
+        shortLabel: 'MIRROR · HIRING',
+        color: '#6D28D9',
+        promptTitle: 'Mirror + Interview (45s Sprint)',
+        promptQuestion: 'Why is a Mirror the strongest preparation tool before any job Interview?',
+        hint: 'Think self-awareness, body language, authenticity, and blind spots.',
+        artwork: 'mirror',
+        timerSeconds: 45,
+        xpReward: 50,
+      },
+      {
+        id: 'wh-camera-boardroom',
+        label: 'Camera + Boardroom',
+        shortLabel: 'CAMERA · DATA',
+        color: '#B45309',
+        promptTitle: 'Camera + Corporate Boardroom (45s Sprint)',
+        promptQuestion: 'Connect a Camera lens to fixing a 40% business decline.',
+        hint: 'Zoom out for market vision, zoom in on customer friction, or sharpen focus.',
+        artwork: 'camera',
+        timerSeconds: 45,
+        xpReward: 50,
+      },
+      {
+        id: 'wh-hourglass-crossroads',
+        label: 'Hourglass + Crossroads',
+        shortLabel: 'TIME · PATH',
+        color: '#0369A1',
+        promptTitle: 'Hourglass + Crossroads (45s Sprint)',
+        promptQuestion: 'What happens when time is running out at a major career Crossroads?',
+        hint: 'Indecision has a cost; decisive movement creates feedback.',
+        artwork: 'hourglass',
+        timerSeconds: 45,
+        xpReward: 50,
+      },
+      {
+        id: 'wh-umbrella-tree',
+        label: 'Umbrella + Tree',
+        shortLabel: 'SHIELD · ROOTS',
+        color: '#BE123C',
+        promptTitle: 'Umbrella + Deep-Rooted Tree (45s Sprint)',
+        promptQuestion: 'Compare temporary protection (Umbrella) with long-term mentorship (Tree).',
+        hint: 'One gives short-term shelter; the other builds enduring shelter for others.',
+        artwork: 'umbrella',
+        timerSeconds: 45,
+        xpReward: 50,
+      },
+    ],
+  },
+  {
+    id: 'ceo_pitch',
+    name: 'CEO & Product Pitch Wheel',
+    subtitle: 'Spin an everyday object and pitch a premium brand or CEO strategy in 30–60s',
+    segments: [
+      {
+        id: 'wh-clip',
+        label: 'Titanium Paperclip',
+        shortLabel: 'PAPERCLIP',
+        color: '#1E40AF',
+        promptTitle: 'Brand Pitch · Titanium Paperclip',
+        promptQuestion: 'Pitch this ordinary paperclip as a ₹9,999 executive productivity flagship in 30 seconds.',
+        hint: 'Give it a name, tagline, and 1 unbeatable problem it solves.',
+        artwork: 'paperclip',
+        timerSeconds: 30,
+        xpReward: 55,
+      },
+      {
+        id: 'wh-compass-ceo',
+        label: 'Brass Compass',
+        shortLabel: 'COMPASS',
+        color: '#047857',
+        promptTitle: 'CEO Challenge · Vintage Compass',
+        promptQuestion: 'As CEO during market chaos, how do you use a Compass metaphor to align 500 employees?',
+        hint: 'Define your North Star metric and quarterly course correction.',
+        artwork: 'compass',
+        timerSeconds: 60,
+        xpReward: 55,
+      },
+      {
+        id: 'wh-stethoscope',
+        label: 'Stethoscope',
+        shortLabel: 'PULSE CHECK',
+        color: '#4338CA',
+        promptTitle: 'CEO Challenge · Stethoscope',
+        promptQuestion: 'How does a CEO listen to the heartbeat of dissatisfied customers before sales drop 40%?',
+        hint: 'Design a weekly customer-listening ritual.',
+        artwork: 'stethoscope',
+        timerSeconds: 60,
+        xpReward: 55,
+      },
+      {
+        id: 'wh-espresso',
+        label: 'Espresso Cup',
+        shortLabel: 'ESPRESSO',
+        color: '#9A3412',
+        promptTitle: 'Brand Pitch · Executive Espresso',
+        promptQuestion: 'Rebrand a simple morning espresso cup into a "Deep Work Focus Ritual" product.',
+        hint: 'Sell clarity and calm energy, not just roasted beans.',
+        artwork: 'coffee_cup',
+        timerSeconds: 30,
+        xpReward: 55,
+      },
+      {
+        id: 'wh-lighthouse',
+        label: 'Lighthouse',
+        shortLabel: 'LIGHTHOUSE',
+        color: '#0E7490',
+        promptTitle: 'CEO Challenge · Lighthouse',
+        promptQuestion: 'How does your company become the Lighthouse signal in an industry crowded with noise?',
+        hint: 'Focus on trust, reliability, and unmistakable clarity.',
+        artwork: 'lighthouse',
+        timerSeconds: 60,
+        xpReward: 55,
+      },
+      {
+        id: 'wh-keyboard-ceo',
+        label: 'Mechanical Keyboard',
+        shortLabel: 'KEYBOARD',
+        color: '#9D174D',
+        promptTitle: 'Brand Pitch · Async Keyboard',
+        promptQuestion: 'Pitch a single keyboard as the antidote to pointless 2-hour video meetings.',
+        hint: 'Highlight thoughtful async writing and crisp team alignment.',
+        artwork: 'keyboard',
+        timerSeconds: 30,
+        xpReward: 55,
+      },
+    ],
+  },
+];

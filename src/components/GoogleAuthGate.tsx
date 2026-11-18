@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { Award, ShieldCheck, Sparkles, Trophy } from 'lucide-react';
 import { signInWithGoogleOnly } from '../firebase';
 import { WORKSHOP_META } from '../data/workshopData';
 import { VisualArtwork } from './VisualArtwork';
@@ -36,16 +36,18 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({ authError }) => 
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 sm:p-8">
-      <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-        {/* Left: Editorial Workshop Preview */}
+      <div className="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+        {/* Left: Editorial Academy Hero */}
         <div className="lg:col-span-7 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 flex flex-col justify-between space-y-6">
           <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
               <span>{WORKSHOP_META.institution}</span>
               <span aria-hidden="true">·</span>
               <span>{WORKSHOP_META.subtitle}</span>
               <span aria-hidden="true">·</span>
-              <span>{WORKSHOP_META.poweredBy}</span>
+              <span className="font-semibold text-blue-700 dark:text-blue-400">
+                {WORKSHOP_META.poweredBy}
+              </span>
             </div>
             <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-slate-950 dark:text-white leading-tight">
               {WORKSHOP_META.title}
@@ -55,33 +57,33 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({ authError }) => 
             </p>
           </div>
 
-          <div className="aspect-[16/10] w-full overflow-hidden rounded-xl border border-slate-100 dark:border-slate-800">
+          <div className="aspect-[16/9] w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
             <VisualArtwork id="crossroads" />
           </div>
 
-          <div className="grid grid-cols-3 gap-4 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+          <div className="grid grid-cols-3 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
             <div>
-              <div className="text-slate-500 dark:text-slate-400">Session</div>
-              <div className="font-mono font-semibold text-slate-900 dark:text-white mt-0.5">
-                180 Minutes
+              <div className="text-slate-500 dark:text-slate-400">Skill Path</div>
+              <div className="font-mono font-semibold text-slate-900 dark:text-white mt-0.5 tabular-nums">
+                Levels 1 – 10
               </div>
             </div>
             <div>
-              <div className="text-slate-500 dark:text-slate-400">Experiential</div>
-              <div className="font-mono font-semibold text-slate-900 dark:text-white mt-0.5">
-                10 Activities
+              <div className="text-slate-500 dark:text-slate-400">Practice Wheel</div>
+              <div className="font-mono font-semibold text-slate-900 dark:text-white mt-0.5 tabular-nums">
+                18 Spin Prompts
               </div>
             </div>
             <div>
-              <div className="text-slate-500 dark:text-slate-400">Championship</div>
+              <div className="text-slate-500 dark:text-slate-400">Credentials</div>
               <div className="font-mono font-semibold text-slate-900 dark:text-white mt-0.5">
-                10 Teams · 100 pts
+                XP · Badges · PNG Cert
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right: Verified Google-Only Sign In */}
+        {/* Right: Genuine Google-Only Learner Gate */}
         <div className="lg:col-span-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 flex flex-col justify-center space-y-6">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 text-xs font-semibold text-blue-700 dark:text-blue-400">
@@ -92,8 +94,27 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({ authError }) => 
               Sign in with Google
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-              To keep classroom submissions, perspectives, and Championship scores genuine, access is restricted exclusively to verified Google accounts.
+              Your Google display name powers your personal XP ledger, achievement badges, and verifiable PNG certificate{' '}
+              <span className="font-semibold text-slate-900 dark:text-white">
+                Powered By Kapil
+              </span>
+              .
             </p>
+          </div>
+
+          <div className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300 border-y border-slate-100 dark:border-slate-800 py-4">
+            <div className="flex items-center gap-2.5">
+              <Trophy className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+              <span>Complete Levels 1–10 solo challenges to earn up to 1,510+ XP</span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>Spin the 3 interactive exercise wheels for bonus XP & agility drills</span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <Award className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>Unlock 8 mastery badges and export your personalized PNG certificate</span>
+            </div>
           </div>
 
           {displayError && (
@@ -132,9 +153,9 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({ authError }) => 
             <span>{submitting ? 'Verifying Google Account...' : 'Continue with Google'}</span>
           </button>
 
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
-            <div>No guest accounts, passwords, or unverified sign-ups allowed.</div>
-            <div>Your personal responses and ideas sync automatically to your verified account.</div>
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1 text-xs text-slate-500 dark:text-slate-400">
+            <div>Strictly genuine Google sign-ups only — no guests or passwords.</div>
+            <div>Your XP, completed levels, and certificate credentials sync automatically.</div>
           </div>
         </div>
       </div>

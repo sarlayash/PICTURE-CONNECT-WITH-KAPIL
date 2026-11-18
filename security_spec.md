@@ -2,10 +2,10 @@
 
 ## 1. Data Invariants
 1. **Google-Only Genuine Identity**: Every read and write requires `request.auth != null`, `request.auth.token.email_verified == true`, and `request.auth.token.firebase.sign_in_provider == 'google.com'`. Anonymous, unverified, or password users are strictly rejected.
-2. **PII Isolation**: Email addresses live exclusively inside `/users/{userId}`. Only the owner (`request.auth.uid == userId`) or the verified facilitator admin (`kapilnarula27july@gmail.com`) may read `/users/{userId}`.
+2. **PII Isolation**: Email addresses live exclusively inside `/users/{userId}`. Only the owner (`request.auth.uid == userId`) or the platform owner (`kapilnarula27july@gmail.com`) may read `/users/{userId}`.
 3. **No Self-Privilege Escalation**: Creating `/users/{userId}` strictly requires `role == 'learner'` and forbids modifying `role`, `uid`, or `createdAt` on update.
-4. **Author & Owner Binding**: Every `ConnectionPost` must bind `authorId == request.auth.uid`; every `LearnerWorkspace` and `PrepItem` must bind `ownerId == request.auth.uid`.
-5. **Championship Integrity**: Only the verified facilitator admin may create, update, or delete `/teams/{teamId}`, `/teams/{teamId}/members/{memberId}`, and `/teams/{teamId}/scores/{scoreId}`. Verified learners may view live team standings.
+4. **Author & Owner Binding**: Every `ConnectionPost` must bind `authorId == request.auth.uid`; every `LearnerWorkspace` and `LearnerProgress` document must bind `ownerId == request.auth.uid`.
+5. **Bounded Progression & Arrays**: `LearnerProgress` restricts `xp <= 50000`, `wheelSpins <= 5000`, `completedLevels.size() <= 10`, `unlockedBadges.size() <= 20`, and `completedWheelPrompts.size() <= 50`.
 6. **Temporal Integrity**: All `createdAt` and `updatedAt` fields must equal `request.time`.
 
 ## 2. Dirty Dozen Attack Payloads (Expected: PERMISSION_DENIED)
@@ -18,6 +18,6 @@
 7. **UID Spoofing**: Learner `u2` creates `/connections/c2` with `authorId: 'u1'`.
 8. **Immutable Timestamp Tampering**: Create `/connections/c1` with client-forged `createdAt` != `request.time`.
 9. **Path ID Poisoning**: Write `/connections/bad$id_with_1500_chars...` failing `isValidId()`.
-10. **Score Forgery by Learner**: Learner `u2` creates `/teams/team-1/scores/s1` with `total: 100`.
+10. **XP Overflow Tampering**: Learner `u2` writes `/learnerProgress/u2` with `xp: 9999999` (> 50000 cap).
 11. **Oversized Payload (Denial of Wallet)**: Create `/connections/c1` with 2000-char `body` (> 600 limit).
-12. **Blanket Workspace List Scraping**: Learner `u2` lists `/learnerWorkspaces` without `ownerId == 'u2'`.
+12. **Blanket Progress/Workspace Scraping**: Learner `u2` lists `/learnerProgress` or `/learnerWorkspaces` without `ownerId == 'u2'`.

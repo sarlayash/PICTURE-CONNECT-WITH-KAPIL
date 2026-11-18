@@ -2,7 +2,7 @@
   "entities": {
     "UserAccount": {
       "title": "UserAccount",
-      "description": "Verified Google-authenticated user profile for Picture Connect with Kapil.",
+      "description": "Verified Google-authenticated learner account for Picture Connect with Kapil.",
       "type": "object",
       "properties": {
         "uid": {
@@ -38,7 +38,7 @@
         "role": {
           "type": "string",
           "enum": ["learner"],
-          "description": "Assigned default role on creation."
+          "description": "Assigned role on creation."
         },
         "createdAt": {
           "type": "string",
@@ -55,7 +55,7 @@
     },
     "ConnectionPost": {
       "title": "ConnectionPost",
-      "description": "Shared learner submission for Central Concept, Activity 1 Perspectives, or Surprise Challenges.",
+      "description": "Shared learner submission for Central Concept, Level 1 Perspectives, or Spinning Wheel prompts.",
       "type": "object",
       "properties": {
         "authorId": {
@@ -80,7 +80,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 80,
-          "description": "Identifier of the picture or challenge."
+          "description": "Identifier of the picture or prompt."
         },
         "title": {
           "type": "string",
@@ -103,7 +103,7 @@
     },
     "LearnerWorkspace": {
       "title": "LearnerWorkspace",
-      "description": "Private learner response notebook across Activities 2 to 10.",
+      "description": "Private learner response notebook across Levels 1 to 10.",
       "type": "object",
       "properties": {
         "ownerId": {
@@ -114,6 +114,8 @@
           "description": "Authenticated owner UID."
         },
         "act2Pitch": { "type": "string", "maxLength": 1000 },
+        "act3StoryTitle": { "type": "string", "maxLength": 160 },
+        "act3StoryBeats": { "type": "string", "maxLength": 1500 },
         "act4Observed": { "type": "string", "maxLength": 500 },
         "act4Missing": { "type": "string", "maxLength": 500 },
         "act4BeforeAfter": { "type": "string", "maxLength": 800 },
@@ -134,95 +136,9 @@
       },
       "required": ["ownerId", "updatedAt"]
     },
-    "Team": {
-      "title": "Team",
-      "description": "Championship team metadata (10 teams of 5-6 learners).",
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 80
-        },
-        "order": {
-          "type": "number"
-        },
-        "updatedAt": {
-          "type": "string",
-          "format": "date-time"
-        }
-      },
-      "required": ["name", "order", "updatedAt"]
-    },
-    "TeamMember": {
-      "title": "TeamMember",
-      "description": "Team member role assignment and participation count.",
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 80
-        },
-        "role": {
-          "type": "string",
-          "enum": ["Leader", "Speaker", "Observer", "Creator", "Presenter"]
-        },
-        "spokeCount": {
-          "type": "number"
-        },
-        "updatedAt": {
-          "type": "string",
-          "format": "date-time"
-        }
-      },
-      "required": ["name", "role", "spokeCount", "updatedAt"]
-    },
-    "TeamScore": {
-      "title": "TeamScore",
-      "description": "Official 100-point rubric evaluation for a team round.",
-      "type": "object",
-      "properties": {
-        "activityTitle": { "type": "string", "minLength": 1, "maxLength": 120 },
-        "studentJudge1": { "type": "number" },
-        "studentJudge2": { "type": "number" },
-        "facultyJudge": { "type": "number" },
-        "creativity": { "type": "number" },
-        "logic": { "type": "number" },
-        "clarity": { "type": "number" },
-        "participation": { "type": "number" },
-        "confidence": { "type": "number" },
-        "time": { "type": "number" },
-        "total": { "type": "number" },
-        "notes": { "type": "string", "maxLength": 400 },
-        "recordedByUid": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128,
-          "pattern": "^[a-zA-Z0-9_\\-]+$"
-        },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": [
-        "activityTitle",
-        "studentJudge1",
-        "studentJudge2",
-        "facultyJudge",
-        "creativity",
-        "logic",
-        "clarity",
-        "participation",
-        "confidence",
-        "time",
-        "total",
-        "notes",
-        "recordedByUid",
-        "createdAt"
-      ]
-    },
-    "PrepItem": {
-      "title": "PrepItem",
-      "description": "Facilitator preparation checklist item.",
+    "LearnerProgress": {
+      "title": "LearnerProgress",
+      "description": "Gamified XP, completed Levels 1-10, unlocked achievement badges, spinning wheel stats, and certificate ID.",
       "type": "object",
       "properties": {
         "ownerId": {
@@ -231,42 +147,66 @@
           "maxLength": 128,
           "pattern": "^[a-zA-Z0-9_\\-]+$"
         },
-        "label": { "type": "string", "minLength": 1, "maxLength": 200 },
-        "category": { "type": "string", "minLength": 1, "maxLength": 50 },
-        "completed": { "type": "boolean" },
+        "xp": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 50000
+        },
+        "completedLevels": {
+          "type": "array",
+          "items": { "type": "number" },
+          "maxItems": 10
+        },
+        "unlockedBadges": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 20
+        },
+        "wheelSpins": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5000
+        },
+        "completedWheelPrompts": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 50
+        },
+        "certificateId": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 64
+        },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["ownerId", "label", "category", "completed", "updatedAt"]
+      "required": [
+        "ownerId",
+        "xp",
+        "completedLevels",
+        "unlockedBadges",
+        "wheelSpins",
+        "completedWheelPrompts",
+        "certificateId",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/UserAccount" },
-      "description": "Verified Google learner and facilitator user accounts."
+      "description": "Verified Google learner user accounts."
     },
     "/connections/{connectionId}": {
       "schema": { "$ref": "#/entities/ConnectionPost" },
-      "description": "Shared learner perspectives, concept links, and challenge reflections."
+      "description": "Shared learner perspectives, concept links, and wheel reflections."
     },
     "/learnerWorkspaces/{userId}": {
       "schema": { "$ref": "#/entities/LearnerWorkspace" },
-      "description": "Personal learner activity notes across Activities 2-10."
+      "description": "Personal learner responses across Levels 1-10."
     },
-    "/teams/{teamId}": {
-      "schema": { "$ref": "#/entities/Team" },
-      "description": "Championship team definitions."
-    },
-    "/teams/{teamId}/members/{memberId}": {
-      "schema": { "$ref": "#/entities/TeamMember" },
-      "description": "Team member role assignments and speaking tracker."
-    },
-    "/teams/{teamId}/scores/{scoreId}": {
-      "schema": { "$ref": "#/entities/TeamScore" },
-      "description": "Official 100-point rubric round scores."
-    },
-    "/prepItems/{itemId}": {
-      "schema": { "$ref": "#/entities/PrepItem" },
-      "description": "Facilitator preparation checklist items."
+    "/learnerProgress/{userId}": {
+      "schema": { "$ref": "#/entities/LearnerProgress" },
+      "description": "Learner XP, Levels 1-10 completion, badges, and certificate credentials."
     }
   }
 }

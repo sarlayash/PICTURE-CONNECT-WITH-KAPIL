@@ -2,29 +2,17 @@ import { User } from 'firebase/auth';
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   getDoc,
   limit,
   onSnapshot,
-  orderBy,
   query,
   serverTimestamp,
   setDoc,
   updateDoc,
   where,
-  writeBatch,
 } from 'firebase/firestore';
-import {
-  createInitialTeams,
-  DEFAULT_PREP_CHECKLIST,
-  PrepItem,
-  RoundScore,
-  TEAM_ROLES,
-  TeamMember,
-  TeamRecord,
-  TeamRole,
-} from '../data/workshopData';
+import { BADGES, LEVELS } from '../data/workshopData';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 
 function clip(value: string, max: number): string {
@@ -44,6 +32,8 @@ export interface ConnectionPostDoc {
 export interface LearnerWorkspaceDoc {
   ownerId: string;
   act2Pitch?: string;
+  act3StoryTitle?: string;
+  act3StoryBeats?: string;
   act4Observed?: string;
   act4Missing?: string;
   act4BeforeAfter?: string;
@@ -60,6 +50,44 @@ export interface LearnerWorkspaceDoc {
   act9Proposal?: string;
   act10Theme?: string;
   act10Notes?: string;
+}
+
+export interface LearnerProgressDoc {
+  ownerId: string;
+  xp: number;
+  completedLevels: number[];
+  unlockedBadges: string[];
+  wheelSpins: number;
+  completedWheelPrompts: string[];
+  certificateId: string;
+}
+
+export function buildCertificateId(uid: string): string {
+  const clean = uid.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 8) || 'LEARNER';
+  return `PCK-2026-${clean}`;
+}
+
+export function createDefaultProgress(uid: string): LearnerProgressDoc {
+  return {
+    ownerId: uid,
+    xp: 0,
+    completedLevels: [],
+    unlockedBadges: [],
+    wheelSpins: 0,
+    completedWheelPrompts: [],
+    certificateId: buildCertificateId(uid),
+  };
+}
+
+function computeUnlockedBadges(state: {
+  completedLevels: number[];
+  xp: number;
+  wheelSpins: number;
+  completedWheelPrompts: string[];
+}): string[] {
+  return BADGES.filter((b) => b.checkUnlocked(state))
+    .map((b) => b.id)
+    .slice(0, 20);
 }
 
 export async function upsertUserAccount(user: User): Promise<void> {
@@ -115,7 +143,7 @@ export function subscribeConnections(
           post: {
             id: d.id,
             authorId: String(data.authorId || ''),
-            authorName: String(data.authorName || 'Learner'),
+            authorName: String(data.authorName || 'Verified Learner'),
             kind: (data.kind as ConnectionPostDoc['kind']) || 'concept',
             promptRef: String(data.promptRef || ''),
             title: String(data.title || ''),
@@ -190,6 +218,8 @@ export async function saveLearnerWorkspace(
 
   const limits: Record<string, number> = {
     act2Pitch: 1000,
+    act3StoryTitle: 160,
+    act3StoryBeats: 1500,
     act4Observed: 500,
     act4Missing: 500,
     act4BeforeAfter: 800,
@@ -221,338 +251,138 @@ export async function saveLearnerWorkspace(
   }
 }
 
-export function subscribePrepItems(
+export function subscribeLearnerProgress(
   uid: string,
-  onData: (items: PrepItem[]) => void
+  onData: (progress: LearnerProgressDoc) => void
 ): () => void {
-  const path = 'prepItems';
-  const q = query(collection(db, path), where('ownerId', '==', uid));
+  const path = `learnerProgress/${uid}`;
+  const ref = doc(db, 'learnerProgress', uid);
 
   return onSnapshot(
-    q,
+    ref,
     (snap) => {
-      const items: PrepItem[] = snap.docs.map((d) => {
-        const data = d.data();
-        return {
-          id: d.id,
-          label: String(data.label || ''),
-          category: String(data.category || 'Facilitation'),
-          completed: Boolean(data.completed),
-        };
-      });
-      onData(items);
-    },
-    (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
-    }
-  );
-}
-
-export async function seedDefaultPrepItems(uid: string): Promise<void> {
-  const path = 'prepItems';
-  try {
-    const batch = writeBatch(db);
-    DEFAULT_PREP_CHECKLIST.forEach((item) => {
-      const ref = doc(db, path, `${uid}_${item.id}`.slice(0, 128));
-      batch.set(ref, {
-        ownerId: uid,
-        label: clip(item.label, 200),
-        category: clip(item.category, 50),
-        completed: false,
-        updatedAt: serverTimestamp(),
-      });
-    });
-    await batch.commit();
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
-  }
-}
-
-export async function togglePrepItemDoc(
-  itemId: string,
-  completed: boolean
-): Promise<void> {
-  const path = `prepItems/${itemId}`;
-  try {
-    await updateDoc(doc(db, 'prepItems', itemId), {
-      completed,
-      updatedAt: serverTimestamp(),
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
-  }
-}
-
-export async function createPrepItemDoc(
-  uid: string,
-  label: string,
-  category: string
-): Promise<void> {
-  const path = 'prepItems';
-  try {
-    await addDoc(collection(db, path), {
-      ownerId: uid,
-      label: clip(label, 200),
-      category: clip(category, 50) || 'Facilitation',
-      completed: false,
-      updatedAt: serverTimestamp(),
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, path);
-  }
-}
-
-export function subscribeChampionshipTeams(
-  onData: (teams: TeamRecord[]) => void
-): () => void {
-  const teamsPath = 'teams';
-  const qTeams = query(collection(db, teamsPath), orderBy('order', 'asc'));
-
-  let currentTeams: { id: string; name: string; order: number }[] = [];
-  const membersMap: Record<string, TeamMember[]> = {};
-  const scoresMap: Record<string, RoundScore[]> = {};
-  const subUnsubs: (() => void)[] = [];
-
-  const emit = () => {
-    onData(
-      currentTeams.map((t) => ({
-        id: t.id,
-        name: t.name,
-        members: membersMap[t.id] || [],
-        scores: scoresMap[t.id] || [],
-      }))
-    );
-  };
-
-  const unsubTeams = onSnapshot(
-    qTeams,
-    (snap) => {
-      subUnsubs.forEach((u) => u());
-      subUnsubs.length = 0;
-
-      currentTeams = snap.docs.map((d) => ({
-        id: d.id,
-        name: String(d.data().name || d.id),
-        order: Number(d.data().order || 1),
-      }));
-
-      if (currentTeams.length === 0) {
-        onData([]);
-        return;
+      if (snap.exists()) {
+        const data = snap.data();
+        onData({
+          ownerId: uid,
+          xp: Number(data.xp || 0),
+          completedLevels: Array.isArray(data.completedLevels)
+            ? data.completedLevels.map(Number).filter((n) => n >= 1 && n <= 10)
+            : [],
+          unlockedBadges: Array.isArray(data.unlockedBadges)
+            ? data.unlockedBadges.map(String)
+            : [],
+          wheelSpins: Number(data.wheelSpins || 0),
+          completedWheelPrompts: Array.isArray(data.completedWheelPrompts)
+            ? data.completedWheelPrompts.map(String)
+            : [],
+          certificateId: String(data.certificateId || buildCertificateId(uid)),
+        });
+      } else {
+        onData(createDefaultProgress(uid));
       }
-
-      currentTeams.forEach((team) => {
-        const memPath = `teams/${team.id}/members`;
-        const qMembers = query(
-          collection(db, memPath),
-          where('spokeCount', '>=', 0)
-        );
-        const unsubM = onSnapshot(
-          qMembers,
-          (mSnap) => {
-            membersMap[team.id] = mSnap.docs.map((md) => ({
-              id: md.id,
-              name: String(md.data().name || 'Learner'),
-              role: (md.data().role as TeamRole) || 'Speaker',
-              spokeCount: Number(md.data().spokeCount || 0),
-            }));
-            emit();
-          },
-          (err) => handleFirestoreError(err, OperationType.LIST, memPath)
-        );
-
-        const scorePath = `teams/${team.id}/scores`;
-        const qScores = query(
-          collection(db, scorePath),
-          where('total', '>=', 0)
-        );
-        const unsubS = onSnapshot(
-          qScores,
-          (sSnap) => {
-            scoresMap[team.id] = sSnap.docs.map((sd) => {
-              const d = sd.data();
-              return {
-                id: sd.id,
-                activityTitle: String(d.activityTitle || ''),
-                judgePanel: {
-                  studentJudge1: Number(d.studentJudge1 || 0),
-                  studentJudge2: Number(d.studentJudge2 || 0),
-                  facultyJudge: Number(d.facultyJudge || 0),
-                },
-                criteria: {
-                  creativity: Number(d.creativity || 0),
-                  logic: Number(d.logic || 0),
-                  clarity: Number(d.clarity || 0),
-                  participation: Number(d.participation || 0),
-                  confidence: Number(d.confidence || 0),
-                  time: Number(d.time || 0),
-                },
-                total: Number(d.total || 0),
-                notes: String(d.notes || ''),
-                recordedAt: d.createdAt?.toDate
-                  ? d.createdAt
-                      .toDate()
-                      .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                  : 'Recorded',
-              };
-            });
-            emit();
-          },
-          (err) => handleFirestoreError(err, OperationType.LIST, scorePath)
-        );
-
-        subUnsubs.push(unsubM, unsubS);
-      });
-
-      emit();
     },
     (error) => {
-      handleFirestoreError(error, OperationType.LIST, teamsPath);
+      handleFirestoreError(error, OperationType.GET, path);
     }
   );
-
-  return () => {
-    unsubTeams();
-    subUnsubs.forEach((u) => u());
-  };
 }
 
-export async function seedDefaultTeamsFirestore(): Promise<void> {
-  const initial = createInitialTeams();
-  const path = 'teams';
+export async function awardLevelCompletion(
+  uid: string,
+  current: LearnerProgressDoc,
+  levelNumber: number
+): Promise<{ newlyAwardedXp: number; newlyUnlockedBadges: string[] }> {
+  const path = `learnerProgress/${uid}`;
+  const ref = doc(db, 'learnerProgress', uid);
+  const levelDef = LEVELS.find((l) => l.level === levelNumber);
+  const xpGain = levelDef?.xpReward ?? 100;
+
+  const alreadyDone = current.completedLevels.includes(levelNumber);
+  const nextLevels = alreadyDone
+    ? current.completedLevels
+    : [...current.completedLevels, levelNumber].sort((a, b) => a - b).slice(0, 10);
+
+  const nextXp = Math.min(50000, current.xp + (alreadyDone ? 0 : xpGain));
+  const nextBadges = computeUnlockedBadges({
+    completedLevels: nextLevels,
+    xp: nextXp,
+    wheelSpins: current.wheelSpins,
+    completedWheelPrompts: current.completedWheelPrompts,
+  });
+
+  const newlyUnlockedBadges = nextBadges.filter(
+    (b) => !current.unlockedBadges.includes(b)
+  );
+
   try {
-    for (let i = 0; i < initial.length; i += 1) {
-      const team = initial[i];
-      await setDoc(doc(db, 'teams', team.id), {
-        name: clip(team.name, 80),
-        order: i + 1,
-        updatedAt: serverTimestamp(),
-      });
-      const batch = writeBatch(db);
-      team.members.forEach((m) => {
-        batch.set(doc(db, 'teams', team.id, 'members', m.id), {
-          name: clip(m.name, 80),
-          role: m.role,
-          spokeCount: m.spokeCount,
-          updatedAt: serverTimestamp(),
-        });
-      });
-      await batch.commit();
-    }
+    await setDoc(ref, {
+      ownerId: uid,
+      xp: nextXp,
+      completedLevels: nextLevels,
+      unlockedBadges: nextBadges,
+      wheelSpins: current.wheelSpins,
+      completedWheelPrompts: current.completedWheelPrompts.slice(0, 50),
+      certificateId: current.certificateId || buildCertificateId(uid),
+      updatedAt: serverTimestamp(),
+    });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
+
+  return {
+    newlyAwardedXp: alreadyDone ? 0 : xpGain,
+    newlyUnlockedBadges,
+  };
 }
 
-export async function updateTeamNameFirestore(
-  teamId: string,
-  name: string
-): Promise<void> {
-  const path = `teams/${teamId}`;
+export async function recordWheelCompletion(
+  uid: string,
+  current: LearnerProgressDoc,
+  promptId: string,
+  xpReward: number
+): Promise<{ newlyAwardedXp: number; newlyUnlockedBadges: string[] }> {
+  const path = `learnerProgress/${uid}`;
+  const ref = doc(db, 'learnerProgress', uid);
+
+  const cleanPromptId = clip(promptId, 80);
+  const alreadyCompleted = current.completedWheelPrompts.includes(cleanPromptId);
+  const nextPrompts = alreadyCompleted
+    ? current.completedWheelPrompts
+    : [...current.completedWheelPrompts, cleanPromptId].slice(0, 50);
+
+  const xpGain = alreadyCompleted ? 15 : xpReward;
+  const nextXp = Math.min(50000, current.xp + xpGain);
+  const nextSpins = Math.min(5000, current.wheelSpins + 1);
+
+  const nextBadges = computeUnlockedBadges({
+    completedLevels: current.completedLevels,
+    xp: nextXp,
+    wheelSpins: nextSpins,
+    completedWheelPrompts: nextPrompts,
+  });
+
+  const newlyUnlockedBadges = nextBadges.filter(
+    (b) => !current.unlockedBadges.includes(b)
+  );
+
   try {
-    await updateDoc(doc(db, 'teams', teamId), {
-      name: clip(name, 80) || teamId,
+    await setDoc(ref, {
+      ownerId: uid,
+      xp: nextXp,
+      completedLevels: current.completedLevels.slice(0, 10),
+      unlockedBadges: nextBadges,
+      wheelSpins: nextSpins,
+      completedWheelPrompts: nextPrompts,
+      certificateId: current.certificateId || buildCertificateId(uid),
       updatedAt: serverTimestamp(),
     });
   } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
+    handleFirestoreError(error, OperationType.WRITE, path);
   }
-}
 
-export async function updateTeamMemberFirestore(
-  teamId: string,
-  memberId: string,
-  patch: Partial<{ name: string; role: TeamRole; spokeCount: number }>
-): Promise<void> {
-  const path = `teams/${teamId}/members/${memberId}`;
-  const payload: Record<string, unknown> = { updatedAt: serverTimestamp() };
-  if (patch.name !== undefined) payload.name = clip(patch.name, 80) || 'Learner';
-  if (patch.role !== undefined) payload.role = patch.role;
-  if (patch.spokeCount !== undefined) payload.spokeCount = Math.max(0, Math.min(500, patch.spokeCount));
-  try {
-    await updateDoc(doc(db, 'teams', teamId, 'members', memberId), payload);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
-  }
-}
-
-export async function addTeamMemberFirestore(
-  teamId: string,
-  name: string,
-  role: TeamRole
-): Promise<void> {
-  const memberId = `${teamId}-m-${Date.now()}`;
-  const path = `teams/${teamId}/members/${memberId}`;
-  try {
-    await setDoc(doc(db, 'teams', teamId, 'members', memberId), {
-      name: clip(name, 80) || 'Learner',
-      role,
-      spokeCount: 0,
-      updatedAt: serverTimestamp(),
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, path);
-  }
-}
-
-export async function rotateSpeakersFirestore(teams: TeamRecord[]): Promise<void> {
-  const path = 'teams';
-  try {
-    const batch = writeBatch(db);
-    teams.forEach((team) => {
-      team.members.forEach((member, idx) => {
-        const currentRoleIdx = TEAM_ROLES.indexOf(member.role);
-        const nextRole =
-          TEAM_ROLES[(currentRoleIdx + 1) % TEAM_ROLES.length] ??
-          TEAM_ROLES[idx % TEAM_ROLES.length];
-        batch.update(doc(db, 'teams', team.id, 'members', member.id), {
-          role: nextRole,
-          updatedAt: serverTimestamp(),
-        });
-      });
-    });
-    await batch.commit();
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
-  }
-}
-
-export async function recordTeamScoreFirestore(
-  teamId: string,
-  user: User,
-  score: Omit<RoundScore, 'id' | 'recordedAt'>
-): Promise<void> {
-  const path = `teams/${teamId}/scores`;
-  try {
-    await addDoc(collection(db, 'teams', teamId, 'scores'), {
-      activityTitle: clip(score.activityTitle, 120),
-      studentJudge1: Math.max(0, Math.min(100, score.judgePanel.studentJudge1)),
-      studentJudge2: Math.max(0, Math.min(100, score.judgePanel.studentJudge2)),
-      facultyJudge: Math.max(0, Math.min(100, score.judgePanel.facultyJudge)),
-      creativity: Math.max(0, Math.min(20, score.criteria.creativity)),
-      logic: Math.max(0, Math.min(20, score.criteria.logic)),
-      clarity: Math.max(0, Math.min(20, score.criteria.clarity)),
-      participation: Math.max(0, Math.min(15, score.criteria.participation)),
-      confidence: Math.max(0, Math.min(15, score.criteria.confidence)),
-      time: Math.max(0, Math.min(10, score.criteria.time)),
-      total: Math.max(0, Math.min(100, score.total)),
-      notes: clip(score.notes, 400),
-      recordedByUid: user.uid,
-      createdAt: serverTimestamp(),
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, path);
-  }
-}
-
-export async function deleteTeamScoreFirestore(
-  teamId: string,
-  scoreId: string
-): Promise<void> {
-  const path = `teams/${teamId}/scores/${scoreId}`;
-  try {
-    await deleteDoc(doc(db, 'teams', teamId, 'scores', scoreId));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
-  }
+  return {
+    newlyAwardedXp: xpGain,
+    newlyUnlockedBadges,
+  };
 }
