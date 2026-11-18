@@ -12,7 +12,7 @@ interface OverviewStudioProps {
     view: 'overview' | 'activities' | 'challenges' | 'championship' | 'playbook',
     activityNum?: number
   ) => void;
-  learnerConnections: { id: string; picture: string; concept: string; explanation: string }[];
+  learnerConnections: { id: string; picture: string; concept: string; explanation: string; authorName?: string }[];
   onAddConnection: (picture: string, concept: string, explanation: string) => void;
 }
 
@@ -266,8 +266,15 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
                     key={item.id}
                     className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 text-xs space-y-0.5"
                   >
-                    <div className="font-semibold text-slate-900 dark:text-white">
-                      {item.picture} + {item.concept}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-slate-900 dark:text-white">
+                        {item.picture} + {item.concept}
+                      </span>
+                      {item.authorName && (
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">
+                          {item.authorName}
+                        </span>
+                      )}
                     </div>
                     <div className="text-slate-600 dark:text-slate-400">{item.explanation}</div>
                   </div>

@@ -1,0 +1,288 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Primitives
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string
+        && id.size() >= 1
+        && id.size() <= 128
+        && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isGenuineGoogleUser() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+
+    function isOwner(userId) {
+      return isGenuineGoogleUser() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isGenuineGoogleUser()
+        && (
+          request.auth.token.email == 'kapilnarula27july@gmail.com'
+          || exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        );
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidUserAccount(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'providerId', 'role', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'email', 'photoURL', 'providerId', 'role', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid == userId && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 160
+        && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 500))
+        && data.providerId == 'google.com'
+        && data.role == 'learner'
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidConnectionPost(data) {
+      return data.keys().hasAll(['authorId', 'authorName', 'kind', 'promptRef', 'title', 'body', 'createdAt'])
+        && data.keys().hasOnly(['authorId', 'authorName', 'kind', 'promptRef', 'title', 'body', 'createdAt'])
+        && data.authorId is string && isValidId(data.authorId)
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100
+        && data.kind in ['concept', 'perspective', 'challenge']
+        && data.promptRef is string && data.promptRef.size() >= 1 && data.promptRef.size() <= 80
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
+        && data.body is string && data.body.size() <= 600
+        && data.createdAt is timestamp;
+    }
+
+    function isValidLearnerWorkspace(data, userId) {
+      return data.keys().hasAll(['ownerId', 'updatedAt'])
+        && data.keys().hasOnly([
+          'ownerId', 'act2Pitch', 'act4Observed', 'act4Missing', 'act4BeforeAfter',
+          'act5CeoSolution', 'act7PitchName', 'act7PitchTagline', 'act7PitchAudience',
+          'act7PitchUsps', 'act7PitchScript', 'act8Emotion', 'act8Situation',
+          'act8Perspective', 'act8Response', 'act9Proposal', 'act10Theme', 'act10Notes',
+          'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId == userId && isValidId(data.ownerId)
+        && (!('act2Pitch' in data) || (data.act2Pitch is string && data.act2Pitch.size() <= 1000))
+        && (!('act4Observed' in data) || (data.act4Observed is string && data.act4Observed.size() <= 500))
+        && (!('act4Missing' in data) || (data.act4Missing is string && data.act4Missing.size() <= 500))
+        && (!('act4BeforeAfter' in data) || (data.act4BeforeAfter is string && data.act4BeforeAfter.size() <= 800))
+        && (!('act5CeoSolution' in data) || (data.act5CeoSolution is string && data.act5CeoSolution.size() <= 1000))
+        && (!('act7PitchName' in data) || (data.act7PitchName is string && data.act7PitchName.size() <= 120))
+        && (!('act7PitchTagline' in data) || (data.act7PitchTagline is string && data.act7PitchTagline.size() <= 160))
+        && (!('act7PitchAudience' in data) || (data.act7PitchAudience is string && data.act7PitchAudience.size() <= 200))
+        && (!('act7PitchUsps' in data) || (data.act7PitchUsps is string && data.act7PitchUsps.size() <= 600))
+        && (!('act7PitchScript' in data) || (data.act7PitchScript is string && data.act7PitchScript.size() <= 1000))
+        && (!('act8Emotion' in data) || (data.act8Emotion is string && data.act8Emotion.size() <= 300))
+        && (!('act8Situation' in data) || (data.act8Situation is string && data.act8Situation.size() <= 300))
+        && (!('act8Perspective' in data) || (data.act8Perspective is string && data.act8Perspective.size() <= 300))
+        && (!('act8Response' in data) || (data.act8Response is string && data.act8Response.size() <= 500))
+        && (!('act9Proposal' in data) || (data.act9Proposal is string && data.act9Proposal.size() <= 1200))
+        && (!('act10Theme' in data) || (data.act10Theme is string && data.act10Theme.size() <= 200))
+        && (!('act10Notes' in data) || (data.act10Notes is string && data.act10Notes.size() <= 1200))
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTeam(data) {
+      return data.keys().hasAll(['name', 'order', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'order', 'updatedAt'])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
+        && data.order is number && data.order >= 1 && data.order <= 20
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTeamMember(data) {
+      return data.keys().hasAll(['name', 'role', 'spokeCount', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'role', 'spokeCount', 'updatedAt'])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
+        && data.role in ['Leader', 'Speaker', 'Observer', 'Creator', 'Presenter']
+        && data.spokeCount is number && data.spokeCount >= 0 && data.spokeCount <= 500
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTeamScore(data) {
+      return data.keys().hasAll([
+          'activityTitle', 'studentJudge1', 'studentJudge2', 'facultyJudge',
+          'creativity', 'logic', 'clarity', 'participation', 'confidence', 'time',
+          'total', 'notes', 'recordedByUid', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'activityTitle', 'studentJudge1', 'studentJudge2', 'facultyJudge',
+          'creativity', 'logic', 'clarity', 'participation', 'confidence', 'time',
+          'total', 'notes', 'recordedByUid', 'createdAt'
+        ])
+        && data.activityTitle is string && data.activityTitle.size() >= 1 && data.activityTitle.size() <= 120
+        && data.studentJudge1 is number && data.studentJudge1 >= 0 && data.studentJudge1 <= 100
+        && data.studentJudge2 is number && data.studentJudge2 >= 0 && data.studentJudge2 <= 100
+        && data.facultyJudge is number && data.facultyJudge >= 0 && data.facultyJudge <= 100
+        && data.creativity is number && data.creativity >= 0 && data.creativity <= 20
+        && data.logic is number && data.logic >= 0 && data.logic <= 20
+        && data.clarity is number && data.clarity >= 0 && data.clarity <= 20
+        && data.participation is number && data.participation >= 0 && data.participation <= 15
+        && data.confidence is number && data.confidence >= 0 && data.confidence <= 15
+        && data.time is number && data.time >= 0 && data.time <= 10
+        && data.total is number && data.total >= 0 && data.total <= 100
+        && data.notes is string && data.notes.size() <= 400
+        && data.recordedByUid is string && isValidId(data.recordedByUid)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidPrepItem(data) {
+      return data.keys().hasAll(['ownerId', 'label', 'category', 'completed', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'label', 'category', 'completed', 'updatedAt'])
+        && data.ownerId is string && isValidId(data.ownerId)
+        && data.label is string && data.label.size() >= 1 && data.label.size() <= 200
+        && data.category is string && data.category.size() >= 1 && data.category.size() <= 50
+        && data.completed is bool
+        && data.updatedAt is timestamp;
+    }
+
+    // 4. Collection Rules
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserAccount(incoming(), userId)
+        && incoming().email == request.auth.token.email
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isValidUserAccount(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().role == existing().role
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt']))
+        );
+      allow delete: if false;
+    }
+
+    match /connections/{connectionId} {
+      allow get: if isValidId(connectionId) && isGenuineGoogleUser();
+      allow list: if isGenuineGoogleUser() && existing().kind in ['concept', 'perspective', 'challenge'];
+      allow create: if isValidId(connectionId)
+        && isGenuineGoogleUser()
+        && isValidConnectionPost(incoming())
+        && incoming().authorId == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update: if isValidId(connectionId)
+        && isGenuineGoogleUser()
+        && isValidConnectionPost(incoming())
+        && incoming().authorId == existing().authorId
+        && incoming().createdAt == existing().createdAt
+        && (existing().authorId == request.auth.uid || isAdmin())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'body']);
+      allow delete: if isValidId(connectionId)
+        && isGenuineGoogleUser()
+        && (existing().authorId == request.auth.uid || isAdmin());
+    }
+
+    match /learnerWorkspaces/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isGenuineGoogleUser() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidLearnerWorkspace(incoming(), userId)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isValidLearnerWorkspace(incoming(), userId)
+        && (isOwner(userId) || isAdmin())
+        && incoming().ownerId == existing().ownerId
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'act2Pitch', 'act4Observed', 'act4Missing', 'act4BeforeAfter',
+          'act5CeoSolution', 'act7PitchName', 'act7PitchTagline', 'act7PitchAudience',
+          'act7PitchUsps', 'act7PitchScript', 'act8Emotion', 'act8Situation',
+          'act8Perspective', 'act8Response', 'act9Proposal', 'act10Theme', 'act10Notes',
+          'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /teams/{teamId} {
+      allow get: if isValidId(teamId) && isGenuineGoogleUser();
+      allow list: if isGenuineGoogleUser() && existing().order >= 1;
+      allow create: if isValidId(teamId)
+        && isAdmin()
+        && isValidTeam(incoming())
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(teamId)
+        && isAdmin()
+        && isValidTeam(incoming())
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'order', 'updatedAt']);
+      allow delete: if isValidId(teamId) && isAdmin();
+
+      match /members/{memberId} {
+        allow get: if isValidId(teamId) && isValidId(memberId)
+          && isGenuineGoogleUser()
+          && exists(/databases/$(database)/documents/teams/$(teamId));
+        allow list: if isGenuineGoogleUser() && existing().spokeCount >= 0;
+        allow create: if isValidId(teamId) && isValidId(memberId)
+          && isAdmin()
+          && isValidTeamMember(incoming())
+          && exists(/databases/$(database)/documents/teams/$(teamId))
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(teamId) && isValidId(memberId)
+          && isAdmin()
+          && isValidTeamMember(incoming())
+          && exists(/databases/$(database)/documents/teams/$(teamId))
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'spokeCount', 'updatedAt']);
+        allow delete: if isValidId(teamId) && isValidId(memberId) && isAdmin();
+      }
+
+      match /scores/{scoreId} {
+        allow get: if isValidId(teamId) && isValidId(scoreId)
+          && isGenuineGoogleUser()
+          && exists(/databases/$(database)/documents/teams/$(teamId));
+        allow list: if isGenuineGoogleUser() && existing().total >= 0;
+        allow create: if isValidId(teamId) && isValidId(scoreId)
+          && isAdmin()
+          && isValidTeamScore(incoming())
+          && exists(/databases/$(database)/documents/teams/$(teamId))
+          && incoming().recordedByUid == request.auth.uid
+          && incoming().createdAt == request.time;
+        allow update: if false;
+        allow delete: if isValidId(teamId) && isValidId(scoreId) && isAdmin();
+      }
+    }
+
+    match /prepItems/{itemId} {
+      allow get: if isValidId(itemId) && isGenuineGoogleUser() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isGenuineGoogleUser() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(itemId)
+        && isGenuineGoogleUser()
+        && isValidPrepItem(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(itemId)
+        && isGenuineGoogleUser()
+        && isValidPrepItem(incoming())
+        && (existing().ownerId == request.auth.uid || isAdmin())
+        && incoming().ownerId == existing().ownerId
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['label', 'category', 'completed', 'updatedAt']);
+      allow delete: if isValidId(itemId)
+        && isGenuineGoogleUser()
+        && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+  }
+}

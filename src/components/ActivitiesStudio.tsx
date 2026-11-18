@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   CheckCircle2,
   Eye,
@@ -23,6 +23,7 @@ import {
   STORY_RELAY_CARDS,
   WORKPLACE_MISTAKES,
 } from '../data/workshopData';
+import { ConnectionPostDoc, LearnerWorkspaceDoc } from '../services/firestoreService';
 import { StageTimer } from './StageTimer';
 import { VisualArtwork } from './VisualArtwork';
 
@@ -30,6 +31,10 @@ interface ActivitiesStudioProps {
   activeActivityNumber: number;
   onSelectActivity: (num: number) => void;
   onGoToChampionship: () => void;
+  sharedPerspectives: ConnectionPostDoc[];
+  onAddPerspective: (sceneTitle: string, text: string) => Promise<void>;
+  workspace: LearnerWorkspaceDoc;
+  onSaveWorkspace: (patch: Partial<Omit<LearnerWorkspaceDoc, 'ownerId'>>) => Promise<void>;
 }
 
 const ACT1_PICTURES: { title: string; artwork: ArtworkId }[] = [
@@ -43,16 +48,31 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
   activeActivityNumber,
   onSelectActivity,
   onGoToChampionship,
+  sharedPerspectives,
+  onAddPerspective,
+  workspace,
+  onSaveWorkspace,
 }) => {
   const activity =
     ACTIVITIES.find((a) => a.number === activeActivityNumber) ?? ACTIVITIES[0];
 
   // Activity 1 State
   const [act1PicIdx, setAct1PicIdx] = useState(0);
-  const [perspectives, setPerspectives] = useState<string[]>(
-    ACTIVITY_1_DEFAULT_INTERPRETATIONS
-  );
   const [newPerspective, setNewPerspective] = useState('');
+  const [savingPerspective, setSavingPerspective] = useState(false);
+
+  const combinedPerspectives = [
+    ...ACTIVITY_1_DEFAULT_INTERPRETATIONS.map((text, idx) => ({
+      id: `default-${idx}`,
+      text,
+      authorName: 'Sample',
+    })),
+    ...sharedPerspectives.map((p) => ({
+      id: p.id,
+      text: p.title,
+      authorName: p.authorName,
+    })),
+  ];
 
   // Activity 2 State
   const [pairIdx, setPairIdx] = useState(0);
@@ -63,7 +83,7 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
     rightArtwork: ArtworkId;
   } | null>(null);
   const [showPairAnswer, setShowPairAnswer] = useState(false);
-  const [act2Pitch, setAct2Pitch] = useState('');
+  const [act2Pitch, setAct2Pitch] = useState(workspace.act2Pitch || '');
 
   // Activity 3 State
   const [relayStep, setRelayStep] = useState(1);
@@ -75,14 +95,14 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
   const [memoryVisible, setMemoryVisible] = useState(false);
   const [memoryHardMode, setMemoryHardMode] = useState(false);
   const [memoryShowAnswers, setMemoryShowAnswers] = useState(false);
-  const [memoryObserved, setMemoryObserved] = useState('');
-  const [memoryMissing, setMemoryMissing] = useState('');
-  const [memoryBeforeAfter, setMemoryBeforeAfter] = useState('');
+  const [memoryObserved, setMemoryObserved] = useState(workspace.act4Observed || '');
+  const [memoryMissing, setMemoryMissing] = useState(workspace.act4Missing || '');
+  const [memoryBeforeAfter, setMemoryBeforeAfter] = useState(workspace.act4BeforeAfter || '');
 
   // Activity 5 State
   const [profIdx, setProfIdx] = useState(0);
   const [profRevealed, setProfRevealed] = useState(false);
-  const [ceoSolution, setCeoSolution] = useState('');
+  const [ceoSolution, setCeoSolution] = useState(workspace.act5CeoSolution || '');
   const [showCeoSample, setShowCeoSample] = useState(false);
 
   // Activity 6 State
@@ -93,38 +113,80 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
   const [sellIdx, setSellIdx] = useState(0);
   const [showSellSample, setShowSellSample] = useState(false);
   const [pitchData, setPitchData] = useState({
-    name: '',
-    tagline: '',
-    audience: '',
+    name: workspace.act7PitchName || '',
+    tagline: workspace.act7PitchTagline || '',
+    audience: workspace.act7PitchAudience || '',
     usp1: '',
     usp2: '',
     usp3: '',
-    script: '',
+    script: workspace.act7PitchScript || '',
   });
 
   // Activity 8 State
   const [empathyData, setEmpathyData] = useState({
-    emotion: '',
-    situation: '',
-    perspective: '',
-    response: '',
+    emotion: workspace.act8Emotion || '',
+    situation: workspace.act8Situation || '',
+    perspective: workspace.act8Perspective || '',
+    response: workspace.act8Response || '',
   });
 
   // Activity 9 State
   const [discoveredClues, setDiscoveredClues] = useState<string[]>([BOARDROOM_CLUES[0].id]);
   const [activeClueId, setActiveClueId] = useState<string>(BOARDROOM_CLUES[0].id);
-  const [boardroomProposal, setBoardroomProposal] = useState('');
+  const [boardroomProposal, setBoardroomProposal] = useState(workspace.act9Proposal || '');
 
   // Activity 10 State
   const [finaleCards, setFinaleCards] = useState(FINALE_SIX_PICTURES);
-  const [finaleTheme, setFinaleTheme] = useState('');
-  const [finaleNotes, setFinaleNotes] = useState('');
+  const [finaleTheme, setFinaleTheme] = useState(workspace.act10Theme || '');
+  const [finaleNotes, setFinaleNotes] = useState(workspace.act10Notes || '');
+  const [workspaceSavedMsg, setWorkspaceSavedMsg] = useState<string | null>(null);
+  const hydratedRef = useRef(false);
 
-  const handleAddPerspective = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!workspace.ownerId || hydratedRef.current) return;
+    hydratedRef.current = true;
+    const usps = (workspace.act7PitchUsps || '').split('|').map((s) => s.trim());
+    setAct2Pitch(workspace.act2Pitch || '');
+    setMemoryObserved(workspace.act4Observed || '');
+    setMemoryMissing(workspace.act4Missing || '');
+    setMemoryBeforeAfter(workspace.act4BeforeAfter || '');
+    setCeoSolution(workspace.act5CeoSolution || '');
+    setPitchData({
+      name: workspace.act7PitchName || '',
+      tagline: workspace.act7PitchTagline || '',
+      audience: workspace.act7PitchAudience || '',
+      usp1: usps[0] || '',
+      usp2: usps[1] || '',
+      usp3: usps[2] || '',
+      script: workspace.act7PitchScript || '',
+    });
+    setEmpathyData({
+      emotion: workspace.act8Emotion || '',
+      situation: workspace.act8Situation || '',
+      perspective: workspace.act8Perspective || '',
+      response: workspace.act8Response || '',
+    });
+    setBoardroomProposal(workspace.act9Proposal || '');
+    setFinaleTheme(workspace.act10Theme || '');
+    setFinaleNotes(workspace.act10Notes || '');
+  }, [workspace]);
+
+  const persistDraft = async (patch: Partial<Omit<LearnerWorkspaceDoc, 'ownerId'>>) => {
+    await onSaveWorkspace(patch);
+    setWorkspaceSavedMsg('Saved to your verified account');
+    window.setTimeout(() => setWorkspaceSavedMsg(null), 2200);
+  };
+
+  const handleAddPerspective = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPerspective.trim()) return;
-    setPerspectives((prev) => [...prev, newPerspective.trim()]);
-    setNewPerspective('');
+    if (!newPerspective.trim() || savingPerspective) return;
+    setSavingPerspective(true);
+    try {
+      await onAddPerspective(ACT1_PICTURES[act1PicIdx].title, newPerspective.trim());
+      setNewPerspective('');
+    } finally {
+      setSavingPerspective(false);
+    }
   };
 
   const handleShufflePair = () => {
@@ -305,19 +367,24 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
                 <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                   <span>Live Classroom Perspectives</span>
                   <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-white">
-                    {perspectives.length} / 50 captured
+                    {combinedPerspectives.length} / 50 captured
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {perspectives.map((item, idx) => (
+                  {combinedPerspectives.map((item, idx) => (
                     <div
-                      key={`${item}-${idx}`}
-                      className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 flex items-start gap-2"
+                      key={item.id}
+                      className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 flex items-start justify-between gap-2"
                     >
-                      <span className="font-mono text-slate-400 shrink-0">
-                        {String(idx + 1).padStart(2, '0')}
+                      <div className="flex items-start gap-2">
+                        <span className="font-mono text-slate-400 shrink-0">
+                          {String(idx + 1).padStart(2, '0')}
+                        </span>
+                        <span>{item.text}</span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">
+                        {item.authorName}
                       </span>
-                      <span>{item}</span>
                     </div>
                   ))}
                 </div>
@@ -1194,6 +1261,43 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
                 >
                   <Trophy className="w-4 h-4" />
                   <span>Score Teams in Championship Rubric</span>
+                </button>
+              </div>
+            )}
+
+            {[2, 4, 5, 7, 8, 9, 10].includes(activity.number) && (
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                <span className="text-[11px] text-emerald-700 dark:text-emerald-400">
+                  {workspaceSavedMsg || ''}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    persistDraft({
+                      act2Pitch,
+                      act4Observed: memoryObserved,
+                      act4Missing: memoryMissing,
+                      act4BeforeAfter: memoryBeforeAfter,
+                      act5CeoSolution: ceoSolution,
+                      act7PitchName: pitchData.name,
+                      act7PitchTagline: pitchData.tagline,
+                      act7PitchAudience: pitchData.audience,
+                      act7PitchUsps: [pitchData.usp1, pitchData.usp2, pitchData.usp3]
+                        .filter(Boolean)
+                        .join(' | '),
+                      act7PitchScript: pitchData.script,
+                      act8Emotion: empathyData.emotion,
+                      act8Situation: empathyData.situation,
+                      act8Perspective: empathyData.perspective,
+                      act8Response: empathyData.response,
+                      act9Proposal: boardroomProposal,
+                      act10Theme: finaleTheme,
+                      act10Notes: finaleNotes,
+                    })
+                  }
+                  className="px-3.5 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold cursor-pointer"
+                >
+                  Save My Draft
                 </button>
               </div>
             )}

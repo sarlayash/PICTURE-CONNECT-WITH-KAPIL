@@ -1,0 +1,272 @@
+{
+  "entities": {
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "Verified Google-authenticated user profile for Picture Connect with Kapil.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Authentication UID."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Verified display name from Google profile."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 160,
+          "description": "Verified Google email address (PII)."
+        },
+        "photoURL": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Google avatar URL."
+        },
+        "providerId": {
+          "type": "string",
+          "enum": ["google.com"],
+          "description": "Sign-in provider, strictly google.com."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["learner"],
+          "description": "Assigned default role on creation."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": ["uid", "displayName", "email", "providerId", "role", "createdAt", "updatedAt"]
+    },
+    "ConnectionPost": {
+      "title": "ConnectionPost",
+      "description": "Shared learner submission for Central Concept, Activity 1 Perspectives, or Surprise Challenges.",
+      "type": "object",
+      "properties": {
+        "authorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Authenticated author UID."
+        },
+        "authorName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Author display name."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["concept", "perspective", "challenge"],
+          "description": "Submission category."
+        },
+        "promptRef": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Identifier of the picture or challenge."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Connection headline or perspective."
+        },
+        "body": {
+          "type": "string",
+          "maxLength": 600,
+          "description": "Reasoning behind the connection."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        }
+      },
+      "required": ["authorId", "authorName", "kind", "promptRef", "title", "body", "createdAt"]
+    },
+    "LearnerWorkspace": {
+      "title": "LearnerWorkspace",
+      "description": "Private learner response notebook across Activities 2 to 10.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Authenticated owner UID."
+        },
+        "act2Pitch": { "type": "string", "maxLength": 1000 },
+        "act4Observed": { "type": "string", "maxLength": 500 },
+        "act4Missing": { "type": "string", "maxLength": 500 },
+        "act4BeforeAfter": { "type": "string", "maxLength": 800 },
+        "act5CeoSolution": { "type": "string", "maxLength": 1000 },
+        "act7PitchName": { "type": "string", "maxLength": 120 },
+        "act7PitchTagline": { "type": "string", "maxLength": 160 },
+        "act7PitchAudience": { "type": "string", "maxLength": 200 },
+        "act7PitchUsps": { "type": "string", "maxLength": 600 },
+        "act7PitchScript": { "type": "string", "maxLength": 1000 },
+        "act8Emotion": { "type": "string", "maxLength": 300 },
+        "act8Situation": { "type": "string", "maxLength": 300 },
+        "act8Perspective": { "type": "string", "maxLength": 300 },
+        "act8Response": { "type": "string", "maxLength": 500 },
+        "act9Proposal": { "type": "string", "maxLength": 1200 },
+        "act10Theme": { "type": "string", "maxLength": 200 },
+        "act10Notes": { "type": "string", "maxLength": 1200 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "updatedAt"]
+    },
+    "Team": {
+      "title": "Team",
+      "description": "Championship team metadata (10 teams of 5-6 learners).",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "order": {
+          "type": "number"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["name", "order", "updatedAt"]
+    },
+    "TeamMember": {
+      "title": "TeamMember",
+      "description": "Team member role assignment and participation count.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "role": {
+          "type": "string",
+          "enum": ["Leader", "Speaker", "Observer", "Creator", "Presenter"]
+        },
+        "spokeCount": {
+          "type": "number"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["name", "role", "spokeCount", "updatedAt"]
+    },
+    "TeamScore": {
+      "title": "TeamScore",
+      "description": "Official 100-point rubric evaluation for a team round.",
+      "type": "object",
+      "properties": {
+        "activityTitle": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "studentJudge1": { "type": "number" },
+        "studentJudge2": { "type": "number" },
+        "facultyJudge": { "type": "number" },
+        "creativity": { "type": "number" },
+        "logic": { "type": "number" },
+        "clarity": { "type": "number" },
+        "participation": { "type": "number" },
+        "confidence": { "type": "number" },
+        "time": { "type": "number" },
+        "total": { "type": "number" },
+        "notes": { "type": "string", "maxLength": 400 },
+        "recordedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "activityTitle",
+        "studentJudge1",
+        "studentJudge2",
+        "facultyJudge",
+        "creativity",
+        "logic",
+        "clarity",
+        "participation",
+        "confidence",
+        "time",
+        "total",
+        "notes",
+        "recordedByUid",
+        "createdAt"
+      ]
+    },
+    "PrepItem": {
+      "title": "PrepItem",
+      "description": "Facilitator preparation checklist item.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "completed": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "label", "category", "completed", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "Verified Google learner and facilitator user accounts."
+    },
+    "/connections/{connectionId}": {
+      "schema": { "$ref": "#/entities/ConnectionPost" },
+      "description": "Shared learner perspectives, concept links, and challenge reflections."
+    },
+    "/learnerWorkspaces/{userId}": {
+      "schema": { "$ref": "#/entities/LearnerWorkspace" },
+      "description": "Personal learner activity notes across Activities 2-10."
+    },
+    "/teams/{teamId}": {
+      "schema": { "$ref": "#/entities/Team" },
+      "description": "Championship team definitions."
+    },
+    "/teams/{teamId}/members/{memberId}": {
+      "schema": { "$ref": "#/entities/TeamMember" },
+      "description": "Team member role assignments and speaking tracker."
+    },
+    "/teams/{teamId}/scores/{scoreId}": {
+      "schema": { "$ref": "#/entities/TeamScore" },
+      "description": "Official 100-point rubric round scores."
+    },
+    "/prepItems/{itemId}": {
+      "schema": { "$ref": "#/entities/PrepItem" },
+      "description": "Facilitator preparation checklist items."
+    }
+  }
+}

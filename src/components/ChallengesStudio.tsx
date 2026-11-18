@@ -1,14 +1,23 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Plus, Shuffle } from 'lucide-react';
 import { SURPRISE_CHALLENGES } from '../data/workshopData';
+import { ConnectionPostDoc } from '../services/firestoreService';
 import { StageTimer } from './StageTimer';
 import { VisualArtwork } from './VisualArtwork';
 
-export const ChallengesStudio: React.FC = () => {
+interface ChallengesStudioProps {
+  sharedReflections: ConnectionPostDoc[];
+  onAddReflection: (challengeId: string, challengeTitle: string, body: string) => Promise<void>;
+}
+
+export const ChallengesStudio: React.FC<ChallengesStudioProps> = ({
+  sharedReflections,
+  onAddReflection,
+}) => {
   const [selectedId, setSelectedId] = useState(SURPRISE_CHALLENGES[0].id);
   const [revealPrompt, setRevealPrompt] = useState(true);
-  const [notesByChallenge, setNotesByChallenge] = useState<Record<string, string[]>>({});
   const [draftNote, setDraftNote] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const active =
     SURPRISE_CHALLENGES.find((c) => c.id === selectedId) ?? SURPRISE_CHALLENGES[0];
@@ -20,17 +29,19 @@ export const ChallengesStudio: React.FC = () => {
     setRevealPrompt(false);
   };
 
-  const handleAddReflection = (e: React.FormEvent) => {
+  const handleAddReflection = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!draftNote.trim()) return;
-    setNotesByChallenge((prev) => ({
-      ...prev,
-      [active.id]: [...(prev[active.id] || []), draftNote.trim()],
-    }));
-    setDraftNote('');
+    if (!draftNote.trim() || saving) return;
+    setSaving(true);
+    try {
+      await onAddReflection(active.id, active.title, draftNote.trim());
+      setDraftNote('');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const savedNotes = notesByChallenge[active.id] || [];
+  const savedNotes = sharedReflections.filter((r) => r.promptRef === active.id);
 
   return (
     <div className="space-y-6">
@@ -136,11 +147,12 @@ export const ChallengesStudio: React.FC = () => {
 
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-3">
             <div className="font-display font-semibold text-sm text-slate-900 dark:text-white">
-              Learner Voices &amp; Reflections
+              Verified Learner Voices &amp; Reflections
             </div>
             <form onSubmit={handleAddReflection} className="space-y-2.5">
               <textarea
                 rows={3}
+                maxLength={600}
                 value={draftNote}
                 onChange={(e) => setDraftNote(e.target.value)}
                 placeholder={`Share your honest perspective on: ${active.question}`}
@@ -148,10 +160,11 @@ export const ChallengesStudio: React.FC = () => {
               />
               <button
                 type="submit"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold cursor-pointer"
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold cursor-pointer disabled:opacity-50"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Capture Reflection</span>
+                <span>{saving ? 'Saving...' : 'Share Reflection'}</span>
               </button>
             </form>
 
@@ -159,13 +172,13 @@ export const ChallengesStudio: React.FC = () => {
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2 max-h-56 overflow-y-auto">
                 {savedNotes.map((note, idx) => (
                   <div
-                    key={`${note}-${idx}`}
-                    className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300"
+                    key={note.id}
+                    className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 space-y-0.5"
                   >
-                    <span className="font-mono text-slate-400 mr-1.5">
-                      {String(idx + 1).padStart(2, '0')}
-                    </span>
-                    {note}
+                    <div className="text-[11px] font-semibold text-slate-900 dark:text-white">
+                      {String(idx + 1).padStart(2, '0')} · {note.authorName}
+                    </div>
+                    <div>{note.body}</div>
                   </div>
                 ))}
               </div>

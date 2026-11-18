@@ -1,12 +1,42 @@
-import { useEffect, useState } from 'react';
-import { MonitorPlay, Moon, Sun } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { LogOut, MonitorPlay, Moon, ShieldCheck, Sun } from 'lucide-react';
 import {
-  createInitialTeams,
-  DEFAULT_PREP_CHECKLIST,
   PrepItem,
+  RoundScore,
   TeamRecord,
+  TeamRole,
   WORKSHOP_META,
 } from './data/workshopData';
+import {
+  auth,
+  isFacilitatorAdmin,
+  isGenuineGoogleUser,
+  signOutUser,
+} from './firebase';
+import {
+  addTeamMemberFirestore,
+  ConnectionPostDoc,
+  createConnectionPost,
+  createPrepItemDoc,
+  deleteTeamScoreFirestore,
+  LearnerWorkspaceDoc,
+  recordTeamScoreFirestore,
+  rotateSpeakersFirestore,
+  saveLearnerWorkspace,
+  seedDefaultPrepItems,
+  seedDefaultTeamsFirestore,
+  subscribeChampionshipTeams,
+  subscribeConnections,
+  subscribeLearnerWorkspace,
+  subscribePrepItems,
+  togglePrepItemDoc,
+  updateTeamMemberFirestore,
+  updateTeamNameFirestore,
+  upsertUserAccount,
+} from './services/firestoreService';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { GoogleAuthGate } from './components/GoogleAuthGate';
 import { OverviewStudio } from './components/OverviewStudio';
 import { ActivitiesStudio } from './components/ActivitiesStudio';
 import { ChallengesStudio } from './components/ChallengesStudio';
@@ -16,95 +46,108 @@ import { StageProjectorModal } from './components/StageProjectorModal';
 
 type AppView = 'overview' | 'activities' | 'challenges' | 'championship' | 'playbook';
 
-interface LearnerConnection {
-  id: string;
-  picture: string;
-  concept: string;
-  explanation: string;
-}
+const THEME_STORAGE_KEY = 'pcwk_theme_v1';
 
-const STORAGE_KEYS = {
-  teams: 'pcwk_teams_v1',
-  prep: 'pcwk_prep_v1',
-  connections: 'pcwk_connections_v1',
-  theme: 'pcwk_theme_v1',
-};
+function PictureConnectWorkspace() {
+  const [authReady, setAuthReady] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-export default function App() {
   const [view, setView] = useState<AppView>('overview');
   const [activeActivityNumber, setActiveActivityNumber] = useState<number>(1);
   const [stageOpen, setStageOpen] = useState(false);
 
+  const [connections, setConnections] = useState<ConnectionPostDoc[]>([]);
+  const [workspace, setWorkspace] = useState<LearnerWorkspaceDoc>({ ownerId: '' });
+  const [teams, setTeams] = useState<TeamRecord[]>([]);
+  const [prepItems, setPrepItems] = useState<PrepItem[]>([]);
+  const seededPrepRef = useRef<string | null>(null);
+
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     try {
-      return localStorage.getItem(STORAGE_KEYS.theme) === 'dark';
+      return localStorage.getItem(THEME_STORAGE_KEY) === 'dark';
     } catch {
       return false;
-    }
-  });
-
-  const [teams, setTeams] = useState<TeamRecord[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.teams);
-      return saved ? (JSON.parse(saved) as TeamRecord[]) : createInitialTeams();
-    } catch {
-      return createInitialTeams();
-    }
-  });
-
-  const [prepItems, setPrepItems] = useState<PrepItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.prep);
-      return saved ? (JSON.parse(saved) as PrepItem[]) : DEFAULT_PREP_CHECKLIST;
-    } catch {
-      return DEFAULT_PREP_CHECKLIST;
-    }
-  });
-
-  const [learnerConnections, setLearnerConnections] = useState<LearnerConnection[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.connections);
-      return saved ? (JSON.parse(saved) as LearnerConnection[]) : [];
-    } catch {
-      return [];
     }
   });
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
     try {
-      localStorage.setItem(STORAGE_KEYS.theme, darkMode ? 'dark' : 'light');
+      localStorage.setItem(THEME_STORAGE_KEY, darkMode ? 'dark' : 'light');
     } catch {
       // Ignore storage quota errors
     }
   }, [darkMode]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.teams, JSON.stringify(teams));
-    } catch {
-      // Ignore storage quota errors
-    }
-  }, [teams]);
+    const unsub = onAuthStateChanged(auth, async (nextUser) => {
+      if (!nextUser) {
+        setUser(null);
+        setAuthReady(true);
+        return;
+      }
+
+      if (!isGenuineGoogleUser(nextUser)) {
+        setAuthError(
+          'Only genuine, verified Google accounts are permitted. Non-Google or unverified accounts have been signed out.'
+        );
+        await signOutUser();
+        setUser(null);
+        setAuthReady(true);
+        return;
+      }
+
+      setAuthError(null);
+      setUser(nextUser);
+      setAuthReady(true);
+      try {
+        await upsertUserAccount(nextUser);
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.prep, JSON.stringify(prepItems));
-    } catch {
-      // Ignore storage quota errors
-    }
-  }, [prepItems]);
+    if (!authReady || !user) return;
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        STORAGE_KEYS.connections,
-        JSON.stringify(learnerConnections)
-      );
-    } catch {
-      // Ignore storage quota errors
-    }
-  }, [learnerConnections]);
+    const unsubConnections = subscribeConnections(setConnections);
+    const unsubWorkspace = subscribeLearnerWorkspace(user.uid, setWorkspace);
+    const unsubTeams = subscribeChampionshipTeams(setTeams);
+    const unsubPrep = subscribePrepItems(user.uid, (items) => {
+      setPrepItems(items);
+      if (items.length === 0 && seededPrepRef.current !== user.uid) {
+        seededPrepRef.current = user.uid;
+        seedDefaultPrepItems(user.uid).catch(console.error);
+      }
+    });
+
+    return () => {
+      unsubConnections();
+      unsubWorkspace();
+      unsubTeams();
+      unsubPrep();
+    };
+  }, [authReady, user]);
+
+  if (!authReady) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6">
+        <div className="text-sm font-medium text-slate-600 dark:text-slate-300">
+          Verifying Google session...
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <GoogleAuthGate authError={authError} />;
+  }
+
+  const admin = isFacilitatorAdmin(user);
 
   const handleNavigateView = (target: AppView, activityNum?: number) => {
     if (activityNum) {
@@ -114,31 +157,21 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleAddConnection = (
-    picture: string,
-    concept: string,
-    explanation: string
-  ) => {
-    setLearnerConnections((prev) => [
-      { id: `conn-${Date.now()}`, picture, concept, explanation },
-      ...prev,
-    ]);
-  };
+  const conceptConnections = connections
+    .filter((c) => c.kind === 'concept')
+    .map((c) => {
+      const parts = c.title.split('+').map((s) => s.trim());
+      return {
+        id: c.id,
+        picture: parts[0] || c.promptRef,
+        concept: parts[1] || 'Connection',
+        explanation: c.body,
+        authorName: c.authorName,
+      };
+    });
 
-  const handleTogglePrep = (id: string) => {
-    setPrepItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, completed: !item.completed } : item
-      )
-    );
-  };
-
-  const handleAddPrepItem = (label: string, category: string) => {
-    setPrepItems((prev) => [
-      ...prev,
-      { id: `prep-${Date.now()}`, label, category, completed: false },
-    ]);
-  };
+  const perspectivePosts = connections.filter((c) => c.kind === 'perspective');
+  const challengePosts = connections.filter((c) => c.kind === 'challenge');
 
   const navItems: { id: AppView; label: string }[] = [
     { id: 'overview', label: 'Overview' },
@@ -153,7 +186,6 @@ export default function App() {
       {/* Strict 3-Zone Top Bar Contract */}
       <header className="no-print sticky top-0 z-30 bg-white/95 dark:bg-slate-950/95 backdrop-blur border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-8">
-          {/* Zone 1: Single-line Brand Wordmark */}
           <button
             type="button"
             onClick={() => handleNavigateView('overview')}
@@ -162,7 +194,6 @@ export default function App() {
             {WORKSHOP_META.shortTitle}
           </button>
 
-          {/* Zone 2: 5 concise single-line nav links */}
           <nav
             aria-label="Primary navigation"
             className="hidden md:flex items-center gap-6 text-sm font-medium"
@@ -186,7 +217,6 @@ export default function App() {
             })}
           </nav>
 
-          {/* Zone 3: 1 Primary Action */}
           <div className="shrink-0">
             <button
               type="button"
@@ -199,7 +229,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Mobile Navigation Strip */}
         <div className="md:hidden border-t border-slate-100 dark:border-slate-900 px-3 py-1.5 flex items-center gap-1 overflow-x-auto">
           {navItems.map((item) => {
             const active = view === item.id;
@@ -222,12 +251,45 @@ export default function App() {
       </header>
 
       {/* Main Content Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* Verified Google Identity Workspace Strip */}
+        <div className="no-print flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200/70 dark:border-slate-800/80 text-xs text-slate-600 dark:text-slate-400">
+          <div className="flex flex-wrap items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span className="font-semibold text-slate-900 dark:text-white">
+              {user.displayName || 'Verified Learner'}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>{user.email}</span>
+            <span aria-hidden="true">·</span>
+            <span className="font-medium text-blue-700 dark:text-blue-400">
+              {admin ? 'Facilitator Admin' : 'Verified Google Learner'}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => signOutUser()}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign Out</span>
+          </button>
+        </div>
+
         {view === 'overview' && (
           <OverviewStudio
             onNavigateView={handleNavigateView}
-            learnerConnections={learnerConnections}
-            onAddConnection={handleAddConnection}
+            learnerConnections={conceptConnections}
+            onAddConnection={async (picture, concept, explanation) => {
+              await createConnectionPost(
+                user,
+                'concept',
+                'central-concept',
+                `${picture} + ${concept}`,
+                explanation
+              );
+            }}
           />
         )}
 
@@ -236,20 +298,66 @@ export default function App() {
             activeActivityNumber={activeActivityNumber}
             onSelectActivity={setActiveActivityNumber}
             onGoToChampionship={() => handleNavigateView('championship')}
+            sharedPerspectives={perspectivePosts}
+            onAddPerspective={async (sceneTitle, text) => {
+              await createConnectionPost(
+                user,
+                'perspective',
+                sceneTitle,
+                text,
+                sceneTitle
+              );
+            }}
+            workspace={workspace}
+            onSaveWorkspace={async (patch) => {
+              await saveLearnerWorkspace(user.uid, patch);
+            }}
           />
         )}
 
-        {view === 'challenges' && <ChallengesStudio />}
+        {view === 'challenges' && (
+          <ChallengesStudio
+            sharedReflections={challengePosts}
+            onAddReflection={async (challengeId, challengeTitle, body) => {
+              await createConnectionPost(
+                user,
+                'challenge',
+                challengeId,
+                challengeTitle,
+                body
+              );
+            }}
+          />
+        )}
 
         {view === 'championship' && (
-          <ChampionshipArena teams={teams} onUpdateTeams={setTeams} />
+          <ChampionshipArena
+            teams={teams}
+            isAdmin={admin}
+            onSeedTeams={seedDefaultTeamsFirestore}
+            onUpdateTeamName={updateTeamNameFirestore}
+            onRotateAllSpeakers={() => rotateSpeakersFirestore(teams)}
+            onUpdateMember={updateTeamMemberFirestore}
+            onAddMember={addTeamMemberFirestore}
+            onRecordScore={(teamId, score: Omit<RoundScore, 'id' | 'recordedAt'>) =>
+              recordTeamScoreFirestore(teamId, user, score)
+            }
+            onDeleteScore={deleteTeamScoreFirestore}
+          />
         )}
 
         {view === 'playbook' && (
           <PlaybookView
             prepItems={prepItems}
-            onTogglePrep={handleTogglePrep}
-            onAddPrepItem={handleAddPrepItem}
+            onTogglePrep={async (id) => {
+              const target = prepItems.find((i) => i.id === id);
+              if (target) {
+                await togglePrepItemDoc(id, !target.completed);
+              }
+            }}
+            onAddPrepItem={async (label, category) => {
+              await createPrepItemDoc(user.uid, label, category);
+            }}
           />
         )}
       </main>
@@ -277,12 +385,19 @@ export default function App() {
         </div>
       </footer>
 
-      {/* Distraction-Free Fullscreen Projector Stage */}
       <StageProjectorModal
         open={stageOpen}
         onClose={() => setStageOpen(false)}
         initialActivityNumber={activeActivityNumber}
       />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <PictureConnectWorkspace />
+    </ErrorBoundary>
   );
 }

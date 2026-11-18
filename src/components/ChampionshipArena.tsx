@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   CheckCircle2,
   Download,
+  Lock,
   Plus,
   RefreshCw,
   Trash2,
@@ -15,20 +16,43 @@ import {
   TEAM_ROLES,
   TeamRecord,
   TeamRole,
+  RoundScore,
 } from '../data/workshopData';
 
 interface ChampionshipArenaProps {
   teams: TeamRecord[];
-  onUpdateTeams: (teams: TeamRecord[]) => void;
+  isAdmin: boolean;
+  onSeedTeams: () => Promise<void>;
+  onUpdateTeamName: (teamId: string, name: string) => Promise<void>;
+  onRotateAllSpeakers: () => Promise<void>;
+  onUpdateMember: (
+    teamId: string,
+    memberId: string,
+    patch: Partial<{ name: string; role: TeamRole; spokeCount: number }>
+  ) => Promise<void>;
+  onAddMember: (teamId: string, name: string, role: TeamRole) => Promise<void>;
+  onRecordScore: (
+    teamId: string,
+    score: Omit<RoundScore, 'id' | 'recordedAt'>
+  ) => Promise<void>;
+  onDeleteScore: (teamId: string, scoreId: string) => Promise<void>;
 }
 
 export const ChampionshipArena: React.FC<ChampionshipArenaProps> = ({
   teams,
-  onUpdateTeams,
+  isAdmin,
+  onSeedTeams,
+  onUpdateTeamName,
+  onRotateAllSpeakers,
+  onUpdateMember,
+  onAddMember,
+  onRecordScore,
+  onDeleteScore,
 }) => {
   const [selectedTeamId, setSelectedTeamId] = useState(teams[0]?.id || 'team-1');
   const [activityLabel, setActivityLabel] = useState(ACTIVITIES[9].title);
   const [newMemberName, setNewMemberName] = useState('');
+  const [seeding, setSeeding] = useState(false);
   const [criteriaScores, setCriteriaScores] = useState<
     Record<RubricCriterion['id'], number>
   >({
@@ -46,7 +70,6 @@ export const ChampionshipArena: React.FC<ChampionshipArenaProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'scoreboard' | 'rosters' | 'history'>('scoreboard');
 
   const selectedTeam = teams.find((t) => t.id === selectedTeamId) ?? teams[0];
-
   const rubricTotal = Object.values(criteriaScores).reduce((sum, val) => sum + val, 0);
 
   const rankedTeams = [...teams]
@@ -65,12 +88,20 @@ export const ChampionshipArena: React.FC<ChampionshipArenaProps> = ({
     0
   );
 
-  const handleRecordScore = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedTeam) return;
+  const handleSeed = async () => {
+    setSeeding(true);
+    try {
+      await onSeedTeams();
+    } finally {
+      setSeeding(false);
+    }
+  };
 
-    const newScore = {
-      id: `score-${Date.now()}`,
+  const handleRecordScore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTeam || !isAdmin) return;
+
+    await onRecordScore(selectedTeam.id, {
       activityTitle: activityLabel,
       judgePanel: {
         studentJudge1,
@@ -80,111 +111,16 @@ export const ChampionshipArena: React.FC<ChampionshipArenaProps> = ({
       criteria: { ...criteriaScores },
       total: rubricTotal,
       notes: judgeNotes.trim(),
-      recordedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    onUpdateTeams(
-      teams.map((t) =>
-        t.id === selectedTeam.id ? { ...t, scores: [newScore, ...t.scores] } : t
-      )
-    );
+    });
     setJudgeNotes('');
   };
 
-  const handleRotateSpeakers = (teamId?: string) => {
-    onUpdateTeams(
-      teams.map((team) => {
-        if (teamId && team.id !== teamId) return team;
-        if (team.members.length === 0) return team;
-        const rotated = team.members.map((member, idx) => {
-          const currentRoleIdx = TEAM_ROLES.indexOf(member.role);
-          const nextRole =
-            TEAM_ROLES[(currentRoleIdx + 1) % TEAM_ROLES.length] ?? TEAM_ROLES[idx % TEAM_ROLES.length];
-          return { ...member, role: nextRole };
-        });
-        return { ...team, members: rotated };
-      })
-    );
-  };
-
-  const handleToggleSpoke = (teamId: string, memberId: string) => {
-    onUpdateTeams(
-      teams.map((t) =>
-        t.id === teamId
-          ? {
-              ...t,
-              members: t.members.map((m) =>
-                m.id === memberId ? { ...m, spokeCount: m.spokeCount + 1 } : m
-              ),
-            }
-          : t
-      )
-    );
-  };
-
-  const handleUpdateTeamName = (teamId: string, name: string) => {
-    onUpdateTeams(teams.map((t) => (t.id === teamId ? { ...t, name } : t)));
-  };
-
-  const handleUpdateMemberName = (teamId: string, memberId: string, name: string) => {
-    onUpdateTeams(
-      teams.map((t) =>
-        t.id === teamId
-          ? {
-              ...t,
-              members: t.members.map((m) => (m.id === memberId ? { ...m, name } : m)),
-            }
-          : t
-      )
-    );
-  };
-
-  const handleUpdateMemberRole = (teamId: string, memberId: string, role: TeamRole) => {
-    onUpdateTeams(
-      teams.map((t) =>
-        t.id === teamId
-          ? {
-              ...t,
-              members: t.members.map((m) => (m.id === memberId ? { ...m, role } : m)),
-            }
-          : t
-      )
-    );
-  };
-
-  const handleAddMember = (e: React.FormEvent) => {
+  const handleAddMemberSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMemberName.trim() || !selectedTeam) return;
+    if (!newMemberName.trim() || !selectedTeam || !isAdmin) return;
     const role = TEAM_ROLES[selectedTeam.members.length % TEAM_ROLES.length];
-    onUpdateTeams(
-      teams.map((t) =>
-        t.id === selectedTeam.id
-          ? {
-              ...t,
-              members: [
-                ...t.members,
-                {
-                  id: `${t.id}-m-${Date.now()}`,
-                  name: newMemberName.trim(),
-                  role,
-                  spokeCount: 0,
-                },
-              ],
-            }
-          : t
-      )
-    );
+    await onAddMember(selectedTeam.id, newMemberName.trim(), role);
     setNewMemberName('');
-  };
-
-  const handleDeleteScore = (teamId: string, scoreId: string) => {
-    onUpdateTeams(
-      teams.map((t) =>
-        t.id === teamId
-          ? { ...t, scores: t.scores.filter((s) => s.id !== scoreId) }
-          : t
-      )
-    );
   };
 
   const handleExportReport = () => {
@@ -213,6 +149,36 @@ export const ChampionshipArena: React.FC<ChampionshipArenaProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  if (teams.length === 0) {
+    return (
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center space-y-4">
+        <h1 className="font-display text-2xl font-bold text-slate-950 dark:text-white">
+          The Picture Connect Championship
+        </h1>
+        {isAdmin ? (
+          <>
+            <p className="text-sm text-slate-600 dark:text-slate-300 max-w-lg mx-auto">
+              Initialize the 10 official Championship teams (5–6 learners per team) in Firestore so the entire class can follow live standings.
+            </p>
+            <button
+              type="button"
+              disabled={seeding}
+              onClick={handleSeed}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold cursor-pointer disabled:opacity-60"
+            >
+              <Trophy className="w-4 h-4" />
+              <span>{seeding ? 'Creating 10 Teams...' : 'Initialize 10 Championship Teams'}</span>
+            </button>
+          </>
+        ) : (
+          <p className="text-sm text-slate-600 dark:text-slate-300 max-w-lg mx-auto">
+            Waiting for Kapil (Facilitator Admin) to initialize the 10 Championship teams. Live standings will appear here automatically.
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -227,14 +193,22 @@ export const ChampionshipArena: React.FC<ChampionshipArenaProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => handleRotateSpeakers()}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer whitespace-nowrap"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Rotate All Speakers</span>
-          </button>
+          {!isAdmin && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300">
+              <Lock className="w-3.5 h-3.5" />
+              <span>Live Read-Only View (Facilitator Scores)</span>
+            </div>
+          )}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={onRotateAllSpeakers}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer whitespace-nowrap"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Rotate All Speakers</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={handleExportReport}
@@ -300,56 +274,57 @@ export const ChampionshipArena: React.FC<ChampionshipArenaProps> = ({
 
       {activeSubTab === 'scoreboard' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left: Live Judge Rubric Scorer */}
+          {/* Left: Live Judge Rubric Scorer (Facilitator Admin Only) */}
           <form
             onSubmit={handleRecordScore}
             className="lg:col-span-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4"
           >
             <div className="flex items-center justify-between">
               <h2 className="font-display text-lg font-semibold text-slate-950 dark:text-white">
-                Score a Team (100 Marks)
+                {isAdmin ? 'Score a Team (100 Marks)' : 'Official 100-Point Rubric'}
               </h2>
               <div className="font-mono tabular-nums text-2xl font-bold text-blue-700 dark:text-blue-400">
                 {rubricTotal} / 100
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Select Team
-                </label>
-                <select
-                  value={selectedTeam?.id}
-                  onChange={(e) => setSelectedTeamId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100"
-                >
-                  {teams.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
+            {isAdmin && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Select Team
+                  </label>
+                  <select
+                    value={selectedTeam?.id}
+                    onChange={(e) => setSelectedTeamId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100"
+                  >
+                    {teams.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Activity Scored
+                  </label>
+                  <select
+                    value={activityLabel}
+                    onChange={(e) => setActivityLabel(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100"
+                  >
+                    {ACTIVITIES.map((a) => (
+                      <option key={a.number} value={a.title}>
+                        Activity {a.number}: {a.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Activity Scored
-                </label>
-                <select
-                  value={activityLabel}
-                  onChange={(e) => setActivityLabel(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100"
-                >
-                  {ACTIVITIES.map((a) => (
-                    <option key={a.number} value={a.title}>
-                      Activity {a.number}: {a.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            )}
 
-            {/* 6 Official Rubric Sliders */}
             <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
               {RUBRIC_CRITERIA.map((criterion) => {
                 const value = criteriaScores[criterion.id];
@@ -360,22 +335,24 @@ export const ChampionshipArena: React.FC<ChampionshipArenaProps> = ({
                         {criterion.label}
                       </span>
                       <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-white">
-                        {value} / {criterion.maxMarks}
+                        {isAdmin ? `${value} / ${criterion.maxMarks}` : `${criterion.maxMarks} Marks`}
                       </span>
                     </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={criterion.maxMarks}
-                      value={value}
-                      onChange={(e) =>
-                        setCriteriaScores((prev) => ({
-                          ...prev,
-                          [criterion.id]: Number(e.target.value),
-                        }))
-                      }
-                      className="w-full accent-blue-700 cursor-pointer"
-                    />
+                    {isAdmin && (
+                      <input
+                        type="range"
+                        min={0}
+                        max={criterion.maxMarks}
+                        value={value}
+                        onChange={(e) =>
+                          setCriteriaScores((prev) => ({
+                            ...prev,
+                            [criterion.id]: Number(e.target.value),
+                          }))
+                        }
+                        className="w-full accent-blue-700 cursor-pointer"
+                      />
+                    )}
                     <div className="text-[11px] text-slate-500 dark:text-slate-400">
                       {criterion.guidance}
                     </div>
@@ -384,64 +361,68 @@ export const ChampionshipArena: React.FC<ChampionshipArenaProps> = ({
               })}
             </div>
 
-            {/* 3 Judge Verification Reference */}
-            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <div>
-                <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">
-                  Student Judge 1
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={studentJudge1}
-                  onChange={(e) => setStudentJudge1(Number(e.target.value))}
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 font-mono tabular-nums text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">
-                  Student Judge 2
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={studentJudge2}
-                  onChange={(e) => setStudentJudge2(Number(e.target.value))}
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 font-mono tabular-nums text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">
-                  Faculty Judge
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={facultyJudge}
-                  onChange={(e) => setFacultyJudge(Number(e.target.value))}
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 font-mono tabular-nums text-xs"
-                />
-              </div>
-            </div>
+            {isAdmin && (
+              <>
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <div>
+                    <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">
+                      Student Judge 1
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={studentJudge1}
+                      onChange={(e) => setStudentJudge1(Number(e.target.value))}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 font-mono tabular-nums text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">
+                      Student Judge 2
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={studentJudge2}
+                      onChange={(e) => setStudentJudge2(Number(e.target.value))}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 font-mono tabular-nums text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">
+                      Faculty Judge
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={facultyJudge}
+                      onChange={(e) => setFacultyJudge(Number(e.target.value))}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 font-mono tabular-nums text-xs"
+                    />
+                  </div>
+                </div>
 
-            <input
-              type="text"
-              value={judgeNotes}
-              onChange={(e) => setJudgeNotes(e.target.value)}
-              placeholder="Optional judge feedback (e.g., shyest speaker stepped up brilliantly)..."
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs"
-            />
+                <input
+                  type="text"
+                  maxLength={400}
+                  value={judgeNotes}
+                  onChange={(e) => setJudgeNotes(e.target.value)}
+                  placeholder="Optional judge feedback..."
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs"
+                />
 
-            <button
-              type="submit"
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold cursor-pointer"
-            >
-              <Trophy className="w-4 h-4" />
-              <span>Record Score for {selectedTeam?.name}</span>
-            </button>
+                <button
+                  type="submit"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold cursor-pointer"
+                >
+                  <Trophy className="w-4 h-4" />
+                  <span>Record Score for {selectedTeam?.name}</span>
+                </button>
+              </>
+            )}
           </form>
 
           {/* Right: Live Ranked Leaderboard */}
@@ -451,7 +432,7 @@ export const ChampionshipArena: React.FC<ChampionshipArenaProps> = ({
                 Championship Standings (10 Teams)
               </h2>
               <span className="text-xs text-slate-500 dark:text-slate-400">
-                Sorted by cumulative score
+                Real-time Firestore sync
               </span>
             </div>
 
@@ -503,7 +484,6 @@ export const ChampionshipArena: React.FC<ChampionshipArenaProps> = ({
 
       {activeSubTab === 'rosters' && selectedTeam && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Team List */}
           <div className="lg:col-span-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-2">
             <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 px-1">
               Select Team (5–6 learners each)
@@ -531,24 +511,26 @@ export const ChampionshipArena: React.FC<ChampionshipArenaProps> = ({
             })}
           </div>
 
-          {/* Roster & Role Rotation Editor */}
           <div className="lg:col-span-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <input
-                type="text"
-                value={selectedTeam.name}
-                onChange={(e) => handleUpdateTeamName(selectedTeam.id, e.target.value)}
-                aria-label="Team name"
-                className="font-display text-xl font-bold bg-transparent border-b border-transparent focus:border-blue-600 focus:outline-none text-slate-950 dark:text-white"
-              />
-              <button
-                type="button"
-                onClick={() => handleRotateSpeakers(selectedTeam.id)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Rotate Team Roles</span>
-              </button>
+              {isAdmin ? (
+                <input
+                  type="text"
+                  defaultValue={selectedTeam.name}
+                  key={selectedTeam.id}
+                  onBlur={(e) => {
+                    if (e.target.value.trim() && e.target.value !== selectedTeam.name) {
+                      onUpdateTeamName(selectedTeam.id, e.target.value);
+                    }
+                  }}
+                  aria-label="Team name"
+                  className="font-display text-xl font-bold bg-transparent border-b border-slate-200 dark:border-slate-700 focus:border-blue-600 focus:outline-none text-slate-950 dark:text-white"
+                />
+              ) : (
+                <h2 className="font-display text-xl font-bold text-slate-950 dark:text-white">
+                  {selectedTeam.name}
+                </h2>
+              )}
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-400">
@@ -561,38 +543,58 @@ export const ChampionshipArena: React.FC<ChampionshipArenaProps> = ({
                   key={member.id}
                   className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"
                 >
-                  <input
-                    type="text"
-                    value={member.name}
-                    onChange={(e) =>
-                      handleUpdateMemberName(selectedTeam.id, member.id, e.target.value)
-                    }
-                    className="font-medium text-sm bg-transparent border-b border-transparent focus:border-blue-600 focus:outline-none text-slate-900 dark:text-white"
-                  />
+                  {isAdmin ? (
+                    <input
+                      type="text"
+                      defaultValue={member.name}
+                      key={`${member.id}-${member.name}`}
+                      onBlur={(e) => {
+                        if (e.target.value.trim() && e.target.value !== member.name) {
+                          onUpdateMember(selectedTeam.id, member.id, {
+                            name: e.target.value,
+                          });
+                        }
+                      }}
+                      className="font-medium text-sm bg-transparent border-b border-transparent focus:border-blue-600 focus:outline-none text-slate-900 dark:text-white"
+                    />
+                  ) : (
+                    <span className="font-medium text-sm text-slate-900 dark:text-white">
+                      {member.name}
+                    </span>
+                  )}
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <select
-                      value={member.role}
-                      onChange={(e) =>
-                        handleUpdateMemberRole(
-                          selectedTeam.id,
-                          member.id,
-                          e.target.value as TeamRole
-                        )
-                      }
-                      className="px-2.5 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium"
-                    >
-                      {TEAM_ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
+                    {isAdmin ? (
+                      <select
+                        value={member.role}
+                        onChange={(e) =>
+                          onUpdateMember(selectedTeam.id, member.id, {
+                            role: e.target.value as TeamRole,
+                          })
+                        }
+                        className="px-2.5 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium"
+                      >
+                        {TEAM_ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                        {member.role}
+                      </span>
+                    )}
 
                     <button
                       type="button"
-                      onClick={() => handleToggleSpoke(selectedTeam.id, member.id)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold cursor-pointer transition-colors ${
+                      disabled={!isAdmin}
+                      onClick={() =>
+                        onUpdateMember(selectedTeam.id, member.id, {
+                          spokeCount: member.spokeCount + 1,
+                        })
+                      }
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors disabled:cursor-default cursor-pointer ${
                         member.spokeCount > 0
                           ? 'bg-emerald-600 text-white'
                           : 'bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'
@@ -604,7 +606,7 @@ export const ChampionshipArena: React.FC<ChampionshipArenaProps> = ({
                         <UserCheck className="w-3.5 h-3.5" />
                       )}
                       <span className="font-mono tabular-nums">
-                        {member.spokeCount > 0 ? `Spoke (${member.spokeCount}x)` : 'Mark Spoke'}
+                        {member.spokeCount > 0 ? `Spoke (${member.spokeCount}x)` : 'Not Yet'}
                       </span>
                     </button>
                   </div>
@@ -612,10 +614,11 @@ export const ChampionshipArena: React.FC<ChampionshipArenaProps> = ({
               ))}
             </div>
 
-            {selectedTeam.members.length < 6 && (
-              <form onSubmit={handleAddMember} className="flex gap-2 pt-2">
+            {isAdmin && selectedTeam.members.length < 6 && (
+              <form onSubmit={handleAddMemberSubmit} className="flex gap-2 pt-2">
                 <input
                   type="text"
+                  maxLength={80}
                   value={newMemberName}
                   onChange={(e) => setNewMemberName(e.target.value)}
                   placeholder="Add 6th learner name..."
@@ -641,7 +644,7 @@ export const ChampionshipArena: React.FC<ChampionshipArenaProps> = ({
           </h2>
           {teams.every((t) => t.scores.length === 0) ? (
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              No scores recorded yet. Use the 100-Point Judge Rubric tab to evaluate teams as they present.
+              No scores recorded yet.
             </p>
           ) : (
             <div className="space-y-3">
@@ -664,15 +667,17 @@ export const ChampionshipArena: React.FC<ChampionshipArenaProps> = ({
                         </div>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteScore(team.id, score.id)}
-                      aria-label="Delete score"
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer self-start"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Remove</span>
-                    </button>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => onDeleteScore(team.id, score.id)}
+                        aria-label="Delete score"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer self-start"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remove</span>
+                      </button>
+                    )}
                   </div>
                 ))
               )}
