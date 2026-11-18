@@ -18,6 +18,7 @@ import {
   WORKSHOP_META,
 } from '../data/workshopData';
 import { LearnerProgressDoc } from '../services/firestoreService';
+import { LiveClock } from './LiveClock';
 import { VisualArtwork } from './VisualArtwork';
 
 export type AppView = 'journey' | 'levels' | 'wheel' | 'achievements';
@@ -91,14 +92,17 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch pt-2">
         <div className="lg:col-span-7 flex flex-col justify-between space-y-6">
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-              <span>{WORKSHOP_META.institution}</span>
-              <span aria-hidden="true">·</span>
-              <span>{WORKSHOP_META.subtitle}</span>
-              <span aria-hidden="true">·</span>
-              <span className="font-semibold text-blue-700 dark:text-blue-400">
-                {WORKSHOP_META.poweredBy}
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                <span>{WORKSHOP_META.institution}</span>
+                <span aria-hidden="true">·</span>
+                <span>{WORKSHOP_META.subtitle}</span>
+                <span aria-hidden="true">·</span>
+                <span className="font-semibold text-blue-700 dark:text-blue-400">
+                  {WORKSHOP_META.poweredBy}
+                </span>
+              </div>
+              <LiveClock />
             </div>
 
             <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight text-slate-950 dark:text-white leading-[1.06]">

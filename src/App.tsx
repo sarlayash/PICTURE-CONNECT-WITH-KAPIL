@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { Award, LogOut, Moon, ShieldCheck, Sun } from 'lucide-react';
+import { Award, Lock, LogOut, Moon, ShieldCheck, Sun } from 'lucide-react';
 import { BADGES, getLearnerRank, WORKSHOP_META } from './data/workshopData';
 import {
   auth,
@@ -27,6 +27,7 @@ import { AppView, OverviewStudio } from './components/OverviewStudio';
 import { ActivitiesStudio } from './components/ActivitiesStudio';
 import { SpinWheelStudio } from './components/SpinWheelStudio';
 import { AchievementsCertificate } from './components/AchievementsCertificate';
+import { AdminDashboard } from './components/AdminDashboard';
 
 const THEME_STORAGE_KEY = 'pcwk_theme_v2';
 
@@ -37,6 +38,7 @@ function PictureConnectWorkspace() {
 
   const [view, setView] = useState<AppView>('journey');
   const [activeLevel, setActiveLevel] = useState<number>(1);
+  const [adminOpen, setAdminOpen] = useState(false);
 
   const [connections, setConnections] = useState<ConnectionPostDoc[]>([]);
   const [workspace, setWorkspace] = useState<LearnerWorkspaceDoc>({ ownerId: '' });
@@ -118,7 +120,19 @@ function PictureConnectWorkspace() {
   }
 
   if (!user) {
-    return <GoogleAuthGate authError={authError} />;
+    return (
+      <>
+        <GoogleAuthGate
+          authError={authError}
+          onOpenAdmin={() => setAdminOpen(true)}
+        />
+        <AdminDashboard
+          open={adminOpen}
+          onClose={() => setAdminOpen(false)}
+          currentUser={null}
+        />
+      </>
+    );
   }
 
   const learnerName = user.displayName || user.email?.split('@')[0] || 'Verified Learner';
@@ -247,14 +261,24 @@ function PictureConnectWorkspace() {
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => signOutUser()}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sign Out</span>
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setAdminOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-400 hover:underline cursor-pointer"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Admin Dashboard</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => signOutUser()}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign Out</span>
+            </button>
+          </div>
         </div>
 
         {view === 'journey' && (
@@ -350,6 +374,12 @@ function PictureConnectWorkspace() {
           </button>
         </div>
       </footer>
+
+      <AdminDashboard
+        open={adminOpen}
+        onClose={() => setAdminOpen(false)}
+        currentUser={user}
+      />
     </div>
   );
 }

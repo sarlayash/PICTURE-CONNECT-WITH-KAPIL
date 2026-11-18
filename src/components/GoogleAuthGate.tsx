@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
-import { Award, ShieldCheck, Sparkles, Trophy } from 'lucide-react';
+import { Award, Lock, ShieldCheck, Sparkles, Trophy } from 'lucide-react';
 import { signInWithGoogleOnly } from '../firebase';
 import { WORKSHOP_META } from '../data/workshopData';
+import { LiveClock } from './LiveClock';
 import { VisualArtwork } from './VisualArtwork';
 
 interface GoogleAuthGateProps {
   authError: string | null;
+  onOpenAdmin: () => void;
 }
 
-export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({ authError }) => {
+export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
+  authError,
+  onOpenAdmin,
+}) => {
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -40,14 +45,15 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({ authError }) => 
         {/* Left: Editorial Academy Hero */}
         <div className="lg:col-span-7 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 flex flex-col justify-between space-y-6">
           <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-              <span>{WORKSHOP_META.institution}</span>
-              <span aria-hidden="true">·</span>
-              <span>{WORKSHOP_META.subtitle}</span>
-              <span aria-hidden="true">·</span>
-              <span className="font-semibold text-blue-700 dark:text-blue-400">
-                {WORKSHOP_META.poweredBy}
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                <span>{WORKSHOP_META.institution}</span>
+                <span aria-hidden="true">·</span>
+                <span className="font-semibold text-blue-700 dark:text-blue-400">
+                  {WORKSHOP_META.poweredBy}
+                </span>
+              </div>
+              <LiveClock compact />
             </div>
             <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-slate-950 dark:text-white leading-tight">
               {WORKSHOP_META.title}
@@ -153,9 +159,19 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({ authError }) => 
             <span>{submitting ? 'Verifying Google Account...' : 'Continue with Google'}</span>
           </button>
 
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1 text-xs text-slate-500 dark:text-slate-400">
-            <div>Strictly genuine Google sign-ups only — no guests or passwords.</div>
-            <div>Your XP, completed levels, and certificate credentials sync automatically.</div>
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-3 text-xs text-slate-500 dark:text-slate-400">
+            <div className="space-y-1">
+              <div>Strictly genuine Google sign-ups only — no guests or passwords.</div>
+              <div>Your XP, completed levels, and certificate credentials sync automatically.</div>
+            </div>
+            <button
+              type="button"
+              onClick={onOpenAdmin}
+              className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer transition-colors"
+            >
+              <Lock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>Admin Dashboard</span>
+            </button>
           </div>
         </div>
       </div>

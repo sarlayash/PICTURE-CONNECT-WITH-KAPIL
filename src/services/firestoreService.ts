@@ -12,7 +12,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { BADGES, LEVELS } from '../data/workshopData';
+import { BADGES, getLearnerRank, LEVELS } from '../data/workshopData';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 
 function clip(value: string, max: number): string {
@@ -27,6 +27,7 @@ export interface ConnectionPostDoc {
   promptRef: string;
   title: string;
   body: string;
+  createdAtMs?: number;
 }
 
 export interface LearnerWorkspaceDoc {
@@ -62,6 +63,25 @@ export interface LearnerProgressDoc {
   certificateId: string;
 }
 
+export interface AdminUserRecord {
+  uid: string;
+  displayName: string;
+  email: string;
+  photoURL?: string;
+  rankTitle: string;
+  xp: number;
+  completedLevels: number[];
+  unlockedBadges: string[];
+  wheelSpins: number;
+  completedWheelPrompts: string[];
+  certificateId: string;
+  wallPostsCount: number;
+  workspace: LearnerWorkspaceDoc;
+  posts: ConnectionPostDoc[];
+  createdAtMs: number;
+  lastActiveMs: number;
+}
+
 export function buildCertificateId(uid: string): string {
   const clean = uid.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 8) || 'LEARNER';
   return `PCK-2026-${clean}`;
@@ -88,6 +108,28 @@ function computeUnlockedBadges(state: {
   return BADGES.filter((b) => b.checkUnlocked(state))
     .map((b) => b.id)
     .slice(0, 20);
+}
+
+export async function ensureLearnerProgressDoc(uid: string): Promise<void> {
+  const path = `learnerProgress/${uid}`;
+  const ref = doc(db, 'learnerProgress', uid);
+  try {
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        ownerId: uid,
+        xp: 0,
+        completedLevels: [],
+        unlockedBadges: [],
+        wheelSpins: 0,
+        completedWheelPrompts: [],
+        certificateId: buildCertificateId(uid),
+        updatedAt: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
 }
 
 export async function upsertUserAccount(user: User): Promise<void> {
@@ -117,6 +159,7 @@ export async function upsertUserAccount(user: User): Promise<void> {
         updatedAt: serverTimestamp(),
       });
     }
+    await ensureLearnerProgressDoc(user.uid);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -148,6 +191,7 @@ export function subscribeConnections(
             promptRef: String(data.promptRef || ''),
             title: String(data.title || ''),
             body: String(data.body || ''),
+            createdAtMs,
           } satisfies ConnectionPostDoc,
         };
       });
@@ -384,5 +428,181 @@ export async function recordWheelCompletion(
   return {
     newlyAwardedXp: xpGain,
     newlyUnlockedBadges,
+  };
+}
+
+/**
+ * Real-time Admin Dashboard stream across /users, /learnerProgress, /learnerWorkspaces, and /connections.
+ * Caller must be verified platform owner (kapilnarula27july@gmail.com) per Firestore rules.
+ */
+export function subscribeAdminLiveData(
+  onData: (records: AdminUserRecord[], lastSyncMs: number) => void,
+  onPermissionError: (msg: string) => void
+): () => void {
+  const usersMap: Record<
+    string,
+    {
+      uid: string;
+      displayName: string;
+      email: string;
+      photoURL?: string;
+      createdAtMs: number;
+      updatedAtMs: number;
+    }
+  > = {};
+  const progressMap: Record<string, LearnerProgressDoc & { updatedAtMs: number }> = {};
+  const workspaceMap: Record<string, LearnerWorkspaceDoc & { updatedAtMs: number }> = {};
+  const postsByAuthor: Record<string, ConnectionPostDoc[]> = {};
+
+  const emitMerged = () => {
+    const allUids = new Set<string>([
+      ...Object.keys(usersMap),
+      ...Object.keys(progressMap),
+    ]);
+
+    const records: AdminUserRecord[] = Array.from(allUids).map((uid) => {
+      const user = usersMap[uid];
+      const prog = progressMap[uid];
+      const ws = workspaceMap[uid] ?? { ownerId: uid };
+      const posts = postsByAuthor[uid] ?? [];
+      const xp = prog?.xp ?? 0;
+      const completedLevels = prog?.completedLevels ?? [];
+      const unlockedBadges = prog?.unlockedBadges ?? [];
+      const wheelSpins = prog?.wheelSpins ?? 0;
+      const completedWheelPrompts = prog?.completedWheelPrompts ?? [];
+      const lastActiveMs = Math.max(
+        user?.updatedAtMs ?? 0,
+        prog?.updatedAtMs ?? 0,
+        ws?.updatedAtMs ?? 0
+      );
+
+      return {
+        uid,
+        displayName: user?.displayName || 'Verified Learner',
+        email: user?.email || 'Hidden / Syncing',
+        photoURL: user?.photoURL,
+        rankTitle: getLearnerRank(xp).title,
+        xp,
+        completedLevels,
+        unlockedBadges,
+        wheelSpins,
+        completedWheelPrompts,
+        certificateId: prog?.certificateId || buildCertificateId(uid),
+        wallPostsCount: posts.length,
+        workspace: ws,
+        posts,
+        createdAtMs: user?.createdAtMs ?? 0,
+        lastActiveMs,
+      };
+    });
+
+    records.sort((a, b) => b.xp - a.xp || b.lastActiveMs - a.lastActiveMs);
+    onData(records, Date.now());
+  };
+
+  const handleErr = (collectionName: string) => (err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`Admin stream error on ${collectionName}:`, message);
+    onPermissionError(
+      `Firestore denied access to "${collectionName}". Ensure you are signed in with the Admin Google account (kapilnarula27july@gmail.com).`
+    );
+  };
+
+  const unsubUsers = onSnapshot(
+    query(collection(db, 'users'), limit(500)),
+    (snap) => {
+      snap.docs.forEach((d) => {
+        const data = d.data();
+        usersMap[d.id] = {
+          uid: d.id,
+          displayName: String(data.displayName || 'Learner'),
+          email: String(data.email || ''),
+          photoURL: data.photoURL ? String(data.photoURL) : undefined,
+          createdAtMs: data.createdAt?.toMillis ? data.createdAt.toMillis() : 0,
+          updatedAtMs: data.updatedAt?.toMillis ? data.updatedAt.toMillis() : 0,
+        };
+      });
+      emitMerged();
+    },
+    handleErr('users')
+  );
+
+  const unsubProgress = onSnapshot(
+    query(collection(db, 'learnerProgress'), limit(500)),
+    (snap) => {
+      snap.docs.forEach((d) => {
+        const data = d.data();
+        progressMap[d.id] = {
+          ownerId: d.id,
+          xp: Number(data.xp || 0),
+          completedLevels: Array.isArray(data.completedLevels)
+            ? data.completedLevels.map(Number).filter((n) => n >= 1 && n <= 10)
+            : [],
+          unlockedBadges: Array.isArray(data.unlockedBadges)
+            ? data.unlockedBadges.map(String)
+            : [],
+          wheelSpins: Number(data.wheelSpins || 0),
+          completedWheelPrompts: Array.isArray(data.completedWheelPrompts)
+            ? data.completedWheelPrompts.map(String)
+            : [],
+          certificateId: String(data.certificateId || buildCertificateId(d.id)),
+          updatedAtMs: data.updatedAt?.toMillis ? data.updatedAt.toMillis() : 0,
+        };
+      });
+      emitMerged();
+    },
+    handleErr('learnerProgress')
+  );
+
+  const unsubWorkspaces = onSnapshot(
+    query(collection(db, 'learnerWorkspaces'), limit(500)),
+    (snap) => {
+      snap.docs.forEach((d) => {
+        const data = d.data();
+        workspaceMap[d.id] = {
+          ...(data as LearnerWorkspaceDoc),
+          ownerId: d.id,
+          updatedAtMs: data.updatedAt?.toMillis ? data.updatedAt.toMillis() : 0,
+        };
+      });
+      emitMerged();
+    },
+    handleErr('learnerWorkspaces')
+  );
+
+  const unsubConnections = onSnapshot(
+    query(
+      collection(db, 'connections'),
+      where('kind', 'in', ['concept', 'perspective', 'challenge']),
+      limit(500)
+    ),
+    (snap) => {
+      Object.keys(postsByAuthor).forEach((k) => delete postsByAuthor[k]);
+      snap.docs.forEach((d) => {
+        const data = d.data();
+        const authorId = String(data.authorId || '');
+        if (!authorId) return;
+        if (!postsByAuthor[authorId]) postsByAuthor[authorId] = [];
+        postsByAuthor[authorId].push({
+          id: d.id,
+          authorId,
+          authorName: String(data.authorName || 'Learner'),
+          kind: (data.kind as ConnectionPostDoc['kind']) || 'concept',
+          promptRef: String(data.promptRef || ''),
+          title: String(data.title || ''),
+          body: String(data.body || ''),
+          createdAtMs: data.createdAt?.toMillis ? data.createdAt.toMillis() : 0,
+        });
+      });
+      emitMerged();
+    },
+    handleErr('connections')
+  );
+
+  return () => {
+    unsubUsers();
+    unsubProgress();
+    unsubWorkspaces();
+    unsubConnections();
   };
 }
