@@ -15,11 +15,16 @@ import {
   CENTRAL_CONCEPT_PAIRS,
   getLearnerRank,
   LEVELS,
+  VideoCaseStudy,
   WORKSHOP_META,
 } from '../data/workshopData';
-import { LearnerProgressDoc } from '../services/firestoreService';
+import {
+  ConnectionPostDoc,
+  LearnerProgressDoc,
+} from '../services/firestoreService';
 import { LiveClock } from './LiveClock';
 import { VisualArtwork } from './VisualArtwork';
+import { VideoChallengesSection } from './VideoChallengesSection';
 
 export type AppView = 'journey' | 'levels' | 'wheel' | 'achievements';
 
@@ -35,6 +40,11 @@ interface OverviewStudioProps {
     authorName?: string;
   }[];
   onAddConnection: (picture: string, concept: string, explanation: string) => Promise<void>;
+  sharedVideoPosts: ConnectionPostDoc[];
+  onSubmitVideoChallenge: (
+    video: VideoCaseStudy,
+    reflection: string
+  ) => Promise<{ newlyAwardedXp: number; newlyUnlockedBadges: string[] }>;
 }
 
 export const OverviewStudio: React.FC<OverviewStudioProps> = ({
@@ -43,6 +53,8 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   onNavigateView,
   learnerConnections,
   onAddConnection,
+  sharedVideoPosts,
+  onSubmitVideoChallenge,
 }) => {
   const [selectedPairId, setSelectedPairId] = useState(CENTRAL_CONCEPT_PAIRS[1].id);
   const [revealedIds, setRevealedIds] = useState<string[]>([CENTRAL_CONCEPT_PAIRS[1].id]);
@@ -482,6 +494,14 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
           </div>
         </div>
       </section>
+
+      {/* Portal Video Case Studies & Challenges (Watch Directly Inside Portal) */}
+      <VideoChallengesSection
+        mode="portal"
+        completedVideoIds={progress.completedWheelPrompts}
+        sharedVideoPosts={sharedVideoPosts}
+        onSubmitChallenge={onSubmitVideoChallenge}
+      />
     </div>
   );
 };

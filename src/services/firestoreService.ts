@@ -431,6 +431,58 @@ export async function recordWheelCompletion(
   };
 }
 
+export async function recordVideoChallengeCompletion(
+  uid: string,
+  current: LearnerProgressDoc,
+  videoId: string,
+  xpReward: number
+): Promise<{ newlyAwardedXp: number; newlyUnlockedBadges: string[] }> {
+  const path = `learnerProgress/${uid}`;
+  const ref = doc(db, 'learnerProgress', uid);
+
+  const cleanVideoId = clip(videoId, 80);
+  const alreadyCompleted = current.completedWheelPrompts.includes(cleanVideoId);
+  const nextPrompts = alreadyCompleted
+    ? current.completedWheelPrompts
+    : [...current.completedWheelPrompts, cleanVideoId].slice(0, 50);
+
+  const xpGain = alreadyCompleted ? 0 : xpReward;
+  const nextXp = Math.min(50000, current.xp + xpGain);
+
+  const nextBadges = computeUnlockedBadges({
+    completedLevels: current.completedLevels,
+    xp: nextXp,
+    wheelSpins: current.wheelSpins,
+    completedWheelPrompts: nextPrompts,
+  });
+
+  const newlyUnlockedBadges = nextBadges.filter(
+    (b) => !current.unlockedBadges.includes(b)
+  );
+
+  if (!alreadyCompleted) {
+    try {
+      await setDoc(ref, {
+        ownerId: uid,
+        xp: nextXp,
+        completedLevels: current.completedLevels.slice(0, 10),
+        unlockedBadges: nextBadges,
+        wheelSpins: current.wheelSpins,
+        completedWheelPrompts: nextPrompts,
+        certificateId: current.certificateId || buildCertificateId(uid),
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  }
+
+  return {
+    newlyAwardedXp: xpGain,
+    newlyUnlockedBadges,
+  };
+}
+
 /**
  * Real-time Admin Dashboard stream across /users, /learnerProgress, /learnerWorkspaces, and /connections.
  * Caller must be verified platform owner (kapilnarula27july@gmail.com) per Firestore rules.

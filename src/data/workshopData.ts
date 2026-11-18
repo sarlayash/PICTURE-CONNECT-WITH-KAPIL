@@ -157,6 +157,64 @@ export interface WheelDeck {
   segments: WheelSegment[];
 }
 
+export interface VideoCaseStudy {
+  id: string;
+  number: string;
+  title: string;
+  subtitle: string;
+  category: string;
+  youtubeId: string;
+  youtubeUrl: string;
+  xpReward: number;
+  challengeTitle: string;
+  summary: string;
+  reflectionQuestions: string[];
+  employabilityTakeaway: string;
+}
+
+export const VIDEO_CASE_STUDIES: VideoCaseStudy[] = [
+  {
+    id: 'video_customer_delight',
+    number: '01',
+    title: 'Customer Delight',
+    subtitle: 'Beyond Expectation: Service, Empathy & Human Observation',
+    category: 'Service Excellence · Visual Observation',
+    youtubeId: 'XEMAyTjaNNE',
+    youtubeUrl: 'https://www.youtube.com/watch?v=XEMAyTjaNNE',
+    xpReward: 75,
+    challengeTitle: 'Challenge 01 · The Invisible Extra Mile',
+    summary:
+      'True customer delight rarely comes from expensive discounts—it comes from noticing unspoken details and responding with authentic care before anyone asks.',
+    reflectionQuestions: [
+      'What subtle moment or unspoken human need transformed a routine interaction into unforgettable delight?',
+      'Why does proactive, thoughtful attention build deeper trust than standard transactional service?',
+      'Action Prompt: Design one zero-cost "Customer Delight" gesture you can deliver in your first 30 days on the job.',
+    ],
+    employabilityTakeaway:
+      'Top global companies hire observers who spot human friction early and solve it gracefully.',
+  },
+  {
+    id: 'video_ba_fuelled_by_love',
+    number: '02',
+    title: 'British Airways — Fuelled By Love',
+    subtitle: 'Cross-Cultural Connection, Heart & Purpose-Driven Leadership',
+    category: 'Global Brand Storytelling · Empathy',
+    youtubeId: 'ZFb01yTR9bA',
+    youtubeUrl: 'https://www.youtube.com/watch?v=ZFb01yTR9bA',
+    xpReward: 75,
+    challengeTitle: 'Challenge 02 · Beyond the Uniform',
+    summary:
+      'Even in high-precision global aviation, what separates a memorable journey from a generic flight is genuine curiosity, respect for culture, and human warmth.',
+    reflectionQuestions: [
+      'Notice the expressions, small gestures, and turning point—what changed when curiosity replaced routine?',
+      'Why did British Airways anchor this film around emotion and human care instead of aircraft specs or fares?',
+      'Action Prompt: Connect this film to "See Beyond. Think Beyond."—how can empathy set your career apart?',
+    ],
+    employabilityTakeaway:
+      'Technical competence opens doors; emotional intelligence and cultural empathy build lifelong influence.',
+  },
+];
+
 export const WORKSHOP_META = {
   title: 'PICTURE CONNECT WITH KAPIL',
   shortTitle: 'Picture Connect',

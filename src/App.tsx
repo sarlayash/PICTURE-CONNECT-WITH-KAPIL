@@ -14,6 +14,7 @@ import {
   createDefaultProgress,
   LearnerProgressDoc,
   LearnerWorkspaceDoc,
+  recordVideoChallengeCompletion,
   recordWheelCompletion,
   saveLearnerWorkspace,
   subscribeConnections,
@@ -294,6 +295,22 @@ function PictureConnectWorkspace() {
                 'central-concept',
                 `${picture} + ${concept}`,
                 explanation
+              );
+            }}
+            sharedVideoPosts={challengePosts}
+            onSubmitVideoChallenge={async (video, reflection) => {
+              await createConnectionPost(
+                user,
+                'challenge',
+                video.id,
+                video.challengeTitle,
+                reflection
+              );
+              return recordVideoChallengeCompletion(
+                user.uid,
+                progress,
+                video.id,
+                video.xpReward
               );
             }}
           />
