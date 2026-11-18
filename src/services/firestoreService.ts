@@ -101,26 +101,30 @@ export function subscribeConnections(
   const q = query(
     collection(db, path),
     where('kind', 'in', ['concept', 'perspective', 'challenge']),
-    orderBy('createdAt', 'desc'),
     limit(100)
   );
 
   return onSnapshot(
     q,
     (snap) => {
-      const items: ConnectionPostDoc[] = snap.docs.map((d) => {
+      const withTimes = snap.docs.map((d) => {
         const data = d.data();
+        const createdAtMs = data.createdAt?.toMillis ? data.createdAt.toMillis() : 0;
         return {
-          id: d.id,
-          authorId: String(data.authorId || ''),
-          authorName: String(data.authorName || 'Learner'),
-          kind: (data.kind as ConnectionPostDoc['kind']) || 'concept',
-          promptRef: String(data.promptRef || ''),
-          title: String(data.title || ''),
-          body: String(data.body || ''),
+          createdAtMs,
+          post: {
+            id: d.id,
+            authorId: String(data.authorId || ''),
+            authorName: String(data.authorName || 'Learner'),
+            kind: (data.kind as ConnectionPostDoc['kind']) || 'concept',
+            promptRef: String(data.promptRef || ''),
+            title: String(data.title || ''),
+            body: String(data.body || ''),
+          } satisfies ConnectionPostDoc,
         };
       });
-      onData(items);
+      withTimes.sort((a, b) => b.createdAtMs - a.createdAtMs);
+      onData(withTimes.map((entry) => entry.post));
     },
     (error) => {
       handleFirestoreError(error, OperationType.LIST, path);

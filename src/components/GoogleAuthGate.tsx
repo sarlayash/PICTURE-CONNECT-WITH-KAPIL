@@ -18,10 +18,14 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({ authError }) => 
     try {
       await signInWithGoogleOnly();
     } catch (err) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : 'Google sign-in was cancelled or blocked. Please try again.';
+      const raw = err instanceof Error ? err.message : '';
+      let msg = raw || 'Google sign-in was cancelled or blocked. Please try again.';
+      if (raw.includes('auth/unauthorized-domain')) {
+        const host = window.location.hostname;
+        msg = `Domain "${host}" is not yet authorized in Firebase Auth. Add "${host}" under Firebase Console → Authentication → Settings → Authorized domains.`;
+      } else if (raw.includes('auth/popup-blocked')) {
+        msg = 'Sign-in popup was blocked by your browser. Please allow popups for this site and click Continue with Google again.';
+      }
       setLocalError(msg);
     } finally {
       setSubmitting(false);
