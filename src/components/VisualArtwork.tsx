@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Activity,
   Award,
@@ -37,14 +37,43 @@ interface VisualArtworkProps {
   onSelectClue?: (clueId: string) => void;
 }
 
-const DIRECT_PHOTO_MAP: Partial<Record<ArtworkId, PhotoAssetKey>> = {
+const DIRECT_PHOTO_MAP: Record<ArtworkId, PhotoAssetKey> = {
   crossroads: 'crossroads',
+  bridge: 'bridge',
   broken_pencil: 'broken_pencil',
+  traffic_signal: 'traffic_signal',
+  mirror: 'mirror',
+  ladder: 'ladder',
+  tree: 'tree',
+  apple: 'apple',
+  rocket: 'rocket',
+  hourglass: 'hourglass',
+  exam: 'memory_scene',
+  interview: 'interview',
+  umbrella: 'umbrella',
+  camera: 'camera',
+  business: 'boardroom_decline',
+  puzzle: 'puzzle',
+  teamwork: 'bridge',
+  stethoscope: 'stethoscope',
+  compass: 'compass',
+  calculator: 'calculator',
+  keyboard: 'keyboard',
   paperclip: 'paperclip',
   emotion_scene: 'emotion_scene',
   workplace_detective: 'workplace_detective',
   boardroom_decline: 'boardroom_decline',
   memory_scene: 'memory_scene',
+  challenge_stop: 'traffic_signal',
+  challenge_growth: 'challenge_growth',
+  challenge_iceberg: 'challenge_iceberg',
+  challenge_ripple: 'challenge_ripple',
+  challenge_choices: 'mountain_peak',
+  challenge_missing_piece: 'challenge_missing_piece',
+  coffee_cup: 'coffee_cup',
+  lighthouse: 'lighthouse',
+  mountain_peak: 'mountain_peak',
+  notebook: 'memory_scene',
 };
 
 interface EditorialPlateConfig {
@@ -270,8 +299,10 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
   discoveredClues = [],
   onSelectClue,
 }) => {
+  const [imgError, setImgError] = useState(false);
+
   // Interactive Workplace Audit Photo (Level 6)
-  if (id === 'workplace_detective') {
+  if (id === 'workplace_detective' && !imgError) {
     const asset = PHOTO_ASSETS.workplace_detective;
     return (
       <div
@@ -281,6 +312,7 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
           src={asset.src}
           alt={asset.alt}
           referrerPolicy="no-referrer"
+          onError={() => setImgError(true)}
           className="w-full h-full object-cover block"
         />
         <div
@@ -300,7 +332,7 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
               className={`absolute -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full font-mono text-xs font-bold flex items-center justify-center transition-transform duration-200 hover:scale-110 cursor-pointer shadow-lg ring-2 ${
                 found
                   ? 'bg-emerald-500 text-white ring-white'
-                  : 'bg-slate-950/80 text-white ring-amber-400 hover:bg-blue-600'
+                  : 'bg-slate-950/85 text-white ring-amber-400 hover:bg-blue-600'
               }`}
             >
               {found ? <Check className="w-4 h-4" /> : mistake.number}
@@ -312,7 +344,7 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
   }
 
   // Interactive Boardroom Turnaround Photo (Level 9)
-  if (id === 'boardroom_decline') {
+  if (id === 'boardroom_decline' && !imgError) {
     const asset = PHOTO_ASSETS.boardroom_decline;
     return (
       <div
@@ -322,6 +354,7 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
           src={asset.src}
           alt={asset.alt}
           referrerPolicy="no-referrer"
+          onError={() => setImgError(true)}
           className="w-full h-full object-cover block"
         />
         <div
@@ -338,7 +371,7 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
               title={`${clue.dimension}: ${clue.headline}`}
               aria-label={`Inspect ${clue.dimension} clue`}
               style={{ left: `${clue.xPercent}%`, top: `${clue.yPercent}%` }}
-              className={`absolute -translate-x-1/2 -translate-y-1/2 px-2.5 py-1 rounded-md font-sans text-[11px] font-semibold flex items-center gap-1 transition-transform duration-200 hover:scale-105 cursor-pointer shadow-lg ring-1 ${
+              className={`absolute -translate-x-1/2 -translate-y-1/2 px-2.5 py-1 rounded-md font-sans text-[11px] font-semibold flex items-center gap-1 transition-transform duration-200 hover:scale-105 cursor-pointer shadow-lg ring-1 whitespace-nowrap ${
                 found
                   ? 'bg-emerald-600 text-white ring-white/80'
                   : 'bg-slate-950/85 text-slate-100 ring-blue-400 hover:bg-blue-700'
@@ -353,24 +386,25 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
     );
   }
 
-  // Direct high-res editorial photography
+  // High-resolution generated photography for every ArtworkId
   const resolvedPhotoKey = photoKey ?? DIRECT_PHOTO_MAP[id];
-  if (resolvedPhotoKey) {
+  if (resolvedPhotoKey && !imgError) {
     const asset = PHOTO_ASSETS[resolvedPhotoKey];
     return (
       <div
-        className={`relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-950 ${className}`}
+        className={`group relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-950 ${className}`}
       >
         <img
           src={asset.src}
           alt={asset.alt}
           referrerPolicy="no-referrer"
-          className="w-full h-full object-cover block"
+          onError={() => setImgError(true)}
+          className="w-full h-full object-cover block transition-transform duration-500 ease-out group-hover:scale-[1.03]"
         />
         <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-slate-950/75 via-slate-950/25 to-transparent flex items-end px-4 pb-3"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-slate-950/85 via-slate-950/35 to-transparent flex items-end px-4 pb-2.5"
         >
-          <span className="font-mono text-[11px] tracking-wide uppercase text-slate-200">
+          <span className="font-mono text-[10px] tracking-wider uppercase text-slate-100 drop-shadow-sm">
             {asset.caption}
           </span>
         </div>
@@ -378,7 +412,7 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
     );
   }
 
-  // Refined Architectural Studio Plate for secondary prompt icons
+  // Styled CSS/SVG fallback plate if an image asset ever fails to load
   const plate = EDITORIAL_PLATES[id] ?? {
     label: 'Visual Prompt',
     sublabel: 'Observe · Connect · Explain',
@@ -394,7 +428,6 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
       role="img"
       aria-label={`${plate.label} — ${plate.sublabel}`}
     >
-      {/* Subtle architectural gridlines */}
       <div
         className="pointer-events-none absolute inset-0 opacity-15"
         style={{
@@ -405,7 +438,7 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
         aria-hidden="true"
       />
       <div className="relative flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-slate-400">
-        <span>Visual Metaphor Plate</span>
+        <span>Visual Metaphor</span>
         <span>Picture Connect</span>
       </div>
 
