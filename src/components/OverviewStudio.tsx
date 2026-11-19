@@ -43,6 +43,8 @@ interface OverviewStudioProps {
   advXp?: number;
   finalStatus?: 'not_started' | 'in_progress' | 'submitted';
   finalXp?: number;
+  finalPassed?: boolean;
+  finalAttemptCount?: number;
   finalEligible?: boolean;
   finalPrereqLabel?: string;
   onNavigateView: (view: AppView, levelNum?: number) => void;
@@ -68,6 +70,8 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   advXp = 0,
   finalStatus = 'not_started',
   finalXp = 0,
+  finalPassed = false,
+  finalAttemptCount = 0,
   finalEligible = false,
   finalPrereqLabel = '0/4',
   onNavigateView,
@@ -347,9 +351,13 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
             </div>
             <div className="text-sm font-bold text-blue-700 dark:text-blue-400 tabular-nums">
               {finalStatus === 'submitted'
-                ? `Completed · ${finalXp}/1000 XP`
+                ? finalPassed
+                  ? `Passed · ${finalXp}/1000 XP`
+                  : finalAttemptCount < 2
+                  ? `Attempt 1/2 (${finalXp} XP) · Retake Open`
+                  : `Attempt ${finalAttemptCount}/2 (${finalXp} XP) · Contact Admin`
                 : finalStatus === 'in_progress'
-                ? 'Exam Clock Active'
+                ? `Attempt ${Math.max(1, finalAttemptCount)} Clock Active`
                 : finalEligible
                 ? 'Ready to Begin · 90:00 Min'
                 : `Locked · ${finalPrereqLabel} Prerequisites`}
@@ -367,7 +375,11 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
             )}
             <span>
               {finalStatus === 'submitted'
-                ? 'View Score, Cert & LOR PDF'
+                ? finalPassed
+                  ? 'View Score, Cert & LOR PDF'
+                  : finalAttemptCount < 2
+                  ? 'Review & Start Attempt 2/2'
+                  : 'View Score & Mentor Guidance'
                 : finalStatus === 'in_progress'
                 ? 'Resume 90-Min Exam'
                 : finalEligible

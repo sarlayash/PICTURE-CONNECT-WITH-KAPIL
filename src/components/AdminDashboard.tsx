@@ -260,6 +260,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       'Advanced Badges (/8)',
       'Advanced Certificate ID',
       'Final Exam Status',
+      'Final Attempt #',
       'Final Total XP (/1000)',
       'Final Part A MCQs (/400)',
       'Final Part B Cases (/500)',
@@ -302,6 +303,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         `${adv?.unlockedAdvBadges.length ?? 0}/${ADVANCED_BADGES.length}`,
         adv?.advCertificateId ?? '',
         fin?.status ?? 'not_started',
+        fin?.attemptCount ?? 0,
         fin?.totalXpAwarded ?? 0,
         fin?.mcqScore ?? 0,
         fin?.caseScore ?? 0,
@@ -369,7 +371,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setResetBusy(true);
     setStreamError(null);
     try {
-      await adminResetFinalAssessment(uid);
+      const currentAttempt = finalByUid[uid]?.attemptCount ?? 1;
+      await adminResetFinalAssessment(uid, currentAttempt);
       setResetConfirmUid(null);
     } catch (err) {
       setStreamError(
@@ -845,10 +848,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <td className="py-3 px-3 font-mono font-semibold">
                                   {fin?.status === 'submitted' ? (
                                     <span className={fin.passed ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}>
-                                      {fin.passed ? 'PASSED' : 'SUBMITTED (<600)'}
+                                      {fin.passed
+                                        ? `PASSED (Att #${Math.max(1, fin.attemptCount)})`
+                                        : Math.max(1, fin.attemptCount) < 2
+                                        ? 'FAIL ATT 1/2 (RETAKE OPEN)'
+                                        : `FAIL ATT ${fin.attemptCount}/2 (ADMIN REQ)`}
                                     </span>
                                   ) : fin?.status === 'in_progress' ? (
-                                    <span className="text-blue-700 dark:text-blue-400">IN PROGRESS</span>
+                                    <span className="text-blue-700 dark:text-blue-400">
+                                      IN PROGRESS (ATT #{Math.max(1, fin.attemptCount)})
+                                    </span>
                                   ) : (() => {
                                     const prereq = evaluateFinalPrerequisites(
                                       {
@@ -1063,8 +1072,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                          Final 1000 XP Proctored Assessment ({finalByUid[inspectedUser.uid].status.toUpperCase()}) ·{' '}
+                          Final 1000 XP Proctored Assessment · Attempt #{Math.max(1, finalByUid[inspectedUser.uid].attemptCount)}{' '}
+                          ({finalByUid[inspectedUser.uid].status.toUpperCase()}) ·{' '}
                           {finalByUid[inspectedUser.uid].totalXpAwarded}/1000 XP ({finalByUid[inspectedUser.uid].percentageScore}%)
+                          {finalByUid[inspectedUser.uid].status === 'submitted' &&
+                            !finalByUid[inspectedUser.uid].passed &&
+                            Math.max(1, finalByUid[inspectedUser.uid].attemptCount) >= 2 && (
+                              <span className="ml-2 text-amber-700 dark:text-amber-400">
+                                · 2/2 Self-Attempts Used (Admin Retake Needed)
+                              </span>
+                            )}
                         </div>
 
                         {finalByUid[inspectedUser.uid].status === 'submitted' && (

@@ -346,6 +346,8 @@ function PictureConnectWorkspace() {
             advXp={advProgress.advXp}
             finalStatus={finalAssessment.status}
             finalXp={finalAssessment.totalXpAwarded}
+            finalPassed={finalAssessment.passed}
+            finalAttemptCount={finalAssessment.attemptCount}
             finalEligible={finalPrereq.eligible}
             finalPrereqLabel={`${finalPrereq.completedSections}/${finalPrereq.totalSections}`}
             onNavigateView={handleNavigateView}

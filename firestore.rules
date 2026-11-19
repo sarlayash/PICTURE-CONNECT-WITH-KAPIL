@@ -194,7 +194,7 @@ service cloud.firestore {
         ])
         && data.keys().hasOnly([
           'ownerId', 'authorName', 'authorEmail', 'targetRole', 'collegeOrOrg',
-          'status', 'startedAtMs', 'submittedAtMs', 'timeUsedSeconds', 'mcqAnswers',
+          'status', 'attemptCount', 'startedAtMs', 'submittedAtMs', 'timeUsedSeconds', 'mcqAnswers',
           'c1a', 'c1b', 'c1c', 'c2a', 'c2b', 'c2c',
           'c3a', 'c3b', 'c3c', 'c4a', 'c4b', 'c4c',
           'c5a', 'c5b', 'c5c', 'capstoneScare',
@@ -208,6 +208,7 @@ service cloud.firestore {
         && data.targetRole is string && data.targetRole.size() <= 120
         && data.collegeOrOrg is string && data.collegeOrOrg.size() <= 120
         && data.status in ['in_progress', 'submitted']
+        && (!('attemptCount' in data) || (data.attemptCount is int && data.attemptCount >= 1 && data.attemptCount <= 20))
         && data.startedAtMs is number && data.startedAtMs >= 0
         && data.submittedAtMs is number && data.submittedAtMs >= 0
         && data.timeUsedSeconds is number && data.timeUsedSeconds >= 0 && data.timeUsedSeconds <= 5400
@@ -381,6 +382,9 @@ service cloud.firestore {
       allow create: if isValidId(userId)
         && isOwner(userId)
         && isValidFinalAssessment(incoming(), userId)
+        && incoming().status == 'in_progress'
+        && 'attemptCount' in incoming()
+        && incoming().attemptCount == 1
         && incoming().authorEmail == request.auth.token.email
         && incoming().updatedAt == request.time
         && exists(/databases/$(database)/documents/learnerProgress/$(userId))
@@ -399,9 +403,43 @@ service cloud.firestore {
             isOwner(userId)
             && existing().status == 'in_progress'
             && incoming().startedAtMs == existing().startedAtMs
+            && (
+              ('attemptCount' in existing() && 'attemptCount' in incoming() && incoming().attemptCount == existing().attemptCount)
+              || (!('attemptCount' in existing()) && (!('attemptCount' in incoming()) || incoming().attemptCount == 1))
+            )
             && incoming().diff(existing()).affectedKeys().hasOnly([
-              'authorName', 'targetRole', 'collegeOrOrg', 'status',
+              'authorName', 'targetRole', 'collegeOrOrg', 'status', 'attemptCount',
               'submittedAtMs', 'timeUsedSeconds', 'mcqAnswers',
+              'c1a', 'c1b', 'c1c', 'c2a', 'c2b', 'c2c',
+              'c3a', 'c3b', 'c3c', 'c4a', 'c4b', 'c4c',
+              'c5a', 'c5b', 'c5c', 'capstoneScare',
+              'mcqScore', 'caseScore', 'scareScore', 'totalXpAwarded',
+              'percentageScore', 'passed', 'gradeTier',
+              'executiveFeedback', 'updatedAt'
+            ])
+          )
+          || (
+            isOwner(userId)
+            && existing().status == 'submitted'
+            && existing().passed == false
+            && (!('attemptCount' in existing()) || existing().attemptCount == 1)
+            && incoming().status == 'in_progress'
+            && 'attemptCount' in incoming()
+            && incoming().attemptCount == 2
+            && incoming().startedAtMs > existing().startedAtMs
+            && incoming().submittedAtMs == 0
+            && incoming().timeUsedSeconds == 0
+            && incoming().mcqScore == 0
+            && incoming().caseScore == 0
+            && incoming().scareScore == 0
+            && incoming().totalXpAwarded == 0
+            && incoming().percentageScore == 0
+            && incoming().passed == false
+            && incoming().gradeTier == ''
+            && incoming().executiveFeedback == ''
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'targetRole', 'collegeOrOrg', 'status', 'attemptCount',
+              'startedAtMs', 'submittedAtMs', 'timeUsedSeconds', 'mcqAnswers',
               'c1a', 'c1b', 'c1c', 'c2a', 'c2b', 'c2c',
               'c3a', 'c3b', 'c3c', 'c4a', 'c4b', 'c4c',
               'c5a', 'c5b', 'c5c', 'capstoneScare',

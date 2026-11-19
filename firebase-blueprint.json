@@ -314,6 +314,7 @@
           "type": "string",
           "enum": ["in_progress", "submitted"]
         },
+        "attemptCount": { "type": "number", "minimum": 1, "maximum": 20 },
         "startedAtMs": { "type": "number", "minimum": 0 },
         "submittedAtMs": { "type": "number", "minimum": 0 },
         "timeUsedSeconds": { "type": "number", "minimum": 0, "maximum": 5400 },

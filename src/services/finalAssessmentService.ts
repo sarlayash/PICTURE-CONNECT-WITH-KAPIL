@@ -31,6 +31,7 @@ export interface FinalAssessmentDoc {
   targetRole: string;
   collegeOrOrg: string;
   status: 'not_started' | 'in_progress' | 'submitted';
+  attemptCount: number;
   startedAtMs: number;
   submittedAtMs: number;
   timeUsedSeconds: number;
@@ -88,6 +89,7 @@ export function createDefaultFinalAssessment(
     targetRole: '',
     collegeOrOrg: '',
     status: 'not_started',
+    attemptCount: 0,
     startedAtMs: 0,
     submittedAtMs: 0,
     timeUsedSeconds: 0,
@@ -134,6 +136,19 @@ function mapFinalDoc(
   while (rawMcq.length < 10) rawMcq.push(-1);
 
   const updatedObj = data.updatedAt as { toMillis?: () => number } | undefined;
+  const status: FinalAssessmentDoc['status'] =
+    data.status === 'submitted'
+      ? 'submitted'
+      : data.status === 'in_progress'
+      ? 'in_progress'
+      : 'not_started';
+  const rawAttempt = Number(data.attemptCount);
+  const attemptCount =
+    Number.isFinite(rawAttempt) && rawAttempt >= 1
+      ? Math.floor(rawAttempt)
+      : status === 'not_started'
+      ? 0
+      : 1;
 
   return {
     ownerId: String(data.ownerId || uid),
@@ -141,12 +156,8 @@ function mapFinalDoc(
     authorEmail: String(data.authorEmail || ''),
     targetRole: String(data.targetRole || ''),
     collegeOrOrg: String(data.collegeOrOrg || ''),
-    status:
-      data.status === 'submitted'
-        ? 'submitted'
-        : data.status === 'in_progress'
-        ? 'in_progress'
-        : 'not_started',
+    status,
+    attemptCount,
     startedAtMs: Number(data.startedAtMs || 0),
     submittedAtMs: Number(data.submittedAtMs || 0),
     timeUsedSeconds: Number(data.timeUsedSeconds || 0),
@@ -264,6 +275,7 @@ export async function startFinalAssessmentSession(params: {
       targetRole: clip(targetRole, 120),
       collegeOrOrg: clip(collegeOrOrg, 120),
       status: 'in_progress',
+      attemptCount: 1,
       startedAtMs,
       submittedAtMs: 0,
       timeUsedSeconds: 0,
@@ -454,17 +466,108 @@ export async function submitFinalAssessment(params: {
   return grade;
 }
 
+export function canSelfRetryFinalAssessment(
+  docData: Pick<FinalAssessmentDoc, 'status' | 'passed' | 'attemptCount'>
+): boolean {
+  return (
+    docData.status === 'submitted' &&
+    !docData.passed &&
+    Math.max(1, docData.attemptCount || 1) < 2
+  );
+}
+
+export async function retryFinalAssessmentSession(params: {
+  user: User;
+  existingDoc: FinalAssessmentDoc;
+  targetRole?: string;
+  collegeOrOrg?: string;
+}): Promise<number> {
+  const { user, existingDoc, targetRole, collegeOrOrg } = params;
+  if (!canSelfRetryFinalAssessment(existingDoc)) {
+    throw new Error(
+      existingDoc.passed
+        ? 'You have already passed the Final Assessment.'
+        : 'All 2 self-service attempts have been used. Please contact your mentor or admin to request another retake.'
+    );
+  }
+
+  const path = `finalAssessments/${user.uid}`;
+  const ref = doc(db, 'finalAssessments', user.uid);
+  const startedAtMs = Math.max(Date.now(), (existingDoc.startedAtMs || 0) + 1);
+
+  try {
+    await updateDoc(ref, {
+      targetRole: clip(targetRole ?? existingDoc.targetRole, 120),
+      collegeOrOrg: clip(collegeOrOrg ?? existingDoc.collegeOrOrg, 120),
+      status: 'in_progress',
+      attemptCount: 2,
+      startedAtMs,
+      submittedAtMs: 0,
+      timeUsedSeconds: 0,
+      mcqAnswers: Array(10).fill(-1),
+      c1a: '',
+      c1b: '',
+      c1c: '',
+      c2a: '',
+      c2b: '',
+      c2c: '',
+      c3a: '',
+      c3b: '',
+      c3c: '',
+      c4a: '',
+      c4b: '',
+      c4c: '',
+      c5a: '',
+      c5b: '',
+      c5c: '',
+      capstoneScare: '',
+      mcqScore: 0,
+      caseScore: 0,
+      scareScore: 0,
+      totalXpAwarded: 0,
+      percentageScore: 0,
+      passed: false,
+      gradeTier: '',
+      executiveFeedback: '',
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+  return startedAtMs;
+}
+
 export async function adminResetFinalAssessment(
-  targetUid: string
+  targetUid: string,
+  currentAttemptCount = 1
 ): Promise<void> {
   const path = `finalAssessments/${targetUid}`;
   const ref = doc(db, 'finalAssessments', targetUid);
+  const nextAttempt = Math.min(20, Math.max(1, currentAttemptCount) + 1);
   try {
     await updateDoc(ref, {
       status: 'in_progress',
+      attemptCount: nextAttempt,
       startedAtMs: Date.now(),
       submittedAtMs: 0,
       timeUsedSeconds: 0,
+      mcqAnswers: Array(10).fill(-1),
+      c1a: '',
+      c1b: '',
+      c1c: '',
+      c2a: '',
+      c2b: '',
+      c2c: '',
+      c3a: '',
+      c3b: '',
+      c3c: '',
+      c4a: '',
+      c4b: '',
+      c4c: '',
+      c5a: '',
+      c5b: '',
+      c5c: '',
+      capstoneScare: '',
       mcqScore: 0,
       caseScore: 0,
       scareScore: 0,

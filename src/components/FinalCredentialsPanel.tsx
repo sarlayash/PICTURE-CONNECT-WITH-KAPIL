@@ -6,6 +6,7 @@ import {
   Download,
   FileText,
   Lock,
+  RotateCcw,
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
@@ -21,6 +22,9 @@ interface FinalCredentialsPanelProps {
   coreProgress: LearnerProgressDoc;
   advProgress: AdvancedProgressDoc;
   advAvgScore: number;
+  onStartSecondAttempt?: () => void;
+  retryingSecondAttempt?: boolean;
+  retryError?: string | null;
 }
 
 function formatDuration(seconds: number): string {
@@ -36,6 +40,9 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
   coreProgress,
   advProgress,
   advAvgScore,
+  onStartSecondAttempt,
+  retryingSecondAttempt = false,
+  retryError = null,
 }) => {
   const [downloadingPng, setDownloadingPng] = useState(false);
   const [downloadingLorPdf, setDownloadingLorPdf] = useState(false);
@@ -517,19 +524,82 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
   };
 
   if (!finalDoc.passed) {
+    const usedAttempts = Math.max(1, finalDoc.attemptCount || 1);
+    const canSelfRetake = usedAttempts < 2 && Boolean(onStartSecondAttempt);
+
     return (
-      <div className="rounded-2xl border border-amber-300 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/25 p-6 space-y-3">
-        <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-mono text-xs font-bold">
-          <Lock className="w-4 h-4 shrink-0" />
-          <span>CERTIFICATE &amp; PLACEMENT LOR THRESHOLD NOT REACHED</span>
+      <div
+        className={`rounded-2xl border p-6 space-y-4 ${
+          canSelfRetake
+            ? 'border-blue-300 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/25'
+            : 'border-amber-300 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/25'
+        }`}
+      >
+        <div
+          className={`flex flex-wrap items-center justify-between gap-2 font-mono text-xs font-bold ${
+            canSelfRetake
+              ? 'text-blue-800 dark:text-blue-300'
+              : 'text-amber-800 dark:text-amber-300'
+          }`}
+        >
+          <span className="inline-flex items-center gap-2">
+            {canSelfRetake ? (
+              <RotateCcw className="w-4 h-4 shrink-0" />
+            ) : (
+              <Lock className="w-4 h-4 shrink-0" />
+            )}
+            <span>
+              {canSelfRetake
+                ? 'ATTEMPT 1 OF 2 BELOW 600 XP · 1 SELF-SERVICE RETAKE AVAILABLE'
+                : `ATTEMPT ${usedAttempts} OF 2 USED · CONTACT ADMIN FOR FURTHER RETAKE`}
+            </span>
+          </span>
+          <span>Attempt {usedAttempts} / 2</span>
         </div>
+
         <h3 className="font-display text-xl font-bold text-slate-950 dark:text-white">
           Score Achieved: {finalDoc.totalXpAwarded} / 1000 XP ({finalDoc.percentageScore}%)
         </h3>
-        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-          Issuing the Official Final Capstone Certificate and Personalized Placement Letter of Recommendation (PDF) requires at least{' '}
-          <strong>{FINAL_ASSESSMENT_META.passingXp} / 1000 XP (60%)</strong>. Please review the diagnostic rationales and case study rubric feedback with your mentor to unlock a fresh attempt.
-        </p>
+
+        {canSelfRetake ? (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+              Issuing the Official Final Capstone Certificate and Personalized Placement Letter of Recommendation (PDF) requires at least{' '}
+              <strong>{FINAL_ASSESSMENT_META.passingXp} / 1000 XP (60%)</strong>. You have{' '}
+              <strong>1 self-service retake remaining</strong> before needing to contact your mentor/admin. Review the Part A diagnostic answer key above first, then start your fresh 90-minute Attempt 2 of 2 when ready.
+            </p>
+
+            {retryError && (
+              <div className="p-3 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 text-xs text-red-700 dark:text-red-300">
+                {retryError}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
+              <div className="text-xs font-mono text-slate-600 dark:text-slate-400">
+                Note: Starting Attempt 2 clears previous draft answers and starts a fresh 90:00 proctored timer.
+              </div>
+              <button
+                type="button"
+                disabled={retryingSecondAttempt}
+                onClick={onStartSecondAttempt}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs sm:text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>
+                  {retryingSecondAttempt
+                    ? 'Starting Attempt 2 of 2...'
+                    : 'Start Attempt 2 of 2 (Fresh 90:00 Clock)'}
+                </span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+            Issuing the Official Final Capstone Certificate and Personalized Placement Letter of Recommendation (PDF) requires at least{' '}
+            <strong>{FINAL_ASSESSMENT_META.passingXp} / 1000 XP (60%)</strong>. Both self-service attempts (2/2) have now been completed. Please review your Part A rationales and case study feedback, and contact your mentor or administrator to request an official retake reset.
+          </p>
+        )}
       </div>
     );
   }

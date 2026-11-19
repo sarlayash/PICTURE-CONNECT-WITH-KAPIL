@@ -24,8 +24,10 @@ import {
 } from '../data/finalAssessmentData';
 import { AdvancedProgressDoc } from '../services/advancedFirestoreService';
 import {
+  canSelfRetryFinalAssessment,
   extractCaseResponses,
   FinalAssessmentDoc,
+  retryFinalAssessmentSession,
   saveFinalAssessmentDraft,
   startFinalAssessmentSession,
   submitFinalAssessment,
@@ -94,6 +96,8 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
   const [draftSavedNote, setDraftSavedNote] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [retryingSecondAttempt, setRetryingSecondAttempt] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
   const [showRationales, setShowRationales] = useState(false);
   const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
 
@@ -122,9 +126,9 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
     [coreProgress, advProgress]
   );
 
-  // Hydrate local editor from Firestore when doc arrives initially or transitions status
+  // Hydrate local editor from Firestore when doc arrives initially or transitions status/attempt
   useEffect(() => {
-    const syncKey = `${finalDoc.ownerId}_${finalDoc.status}_${finalDoc.startedAtMs}`;
+    const syncKey = `${finalDoc.ownerId}_${finalDoc.status}_${finalDoc.startedAtMs}_${finalDoc.attemptCount}`;
     if (hydratedOwnerRef.current !== syncKey) {
       hydratedOwnerRef.current = syncKey;
       setTargetRole(finalDoc.targetRole);
@@ -132,6 +136,14 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
       setMcqAnswers(finalDoc.mcqAnswers);
       setCaseResponses(extractCaseResponses(finalDoc));
       setCapstoneScare(finalDoc.capstoneScare);
+      if (finalDoc.status === 'in_progress') {
+        autoSubmittedRef.current = false;
+        setSectionIdx(0);
+        setConfirmSubmitOpen(false);
+        setShowRationales(false);
+        setErrorMsg(null);
+        setRetryError(null);
+      }
     }
   }, [finalDoc]);
 
@@ -288,6 +300,33 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
     }
   };
 
+  const handleStartSecondAttempt = async () => {
+    if (!canSelfRetryFinalAssessment(finalDoc) || retryingSecondAttempt) return;
+    setRetryingSecondAttempt(true);
+    setRetryError(null);
+    setErrorMsg(null);
+    try {
+      autoSubmittedRef.current = false;
+      await retryFinalAssessmentSession({
+        user,
+        existingDoc: finalDoc,
+        targetRole: targetRole || finalDoc.targetRole || 'Entry-Level Analyst / Software & Business Role',
+        collegeOrOrg: collegeOrOrg || finalDoc.collegeOrOrg || 'Placement Candidate',
+      });
+      setSectionIdx(0);
+      setShowRationales(false);
+      setConfirmSubmitOpen(false);
+    } catch (err) {
+      setRetryError(
+        err instanceof Error
+          ? err.message
+          : 'Could not launch Attempt 2 of 2. Please retry.'
+      );
+    } finally {
+      setRetryingSecondAttempt(false);
+    }
+  };
+
   // =========================================================================
   // STATE 1: NOT STARTED — Proctored Briefing Lobby
   // =========================================================================
@@ -332,11 +371,14 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
                   </div>
                 </div>
                 <div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Outputs</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Self-Retake Policy</div>
                   <div className="font-mono text-sm font-bold text-slate-950 dark:text-white">
-                    PNG Cert + LOR PDF
+                    2 Attempts Max
                   </div>
                 </div>
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200 dark:border-slate-800">
+                Outputs: PNG Cert + LOR PDF · Admin required after 2nd fail
               </div>
             </div>
           </div>
@@ -540,7 +582,8 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-2">
               <div className="text-xs font-mono font-bold text-blue-700 dark:text-blue-400">
-                PROCTORED ASSESSMENT SUBMITTED · AUTOMATICALLY GRADED
+                PROCTORED ASSESSMENT SUBMITTED · ATTEMPT {Math.max(1, finalDoc.attemptCount)}
+                {finalDoc.attemptCount <= 2 ? ' OF 2' : ' (ADMIN OVERRIDE)'} · AUTOMATICALLY GRADED
               </div>
               <h1 className="font-display text-3xl font-extrabold text-slate-950 dark:text-white">
                 {finalDoc.gradeTier || 'Assessment Evaluated'}
@@ -552,13 +595,18 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
 
             <div className="rounded-2xl border border-blue-200 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/30 p-5 text-center sm:min-w-[230px] shrink-0">
               <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                TOTAL FINAL SCORE
+                TOTAL FINAL SCORE · ATTEMPT {Math.max(1, finalDoc.attemptCount)}
               </div>
               <div className="font-mono text-3xl font-extrabold text-blue-700 dark:text-blue-400 tabular-nums mt-1">
                 {finalDoc.totalXpAwarded} / 1000 XP
               </div>
               <div className="text-xs font-mono font-semibold text-slate-700 dark:text-slate-300 mt-1 tabular-nums">
-                {finalDoc.percentageScore}% · {finalDoc.passed ? 'PASSED' : 'BELOW 600 XP'}
+                {finalDoc.percentageScore}% ·{' '}
+                {finalDoc.passed
+                  ? 'PASSED'
+                  : Math.max(1, finalDoc.attemptCount) < 2
+                  ? 'BELOW 600 XP · 1 RETAKE LEFT'
+                  : 'BELOW 600 XP · CONTACT ADMIN'}
               </div>
             </div>
           </div>
@@ -646,6 +694,13 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
           coreProgress={coreProgress}
           advProgress={advProgress}
           advAvgScore={advAvgScore}
+          onStartSecondAttempt={
+            canSelfRetryFinalAssessment(finalDoc)
+              ? handleStartSecondAttempt
+              : undefined
+          }
+          retryingSecondAttempt={retryingSecondAttempt}
+          retryError={retryError}
         />
       </div>
     );
@@ -681,7 +736,11 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
             </div>
 
             <div className="text-xs font-mono text-slate-600 dark:text-slate-400">
-              MCQs: <strong className="text-slate-950 dark:text-white">{answeredMcqCount}/10</strong> · Cases:{' '}
+              <strong className="text-blue-700 dark:text-blue-400">
+                Attempt {Math.max(1, finalDoc.attemptCount)}
+                {finalDoc.attemptCount <= 2 ? ' of 2' : ' (Admin Reset)'}
+              </strong>{' '}
+              · MCQs: <strong className="text-slate-950 dark:text-white">{answeredMcqCount}/10</strong> · Cases:{' '}
               <strong className="text-slate-950 dark:text-white">{answeredCaseFieldsCount}/15</strong> · Target: 1000 XP
             </div>
           </div>
