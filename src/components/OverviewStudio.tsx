@@ -6,6 +6,7 @@ import {
   Compass,
   Eye,
   EyeOff,
+  FileCheck2,
   Plus,
   Sparkles,
   Trophy,
@@ -26,13 +27,21 @@ import { LiveClock } from './LiveClock';
 import { VisualArtwork } from './VisualArtwork';
 import { VideoChallengesSection } from './VideoChallengesSection';
 
-export type AppView = 'journey' | 'levels' | 'wheel' | 'advanced' | 'achievements';
+export type AppView =
+  | 'journey'
+  | 'levels'
+  | 'wheel'
+  | 'advanced'
+  | 'final'
+  | 'achievements';
 
 interface OverviewStudioProps {
   learnerName: string;
   progress: LearnerProgressDoc;
   advCompletedCount?: number;
   advXp?: number;
+  finalStatus?: 'not_started' | 'in_progress' | 'submitted';
+  finalXp?: number;
   onNavigateView: (view: AppView, levelNum?: number) => void;
   learnerConnections: {
     id: string;
@@ -54,6 +63,8 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   progress,
   advCompletedCount = 0,
   advXp = 0,
+  finalStatus = 'not_started',
+  finalXp = 0,
   onNavigateView,
   learnerConnections,
   onAddConnection,
@@ -299,6 +310,51 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
           >
             <Sparkles className="w-4 h-4" />
             <span>Open AI Advanced Track</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </section>
+
+      {/* Isolated 90-Minute 1000 XP Proctored Final Capstone Assessment */}
+      <section className="rounded-2xl border border-amber-300/80 dark:border-amber-800/70 bg-gradient-to-r from-[#FFFDF7] via-white to-blue-50/70 dark:from-slate-900 dark:via-slate-950 dark:to-blue-950/30 p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+        <div className="space-y-1.5 max-w-2xl">
+          <div className="text-xs font-mono font-bold text-amber-700 dark:text-amber-400">
+            1000 XP PROCTORED CAPSTONE · 90 MINUTES · 50% ELEVATED RIGOR
+          </div>
+          <h2 className="font-display text-xl sm:text-2xl font-bold text-slate-950 dark:text-white">
+            Final Capstone Assessment &amp; Placement LOR (PDF)
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+            10 non-repeated hard MCQs (400 XP), 5 new visual case studies across FinTech, EV, Healthcare, SaaS &amp; Placement Panel (500 XP), SCARE defense (100 XP), automatic scoring, Final PNG Certificate, and personalized Placement Letter of Recommendation (PDF).
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 shrink-0">
+          <div className="text-left sm:text-right font-mono">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+              FINAL ASSESSMENT STATUS
+            </div>
+            <div className="text-sm font-bold text-blue-700 dark:text-blue-400 tabular-nums">
+              {finalStatus === 'submitted'
+                ? `Completed · ${finalXp}/1000 XP`
+                : finalStatus === 'in_progress'
+                ? 'Exam Clock Active'
+                : 'Not Started · 90:00 Min'}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigateView('final')}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-950 dark:bg-blue-700 hover:bg-slate-800 dark:hover:bg-blue-600 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+          >
+            <FileCheck2 className="w-4 h-4" />
+            <span>
+              {finalStatus === 'submitted'
+                ? 'View Score, Cert & LOR PDF'
+                : finalStatus === 'in_progress'
+                ? 'Resume 90-Min Exam'
+                : 'Open 90-Min Final Assessment'}
+            </span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

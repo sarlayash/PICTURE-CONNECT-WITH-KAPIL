@@ -29,6 +29,11 @@ import {
   subscribeAdvancedProgress,
   subscribeAdvancedSubmissions,
 } from './services/advancedFirestoreService';
+import {
+  createDefaultFinalAssessment,
+  FinalAssessmentDoc,
+  subscribeFinalAssessment,
+} from './services/finalAssessmentService';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { GoogleAuthGate } from './components/GoogleAuthGate';
 import { AppView, OverviewStudio } from './components/OverviewStudio';
@@ -36,6 +41,7 @@ import { ActivitiesStudio } from './components/ActivitiesStudio';
 import { SpinWheelStudio } from './components/SpinWheelStudio';
 import { AchievementsCertificate } from './components/AchievementsCertificate';
 import { AdvancedTrackStudio } from './components/AdvancedTrackStudio';
+import { FinalAssessmentStudio } from './components/FinalAssessmentStudio';
 import { AdminDashboard } from './components/AdminDashboard';
 
 const THEME_STORAGE_KEY = 'pcwk_theme_v2';
@@ -60,6 +66,9 @@ function PictureConnectWorkspace() {
   const [advSubmissions, setAdvSubmissions] = useState<
     Record<string, AdvancedSubmissionDoc>
   >({});
+  const [finalAssessment, setFinalAssessment] = useState<FinalAssessmentDoc>(() =>
+    createDefaultFinalAssessment('pending')
+  );
 
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     try {
@@ -100,6 +109,13 @@ function PictureConnectWorkspace() {
       setUser(nextUser);
       setProgress(createDefaultProgress(nextUser.uid));
       setAdvProgress(createDefaultAdvancedProgress(nextUser.uid));
+      setFinalAssessment(
+        createDefaultFinalAssessment(
+          nextUser.uid,
+          nextUser.displayName || nextUser.email?.split('@')[0] || 'Verified Learner',
+          nextUser.email || ''
+        )
+      );
       setAuthReady(true);
       try {
         await upsertUserAccount(nextUser);
@@ -122,6 +138,7 @@ function PictureConnectWorkspace() {
       user.uid,
       setAdvSubmissions
     );
+    const unsubFinal = subscribeFinalAssessment(user, setFinalAssessment);
 
     return () => {
       unsubConnections();
@@ -129,6 +146,7 @@ function PictureConnectWorkspace() {
       unsubProgress();
       unsubAdvProgress();
       unsubAdvSubmissions();
+      unsubFinal();
     };
   }, [authReady, user]);
 
@@ -185,12 +203,20 @@ function PictureConnectWorkspace() {
   const perspectivePosts = connections.filter((c) => c.kind === 'perspective');
   const challengePosts = connections.filter((c) => c.kind === 'challenge');
 
+  const advSubsList = Object.values(advSubmissions) as AdvancedSubmissionDoc[];
+  const advAvgScore =
+    advSubsList.length > 0
+      ? Math.round(
+          advSubsList.reduce((acc, s) => acc + s.totalScore, 0) / advSubsList.length
+        )
+      : 0;
+
   const navItems: { id: AppView; label: string }[] = [
     { id: 'journey', label: 'Journey' },
     { id: 'levels', label: 'Levels 1–10' },
     { id: 'wheel', label: 'Spin Wheel' },
     { id: 'advanced', label: 'AI Advanced' },
-    { id: 'achievements', label: 'Badges & XP' },
+    { id: 'final', label: 'Final 1000 XP' },
   ];
 
   return (
@@ -311,6 +337,8 @@ function PictureConnectWorkspace() {
             progress={progress}
             advCompletedCount={advProgress.completedChallenges.length}
             advXp={advProgress.advXp}
+            finalStatus={finalAssessment.status}
+            finalXp={finalAssessment.totalXpAwarded}
             onNavigateView={handleNavigateView}
             learnerConnections={conceptConnections}
             onAddConnection={async (picture, concept, explanation) => {
@@ -391,6 +419,18 @@ function PictureConnectWorkspace() {
             learnerEmail={user.email || ''}
             advProgress={advProgress}
             submissions={advSubmissions}
+          />
+        )}
+
+        {view === 'final' && (
+          <FinalAssessmentStudio
+            user={user}
+            learnerName={learnerName}
+            learnerEmail={user.email || ''}
+            finalDoc={finalAssessment}
+            coreProgress={progress}
+            advProgress={advProgress}
+            advAvgScore={advAvgScore}
           />
         )}
 

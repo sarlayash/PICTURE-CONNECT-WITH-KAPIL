@@ -181,6 +181,68 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidFinalAssessment(data, userId) {
+      return data.keys().hasAll([
+          'ownerId', 'authorName', 'authorEmail', 'targetRole', 'collegeOrOrg',
+          'status', 'startedAtMs', 'submittedAtMs', 'timeUsedSeconds', 'mcqAnswers',
+          'c1a', 'c1b', 'c1c', 'c2a', 'c2b', 'c2c',
+          'c3a', 'c3b', 'c3c', 'c4a', 'c4b', 'c4c',
+          'c5a', 'c5b', 'c5c', 'capstoneScare',
+          'mcqScore', 'caseScore', 'scareScore', 'totalXpAwarded',
+          'percentageScore', 'passed', 'gradeTier',
+          'finalCertificateId', 'lorVerificationId', 'executiveFeedback', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'authorName', 'authorEmail', 'targetRole', 'collegeOrOrg',
+          'status', 'startedAtMs', 'submittedAtMs', 'timeUsedSeconds', 'mcqAnswers',
+          'c1a', 'c1b', 'c1c', 'c2a', 'c2b', 'c2c',
+          'c3a', 'c3b', 'c3c', 'c4a', 'c4b', 'c4c',
+          'c5a', 'c5b', 'c5c', 'capstoneScare',
+          'mcqScore', 'caseScore', 'scareScore', 'totalXpAwarded',
+          'percentageScore', 'passed', 'gradeTier',
+          'finalCertificateId', 'lorVerificationId', 'executiveFeedback', 'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId == userId && isValidId(data.ownerId)
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100
+        && data.authorEmail is string && data.authorEmail.size() >= 3 && data.authorEmail.size() <= 160
+        && data.targetRole is string && data.targetRole.size() <= 120
+        && data.collegeOrOrg is string && data.collegeOrOrg.size() <= 120
+        && data.status in ['in_progress', 'submitted']
+        && data.startedAtMs is number && data.startedAtMs >= 0
+        && data.submittedAtMs is number && data.submittedAtMs >= 0
+        && data.timeUsedSeconds is number && data.timeUsedSeconds >= 0 && data.timeUsedSeconds <= 5400
+        && data.mcqAnswers is list
+        && data.mcqAnswers.size() <= 10
+        && (data.mcqAnswers.size() == 0 || (data.mcqAnswers[0] is number && data.mcqAnswers[0] >= -1 && data.mcqAnswers[0] <= 3))
+        && data.c1a is string && data.c1a.size() <= 1200
+        && data.c1b is string && data.c1b.size() <= 1200
+        && data.c1c is string && data.c1c.size() <= 1200
+        && data.c2a is string && data.c2a.size() <= 1200
+        && data.c2b is string && data.c2b.size() <= 1200
+        && data.c2c is string && data.c2c.size() <= 1200
+        && data.c3a is string && data.c3a.size() <= 1200
+        && data.c3b is string && data.c3b.size() <= 1200
+        && data.c3c is string && data.c3c.size() <= 1200
+        && data.c4a is string && data.c4a.size() <= 1200
+        && data.c4b is string && data.c4b.size() <= 1200
+        && data.c4c is string && data.c4c.size() <= 1200
+        && data.c5a is string && data.c5a.size() <= 1200
+        && data.c5b is string && data.c5b.size() <= 1200
+        && data.c5c is string && data.c5c.size() <= 1200
+        && data.capstoneScare is string && data.capstoneScare.size() <= 1500
+        && data.mcqScore is number && data.mcqScore >= 0 && data.mcqScore <= 400
+        && data.caseScore is number && data.caseScore >= 0 && data.caseScore <= 500
+        && data.scareScore is number && data.scareScore >= 0 && data.scareScore <= 100
+        && data.totalXpAwarded is number && data.totalXpAwarded >= 0 && data.totalXpAwarded <= 1000
+        && data.percentageScore is number && data.percentageScore >= 0 && data.percentageScore <= 100
+        && data.passed is bool
+        && data.gradeTier is string && data.gradeTier.size() <= 60
+        && data.finalCertificateId is string && data.finalCertificateId.size() >= 4 && data.finalCertificateId.size() <= 64
+        && data.lorVerificationId is string && data.lorVerificationId.size() >= 4 && data.lorVerificationId.size() <= 64
+        && data.executiveFeedback is string && data.executiveFeedback.size() <= 1000
+        && data.updatedAt is timestamp;
+    }
+
     // 4. Collection Rules
     match /users/{userId} {
       allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
@@ -310,6 +372,40 @@ service cloud.firestore {
           'scareSummary', 'totalScore', 'obsScore', 'reasonScore',
           'creativityScore', 'actionScore', 'commScore', 'feedback', 'updatedAt'
         ]);
+      allow delete: if false;
+    }
+
+    match /finalAssessments/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isGenuineGoogleUser() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidFinalAssessment(incoming(), userId)
+        && incoming().authorEmail == request.auth.token.email
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isValidFinalAssessment(incoming(), userId)
+        && incoming().ownerId == existing().ownerId
+        && incoming().authorEmail == existing().authorEmail
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            isOwner(userId)
+            && existing().status == 'in_progress'
+            && incoming().startedAtMs == existing().startedAtMs
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'authorName', 'targetRole', 'collegeOrOrg', 'status',
+              'submittedAtMs', 'timeUsedSeconds', 'mcqAnswers',
+              'c1a', 'c1b', 'c1c', 'c2a', 'c2b', 'c2c',
+              'c3a', 'c3b', 'c3c', 'c4a', 'c4b', 'c4c',
+              'c5a', 'c5b', 'c5c', 'capstoneScare',
+              'mcqScore', 'caseScore', 'scareScore', 'totalXpAwarded',
+              'percentageScore', 'passed', 'gradeTier',
+              'executiveFeedback', 'updatedAt'
+            ])
+          )
+        );
       allow delete: if false;
     }
   }

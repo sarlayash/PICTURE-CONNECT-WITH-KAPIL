@@ -294,6 +294,101 @@
         "feedback",
         "updatedAt"
       ]
+    },
+    "FinalAssessment": {
+      "title": "FinalAssessment",
+      "description": "Isolated 1000 XP, 90-minute proctored Final Assessment covering Normal + Advanced track case studies, auto-scoring, certificate ID, and LOR verification ID.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "authorEmail": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "targetRole": { "type": "string", "maxLength": 120 },
+        "collegeOrOrg": { "type": "string", "maxLength": 120 },
+        "status": {
+          "type": "string",
+          "enum": ["in_progress", "submitted"]
+        },
+        "startedAtMs": { "type": "number", "minimum": 0 },
+        "submittedAtMs": { "type": "number", "minimum": 0 },
+        "timeUsedSeconds": { "type": "number", "minimum": 0, "maximum": 5400 },
+        "mcqAnswers": {
+          "type": "array",
+          "items": { "type": "number" },
+          "maxItems": 10
+        },
+        "c1a": { "type": "string", "maxLength": 1200 },
+        "c1b": { "type": "string", "maxLength": 1200 },
+        "c1c": { "type": "string", "maxLength": 1200 },
+        "c2a": { "type": "string", "maxLength": 1200 },
+        "c2b": { "type": "string", "maxLength": 1200 },
+        "c2c": { "type": "string", "maxLength": 1200 },
+        "c3a": { "type": "string", "maxLength": 1200 },
+        "c3b": { "type": "string", "maxLength": 1200 },
+        "c3c": { "type": "string", "maxLength": 1200 },
+        "c4a": { "type": "string", "maxLength": 1200 },
+        "c4b": { "type": "string", "maxLength": 1200 },
+        "c4c": { "type": "string", "maxLength": 1200 },
+        "c5a": { "type": "string", "maxLength": 1200 },
+        "c5b": { "type": "string", "maxLength": 1200 },
+        "c5c": { "type": "string", "maxLength": 1200 },
+        "capstoneScare": { "type": "string", "maxLength": 1500 },
+        "mcqScore": { "type": "number", "minimum": 0, "maximum": 400 },
+        "caseScore": { "type": "number", "minimum": 0, "maximum": 500 },
+        "scareScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "totalXpAwarded": { "type": "number", "minimum": 0, "maximum": 1000 },
+        "percentageScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "passed": { "type": "boolean" },
+        "gradeTier": { "type": "string", "maxLength": 60 },
+        "finalCertificateId": { "type": "string", "minLength": 4, "maxLength": 64 },
+        "lorVerificationId": { "type": "string", "minLength": 4, "maxLength": 64 },
+        "executiveFeedback": { "type": "string", "maxLength": 1000 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "ownerId",
+        "authorName",
+        "authorEmail",
+        "targetRole",
+        "collegeOrOrg",
+        "status",
+        "startedAtMs",
+        "submittedAtMs",
+        "timeUsedSeconds",
+        "mcqAnswers",
+        "c1a",
+        "c1b",
+        "c1c",
+        "c2a",
+        "c2b",
+        "c2c",
+        "c3a",
+        "c3b",
+        "c3c",
+        "c4a",
+        "c4b",
+        "c4c",
+        "c5a",
+        "c5b",
+        "c5c",
+        "capstoneScare",
+        "mcqScore",
+        "caseScore",
+        "scareScore",
+        "totalXpAwarded",
+        "percentageScore",
+        "passed",
+        "gradeTier",
+        "finalCertificateId",
+        "lorVerificationId",
+        "executiveFeedback",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -320,6 +415,10 @@
     "/advancedSubmissions/{submissionId}": {
       "schema": { "$ref": "#/entities/AdvancedSubmission" },
       "description": "Per-challenge AI prompts, uploaded visual images, answers, and auto-scoring breakdowns."
+    },
+    "/finalAssessments/{userId}": {
+      "schema": { "$ref": "#/entities/FinalAssessment" },
+      "description": "1000 XP, 90-minute proctored Final Assessment sessions, scores, and issued Certificate/LOR IDs."
     }
   }
 }

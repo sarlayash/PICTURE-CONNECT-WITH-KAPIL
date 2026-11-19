@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { User } from 'firebase/auth';
 import {
-  Award,
   Download,
   Eye,
+  FileCheck2,
   FileJson,
   Lock,
   LogOut,
+  RotateCcw,
   Search,
   ShieldCheck,
   Sparkles,
@@ -25,6 +26,11 @@ import {
   AdminAdvancedUserSummary,
   subscribeAdminAdvancedData,
 } from '../services/advancedFirestoreService';
+import {
+  adminResetFinalAssessment,
+  FinalAssessmentDoc,
+  subscribeAdminFinalAssessments,
+} from '../services/finalAssessmentService';
 import {
   AdminUserRecord,
   subscribeAdminLiveData,
@@ -69,7 +75,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [advByUid, setAdvByUid] = useState<
     Record<string, AdminAdvancedUserSummary>
   >({});
-  const [adminTrackView, setAdminTrackView] = useState<'core' | 'advanced'>('core');
+  const [finalByUid, setFinalByUid] = useState<
+    Record<string, FinalAssessmentDoc>
+  >({});
+  const [adminTrackView, setAdminTrackView] = useState<'core' | 'advanced' | 'final'>('core');
   const [lastSyncMs, setLastSyncMs] = useState<number>(0);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [googleBusy, setGoogleBusy] = useState(false);
@@ -78,6 +87,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
   const [sortBy, setSortBy] = useState<SortBy>('xp');
   const [inspectedUser, setInspectedUser] = useState<AdminUserRecord | null>(null);
+  const [resetConfirmUid, setResetConfirmUid] = useState<string | null>(null);
+  const [resetBusy, setResetBusy] = useState(false);
 
   const hasAdminGoogleSession = isFacilitatorAdmin(currentUser);
 
@@ -102,10 +113,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setStreamError(errMsg);
       }
     );
+    const unsubFinal = subscribeAdminFinalAssessments(
+      (finalMap) => {
+        setFinalByUid(finalMap);
+      },
+      (errMsg) => {
+        setStreamError(errMsg);
+      }
+    );
 
     return () => {
       unsubCore();
       unsubAdv();
+      unsubFinal();
     };
   }, [open, credentialsUnlocked, hasAdminGoogleSession]);
 
@@ -197,6 +217,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       'Advanced Avg Auto-Score (/100)',
       'Advanced Badges (/8)',
       'Advanced Certificate ID',
+      'Final Exam Status',
+      'Final Total XP (/1000)',
+      'Final Part A MCQs (/400)',
+      'Final Part B Cases (/500)',
+      'Final Part C SCARE (/100)',
+      'Final Grade Tier',
+      'Final Passed',
+      'Final Target Role',
+      'Final College/Cohort',
+      'Final Cert ID',
+      'Final LOR ID',
       'Joined At',
       'Last Active',
       'Level 2 Pitch',
@@ -209,6 +240,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     const rows = filteredRecords.map((r) => {
       const adv = advByUid[r.uid];
+      const fin = finalByUid[r.uid];
       return [
         r.displayName,
         r.email,
@@ -227,8 +259,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         adv?.avgScore ?? 0,
         `${adv?.unlockedAdvBadges.length ?? 0}/${ADVANCED_BADGES.length}`,
         adv?.advCertificateId ?? '',
+        fin?.status ?? 'not_started',
+        fin?.totalXpAwarded ?? 0,
+        fin?.mcqScore ?? 0,
+        fin?.caseScore ?? 0,
+        fin?.scareScore ?? 0,
+        fin?.gradeTier ?? '',
+        fin?.passed ? 'YES' : 'NO',
+        fin?.targetRole ?? '',
+        fin?.collegeOrOrg ?? '',
+        fin?.finalCertificateId ?? '',
+        fin?.lorVerificationId ?? '',
         formatTimestamp(r.createdAtMs),
-        formatTimestamp(Math.max(r.lastActiveMs, adv?.updatedAtMs ?? 0)),
+        formatTimestamp(
+          Math.max(r.lastActiveMs, adv?.updatedAtMs ?? 0, fin?.submittedAtMs ?? 0)
+        ),
         r.workspace.act2Pitch || '',
         r.workspace.act3StoryTitle || '',
         r.workspace.act5CeoSolution || '',
@@ -261,6 +306,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       learners: filteredRecords.map((r) => ({
         ...r,
         advancedTrack: advByUid[r.uid] ?? null,
+        finalAssessment: finalByUid[r.uid] ?? null,
       })),
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
@@ -277,11 +323,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const handleResetFinalAttempt = async (uid: string) => {
+    setResetBusy(true);
+    setStreamError(null);
+    try {
+      await adminResetFinalAssessment(uid);
+      setResetConfirmUid(null);
+    } catch (err) {
+      setStreamError(
+        err instanceof Error ? err.message : 'Failed to reset Final Assessment.'
+      );
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
   const totalLearners = records.length;
   const totalXpSum = records.reduce((sum, r) => sum + r.xp, 0);
   const avgXp = totalLearners > 0 ? Math.round(totalXpSum / totalLearners) : 0;
-  const fullGraduates = records.filter((r) => r.completedLevels.length === 10).length;
-  const totalWheelSpins = records.reduce((sum, r) => sum + r.wheelSpins, 0);
+  const finalSubmittedCount = Object.values(finalByUid).filter(
+    (f) => f.status === 'submitted'
+  ).length;
+  const finalPassedCount = Object.values(finalByUid).filter(
+    (f) => f.status === 'submitted' && f.passed
+  ).length;
 
   return (
     <div
@@ -448,7 +513,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               {/* Track Selector Tabs */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setAdminTrackView('core')}
@@ -469,11 +534,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         : 'bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300'
                     }`}
                   >
-                    AI Advanced Track (25 Challenges · Auto-Scored)
+                    AI Advanced Track (25 Challenges)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdminTrackView('final')}
+                    className={`px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                      adminTrackView === 'final'
+                        ? 'bg-emerald-700 text-white'
+                        : 'bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    Final Exam (1000 XP · LOR PDF)
                   </button>
                 </div>
                 <div className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                  {Object.keys(advByUid).length} Learners Started AI Advanced Track
+                  {finalSubmittedCount} Final Submitted ({finalPassedCount} Passed)
                 </div>
               </div>
 
@@ -499,11 +575,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4">
                   <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                    <span>Core Graduates (10/10)</span>
-                    <Award className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    <span>Final Exam Passed</span>
+                    <FileCheck2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   </div>
                   <div className="font-mono text-2xl font-bold text-slate-950 dark:text-white mt-2 tabular-nums">
-                    {fullGraduates}
+                    {finalPassedCount} / {finalSubmittedCount}
                   </div>
                 </div>
                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4">
@@ -592,7 +668,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <th className="py-3 px-3">Wheel</th>
                           <th className="py-3 px-3">Certificate ID</th>
                         </>
-                      ) : (
+                      ) : adminTrackView === 'advanced' ? (
                         <>
                           <th className="py-3 px-3">Adv Rank</th>
                           <th className="py-3 px-3">Adv XP</th>
@@ -600,6 +676,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <th className="py-3 px-3">Avg Score</th>
                           <th className="py-3 px-3">Adv Badges</th>
                           <th className="py-3 px-3">Adv Cert ID</th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="py-3 px-3">Exam Status</th>
+                          <th className="py-3 px-3">Final XP (/1000)</th>
+                          <th className="py-3 px-3">Part A (/400)</th>
+                          <th className="py-3 px-3">Part B (/500)</th>
+                          <th className="py-3 px-3">Part C (/100)</th>
+                          <th className="py-3 px-3">LOR &amp; Tier</th>
                         </>
                       )}
                       <th className="py-3 px-3">Last Active</th>
@@ -623,6 +708,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         const advPct = Math.round(
                           ((adv?.completedChallenges.length ?? 0) / 25) * 100
                         );
+                        const fin = finalByUid[learner.uid];
                         return (
                           <tr
                             key={learner.uid}
@@ -666,7 +752,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   {learner.certificateId}
                                 </td>
                               </>
-                            ) : (
+                            ) : adminTrackView === 'advanced' ? (
                               <>
                                 <td className="py-3 px-3 font-medium text-slate-700 dark:text-slate-300">
                                   {adv?.advRankTitle ?? 'AI Visual Explorer'}
@@ -696,10 +782,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   {adv?.advCertificateId || '—'}
                                 </td>
                               </>
+                            ) : (
+                              <>
+                                <td className="py-3 px-3 font-mono font-semibold">
+                                  {fin?.status === 'submitted' ? (
+                                    <span className={fin.passed ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}>
+                                      {fin.passed ? 'PASSED' : 'SUBMITTED (<600)'}
+                                    </span>
+                                  ) : fin?.status === 'in_progress' ? (
+                                    <span className="text-blue-700 dark:text-blue-400">IN PROGRESS</span>
+                                  ) : (
+                                    <span className="text-slate-400">NOT STARTED</span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-3 font-mono font-bold text-slate-950 dark:text-white tabular-nums">
+                                  {fin ? `${fin.totalXpAwarded}/1000` : '—'}
+                                </td>
+                                <td className="py-3 px-3 font-mono tabular-nums">
+                                  {fin ? `${fin.mcqScore}/400` : '—'}
+                                </td>
+                                <td className="py-3 px-3 font-mono tabular-nums">
+                                  {fin ? `${fin.caseScore}/500` : '—'}
+                                </td>
+                                <td className="py-3 px-3 font-mono tabular-nums">
+                                  {fin ? `${fin.scareScore}/100` : '—'}
+                                </td>
+                                <td className="py-3 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-400">
+                                  {fin?.status === 'submitted'
+                                    ? `${fin.lorVerificationId} · ${fin.gradeTier}`
+                                    : '—'}
+                                </td>
+                              </>
                             )}
                             <td className="py-3 px-3 text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
                               {formatTimestamp(
-                                adminTrackView === 'advanced'
+                                adminTrackView === 'final'
+                                  ? fin?.submittedAtMs || fin?.startedAtMs || learner.lastActiveMs
+                                  : adminTrackView === 'advanced'
                                   ? adv?.updatedAtMs || learner.lastActiveMs
                                   : learner.lastActiveMs
                               )}
@@ -859,6 +978,72 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </div>
                           </div>
                         ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {finalByUid[inspectedUser.uid] && (
+                    <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                          Final 1000 XP Proctored Assessment ({finalByUid[inspectedUser.uid].status.toUpperCase()}) ·{' '}
+                          {finalByUid[inspectedUser.uid].totalXpAwarded}/1000 XP ({finalByUid[inspectedUser.uid].percentageScore}%)
+                        </div>
+
+                        {finalByUid[inspectedUser.uid].status === 'submitted' && (
+                          <div className="flex items-center gap-2">
+                            {resetConfirmUid === inspectedUser.uid ? (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={resetBusy}
+                                  onClick={() => handleResetFinalAttempt(inspectedUser.uid)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-semibold cursor-pointer"
+                                >
+                                  {resetBusy ? 'Resetting...' : 'Confirm Retake Reset'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setResetConfirmUid(null)}
+                                  className="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-300 cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setResetConfirmUid(inspectedUser.uid)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-amber-300 dark:border-amber-700 text-[11px] font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30 cursor-pointer"
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                                <span>Grant Final Retake (90:00)</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-1">
+                          <div className="font-mono font-bold text-slate-900 dark:text-white">
+                            Part A: {finalByUid[inspectedUser.uid].mcqScore}/400 · Part B: {finalByUid[inspectedUser.uid].caseScore}/500 · Part C: {finalByUid[inspectedUser.uid].scareScore}/100
+                          </div>
+                          <div className="text-slate-600 dark:text-slate-300">
+                            Target Role: {finalByUid[inspectedUser.uid].targetRole || '—'} · College: {finalByUid[inspectedUser.uid].collegeOrOrg || '—'}
+                          </div>
+                          <div className="font-mono text-[11px] text-blue-700 dark:text-blue-400">
+                            Cert: {finalByUid[inspectedUser.uid].finalCertificateId} · LOR: {finalByUid[inspectedUser.uid].lorVerificationId}
+                          </div>
+                        </div>
+                        <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-1">
+                          <div className="font-semibold text-slate-900 dark:text-white">
+                            Part C · SCARE Placement Defense
+                          </div>
+                          <p className="text-slate-600 dark:text-slate-300 line-clamp-3">
+                            {finalByUid[inspectedUser.uid].capstoneScare || 'Not submitted yet'}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   )}
