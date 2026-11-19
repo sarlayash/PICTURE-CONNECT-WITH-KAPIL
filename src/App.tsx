@@ -22,12 +22,20 @@ import {
   subscribeLearnerWorkspace,
   upsertUserAccount,
 } from './services/firestoreService';
+import {
+  AdvancedProgressDoc,
+  AdvancedSubmissionDoc,
+  createDefaultAdvancedProgress,
+  subscribeAdvancedProgress,
+  subscribeAdvancedSubmissions,
+} from './services/advancedFirestoreService';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { GoogleAuthGate } from './components/GoogleAuthGate';
 import { AppView, OverviewStudio } from './components/OverviewStudio';
 import { ActivitiesStudio } from './components/ActivitiesStudio';
 import { SpinWheelStudio } from './components/SpinWheelStudio';
 import { AchievementsCertificate } from './components/AchievementsCertificate';
+import { AdvancedTrackStudio } from './components/AdvancedTrackStudio';
 import { AdminDashboard } from './components/AdminDashboard';
 
 const THEME_STORAGE_KEY = 'pcwk_theme_v2';
@@ -46,6 +54,12 @@ function PictureConnectWorkspace() {
   const [progress, setProgress] = useState<LearnerProgressDoc>(() =>
     createDefaultProgress('pending')
   );
+  const [advProgress, setAdvProgress] = useState<AdvancedProgressDoc>(() =>
+    createDefaultAdvancedProgress('pending')
+  );
+  const [advSubmissions, setAdvSubmissions] = useState<
+    Record<string, AdvancedSubmissionDoc>
+  >({});
 
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     try {
@@ -85,6 +99,7 @@ function PictureConnectWorkspace() {
       setAuthError(null);
       setUser(nextUser);
       setProgress(createDefaultProgress(nextUser.uid));
+      setAdvProgress(createDefaultAdvancedProgress(nextUser.uid));
       setAuthReady(true);
       try {
         await upsertUserAccount(nextUser);
@@ -102,11 +117,18 @@ function PictureConnectWorkspace() {
     const unsubConnections = subscribeConnections(setConnections);
     const unsubWorkspace = subscribeLearnerWorkspace(user.uid, setWorkspace);
     const unsubProgress = subscribeLearnerProgress(user.uid, setProgress);
+    const unsubAdvProgress = subscribeAdvancedProgress(user.uid, setAdvProgress);
+    const unsubAdvSubmissions = subscribeAdvancedSubmissions(
+      user.uid,
+      setAdvSubmissions
+    );
 
     return () => {
       unsubConnections();
       unsubWorkspace();
       unsubProgress();
+      unsubAdvProgress();
+      unsubAdvSubmissions();
     };
   }, [authReady, user]);
 
@@ -167,6 +189,7 @@ function PictureConnectWorkspace() {
     { id: 'journey', label: 'Journey' },
     { id: 'levels', label: 'Levels 1–10' },
     { id: 'wheel', label: 'Spin Wheel' },
+    { id: 'advanced', label: 'AI Advanced' },
     { id: 'achievements', label: 'Badges & XP' },
   ];
 
@@ -286,6 +309,8 @@ function PictureConnectWorkspace() {
           <OverviewStudio
             learnerName={learnerName}
             progress={progress}
+            advCompletedCount={advProgress.completedChallenges.length}
+            advXp={advProgress.advXp}
             onNavigateView={handleNavigateView}
             learnerConnections={conceptConnections}
             onAddConnection={async (picture, concept, explanation) => {
@@ -356,6 +381,16 @@ function PictureConnectWorkspace() {
               );
               return recordWheelCompletion(user.uid, progress, promptId, xpReward);
             }}
+          />
+        )}
+
+        {view === 'advanced' && (
+          <AdvancedTrackStudio
+            user={user}
+            learnerName={learnerName}
+            learnerEmail={user.email || ''}
+            advProgress={advProgress}
+            submissions={advSubmissions}
           />
         )}
 

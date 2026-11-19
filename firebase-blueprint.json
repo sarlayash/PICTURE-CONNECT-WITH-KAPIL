@@ -189,6 +189,111 @@
         "certificateId",
         "updatedAt"
       ]
+    },
+    "AdvancedProgress": {
+      "title": "AdvancedProgress",
+      "description": "Isolated Advanced Track (AI-Powered Picture Connect) XP, completed challenge IDs, cumulative score sum, badges, and certificate ID.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "advXp": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 25000
+        },
+        "totalScoreSum": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2500
+        },
+        "completedChallenges": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 25
+        },
+        "unlockedAdvBadges": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 15
+        },
+        "advCertificateId": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 64
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "ownerId",
+        "advXp",
+        "totalScoreSum",
+        "completedChallenges",
+        "unlockedAdvBadges",
+        "advCertificateId",
+        "updatedAt"
+      ]
+    },
+    "AdvancedSubmission": {
+      "title": "AdvancedSubmission",
+      "description": "Learner AI prompt, uploaded visual image, 5 structured answers, SCARE synthesis, and 100-mark auto-score breakdown for an Advanced Track challenge.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "challengeId": { "type": "string", "minLength": 1, "maxLength": 12 },
+        "themeId": {
+          "type": "string",
+          "enum": ["products", "values", "abstract", "placements", "services"]
+        },
+        "promptUsed": { "type": "string", "maxLength": 1400 },
+        "imageDataUrl": { "type": "string", "maxLength": 280000 },
+        "answer1": { "type": "string", "maxLength": 1200 },
+        "answer2": { "type": "string", "maxLength": 1200 },
+        "answer3": { "type": "string", "maxLength": 1200 },
+        "answer4": { "type": "string", "maxLength": 1200 },
+        "answer5": { "type": "string", "maxLength": 1200 },
+        "scareSummary": { "type": "string", "maxLength": 1200 },
+        "totalScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "obsScore": { "type": "number", "minimum": 0, "maximum": 20 },
+        "reasonScore": { "type": "number", "minimum": 0, "maximum": 25 },
+        "creativityScore": { "type": "number", "minimum": 0, "maximum": 20 },
+        "actionScore": { "type": "number", "minimum": 0, "maximum": 20 },
+        "commScore": { "type": "number", "minimum": 0, "maximum": 15 },
+        "feedback": { "type": "string", "maxLength": 800 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "ownerId",
+        "authorName",
+        "challengeId",
+        "themeId",
+        "promptUsed",
+        "imageDataUrl",
+        "answer1",
+        "answer2",
+        "answer3",
+        "answer4",
+        "answer5",
+        "scareSummary",
+        "totalScore",
+        "obsScore",
+        "reasonScore",
+        "creativityScore",
+        "actionScore",
+        "commScore",
+        "feedback",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -207,6 +312,14 @@
     "/learnerProgress/{userId}": {
       "schema": { "$ref": "#/entities/LearnerProgress" },
       "description": "Learner XP, Levels 1-10 completion, badges, and certificate credentials."
+    },
+    "/advancedProgress/{userId}": {
+      "schema": { "$ref": "#/entities/AdvancedProgress" },
+      "description": "Isolated Advanced Track progress, XP, badges, and Advanced Certificate ID."
+    },
+    "/advancedSubmissions/{submissionId}": {
+      "schema": { "$ref": "#/entities/AdvancedSubmission" },
+      "description": "Per-challenge AI prompts, uploaded visual images, answers, and auto-scoring breakdowns."
     }
   }
 }

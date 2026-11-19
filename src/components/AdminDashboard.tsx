@@ -14,12 +14,17 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { ADVANCED_BADGES } from '../data/advancedTrackData';
 import { BADGES } from '../data/workshopData';
 import {
   ADMIN_EMAIL,
   isFacilitatorAdmin,
   signInWithGoogleOnly,
 } from '../firebase';
+import {
+  AdminAdvancedUserSummary,
+  subscribeAdminAdvancedData,
+} from '../services/advancedFirestoreService';
 import {
   AdminUserRecord,
   subscribeAdminLiveData,
@@ -61,6 +66,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [credentialsUnlocked, setCredentialsUnlocked] = useState(false);
 
   const [records, setRecords] = useState<AdminUserRecord[]>([]);
+  const [advByUid, setAdvByUid] = useState<
+    Record<string, AdminAdvancedUserSummary>
+  >({});
+  const [adminTrackView, setAdminTrackView] = useState<'core' | 'advanced'>('core');
   const [lastSyncMs, setLastSyncMs] = useState<number>(0);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [googleBusy, setGoogleBusy] = useState(false);
@@ -76,7 +85,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!open || !credentialsUnlocked || !hasAdminGoogleSession) return;
 
     setStreamError(null);
-    const unsub = subscribeAdminLiveData(
+    const unsubCore = subscribeAdminLiveData(
       (nextRecords, syncTime) => {
         setRecords(nextRecords);
         setLastSyncMs(syncTime);
@@ -85,8 +94,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setStreamError(errMsg);
       }
     );
+    const unsubAdv = subscribeAdminAdvancedData(
+      (advMap) => {
+        setAdvByUid(advMap);
+      },
+      (errMsg) => {
+        setStreamError(errMsg);
+      }
+    );
 
-    return () => unsub();
+    return () => {
+      unsubCore();
+      unsubAdv();
+    };
   }, [open, credentialsUnlocked, hasAdminGoogleSession]);
 
   const filteredRecords = useMemo(() => {
@@ -162,15 +182,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const headers = [
       'Learner Name',
       'Google Email',
-      'Rank',
-      'Total XP',
-      'Levels Completed Count',
+      'Core Rank',
+      'Core Total XP',
+      'Core Levels Completed',
       'Completed Levels',
-      'Badges Unlocked Count',
+      'Core Badges Unlocked',
       'Wheel Spins',
       'Wheel Prompts Done',
       'Shared Wall Posts',
-      'Certificate ID',
+      'Core Certificate ID',
+      'Advanced XP',
+      'Advanced Rank',
+      'Advanced Challenges (/25)',
+      'Advanced Avg Auto-Score (/100)',
+      'Advanced Badges (/8)',
+      'Advanced Certificate ID',
       'Joined At',
       'Last Active',
       'Level 2 Pitch',
@@ -181,27 +207,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       'Level 10 Capstone Theme',
     ];
 
-    const rows = filteredRecords.map((r) => [
-      r.displayName,
-      r.email,
-      r.rankTitle,
-      r.xp,
-      `${r.completedLevels.length}/10`,
-      r.completedLevels.map((n) => `L${n}`).join(' '),
-      `${r.unlockedBadges.length}/${BADGES.length}`,
-      r.wheelSpins,
-      r.completedWheelPrompts.length,
-      r.wallPostsCount,
-      r.certificateId,
-      formatTimestamp(r.createdAtMs),
-      formatTimestamp(r.lastActiveMs),
-      r.workspace.act2Pitch || '',
-      r.workspace.act3StoryTitle || '',
-      r.workspace.act5CeoSolution || '',
-      r.workspace.act7PitchName || '',
-      r.workspace.act9Proposal || '',
-      r.workspace.act10Theme || '',
-    ]);
+    const rows = filteredRecords.map((r) => {
+      const adv = advByUid[r.uid];
+      return [
+        r.displayName,
+        r.email,
+        r.rankTitle,
+        r.xp,
+        `${r.completedLevels.length}/10`,
+        r.completedLevels.map((n) => `L${n}`).join(' '),
+        `${r.unlockedBadges.length}/${BADGES.length}`,
+        r.wheelSpins,
+        r.completedWheelPrompts.length,
+        r.wallPostsCount,
+        r.certificateId,
+        adv?.advXp ?? 0,
+        adv?.advRankTitle ?? 'AI Visual Explorer',
+        `${adv?.completedChallenges.length ?? 0}/25`,
+        adv?.avgScore ?? 0,
+        `${adv?.unlockedAdvBadges.length ?? 0}/${ADVANCED_BADGES.length}`,
+        adv?.advCertificateId ?? '',
+        formatTimestamp(r.createdAtMs),
+        formatTimestamp(Math.max(r.lastActiveMs, adv?.updatedAtMs ?? 0)),
+        r.workspace.act2Pitch || '',
+        r.workspace.act3StoryTitle || '',
+        r.workspace.act5CeoSolution || '',
+        r.workspace.act7PitchName || '',
+        r.workspace.act9Proposal || '',
+        r.workspace.act10Theme || '',
+      ];
+    });
 
     const csvContent =
       '\uFEFF' +
@@ -223,7 +258,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const payload = {
       generatedAt: new Date().toISOString(),
       totalLearners: filteredRecords.length,
-      learners: filteredRecords,
+      learners: filteredRecords.map((r) => ({
+        ...r,
+        advancedTrack: advByUid[r.uid] ?? null,
+      })),
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: 'application/json',
@@ -408,6 +446,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               )}
 
+              {/* Track Selector Tabs */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdminTrackView('core')}
+                    className={`px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                      adminTrackView === 'core'
+                        ? 'bg-blue-700 text-white'
+                        : 'bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    Core Track (Levels 1–10)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdminTrackView('advanced')}
+                    className={`px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                      adminTrackView === 'advanced'
+                        ? 'bg-indigo-700 text-white'
+                        : 'bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    AI Advanced Track (25 Challenges · Auto-Scored)
+                  </button>
+                </div>
+                <div className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                  {Object.keys(advByUid).length} Learners Started AI Advanced Track
+                </div>
+              </div>
+
               {/* 4 KPI Summary Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4">
@@ -421,7 +490,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4">
                   <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                    <span>Average XP / Learner</span>
+                    <span>Average Core XP</span>
                     <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <div className="font-mono text-2xl font-bold text-slate-950 dark:text-white mt-2 tabular-nums">
@@ -430,7 +499,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4">
                   <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                    <span>Full Graduates (10/10)</span>
+                    <span>Core Graduates (10/10)</span>
                     <Award className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   </div>
                   <div className="font-mono text-2xl font-bold text-slate-950 dark:text-white mt-2 tabular-nums">
@@ -439,11 +508,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4">
                   <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                    <span>Total Wheel Spins</span>
-                    <Trophy className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                    <span>AI Track Submissions</span>
+                    <Trophy className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                   </div>
                   <div className="font-mono text-2xl font-bold text-slate-950 dark:text-white mt-2 tabular-nums">
-                    {totalWheelSpins}
+                    {Object.values(advByUid).reduce(
+                      (s, a) => s + a.submissions.length,
+                      0
+                    )}
                   </div>
                 </div>
               </div>
@@ -511,12 +583,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-mono uppercase">
                       <th className="py-3 px-4">Learner</th>
-                      <th className="py-3 px-3">Rank</th>
-                      <th className="py-3 px-3">XP</th>
-                      <th className="py-3 px-3">Levels (1–10)</th>
-                      <th className="py-3 px-3">Badges</th>
-                      <th className="py-3 px-3">Wheel</th>
-                      <th className="py-3 px-3">Certificate ID</th>
+                      {adminTrackView === 'core' ? (
+                        <>
+                          <th className="py-3 px-3">Rank</th>
+                          <th className="py-3 px-3">XP</th>
+                          <th className="py-3 px-3">Levels (1–10)</th>
+                          <th className="py-3 px-3">Badges</th>
+                          <th className="py-3 px-3">Wheel</th>
+                          <th className="py-3 px-3">Certificate ID</th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="py-3 px-3">Adv Rank</th>
+                          <th className="py-3 px-3">Adv XP</th>
+                          <th className="py-3 px-3">Challenges (/25)</th>
+                          <th className="py-3 px-3">Avg Score</th>
+                          <th className="py-3 px-3">Adv Badges</th>
+                          <th className="py-3 px-3">Adv Cert ID</th>
+                        </>
+                      )}
                       <th className="py-3 px-3">Last Active</th>
                       <th className="py-3 px-4 text-right">Details</th>
                     </tr>
@@ -534,6 +619,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     ) : (
                       filteredRecords.map((learner) => {
                         const pct = Math.round((learner.completedLevels.length / 10) * 100);
+                        const adv = advByUid[learner.uid];
+                        const advPct = Math.round(
+                          ((adv?.completedChallenges.length ?? 0) / 25) * 100
+                        );
                         return (
                           <tr
                             key={learner.uid}
@@ -547,35 +636,73 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 {learner.email}
                               </div>
                             </td>
-                            <td className="py-3 px-3 font-medium text-slate-700 dark:text-slate-300">
-                              {learner.rankTitle}
-                            </td>
-                            <td className="py-3 px-3 font-mono font-bold text-blue-700 dark:text-blue-400 tabular-nums">
-                              {learner.xp}
-                            </td>
-                            <td className="py-3 px-3 min-w-[130px]">
-                              <div className="flex items-center justify-between font-mono text-[11px] mb-1 tabular-nums">
-                                <span>{learner.completedLevels.length}/10</span>
-                                <span className="text-slate-400">{pct}%</span>
-                              </div>
-                              <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                                <div
-                                  className="h-full rounded-full bg-emerald-600 dark:bg-emerald-500"
-                                  style={{ width: `${pct}%` }}
-                                />
-                              </div>
-                            </td>
-                            <td className="py-3 px-3 font-mono tabular-nums">
-                              {learner.unlockedBadges.length}/{BADGES.length}
-                            </td>
-                            <td className="py-3 px-3 font-mono tabular-nums">
-                              {learner.wheelSpins} spins
-                            </td>
-                            <td className="py-3 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-400">
-                              {learner.certificateId}
-                            </td>
+                            {adminTrackView === 'core' ? (
+                              <>
+                                <td className="py-3 px-3 font-medium text-slate-700 dark:text-slate-300">
+                                  {learner.rankTitle}
+                                </td>
+                                <td className="py-3 px-3 font-mono font-bold text-blue-700 dark:text-blue-400 tabular-nums">
+                                  {learner.xp}
+                                </td>
+                                <td className="py-3 px-3 min-w-[130px]">
+                                  <div className="flex items-center justify-between font-mono text-[11px] mb-1 tabular-nums">
+                                    <span>{learner.completedLevels.length}/10</span>
+                                    <span className="text-slate-400">{pct}%</span>
+                                  </div>
+                                  <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full bg-emerald-600 dark:bg-emerald-500"
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3 font-mono tabular-nums">
+                                  {learner.unlockedBadges.length}/{BADGES.length}
+                                </td>
+                                <td className="py-3 px-3 font-mono tabular-nums">
+                                  {learner.wheelSpins} spins
+                                </td>
+                                <td className="py-3 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-400">
+                                  {learner.certificateId}
+                                </td>
+                              </>
+                            ) : (
+                              <>
+                                <td className="py-3 px-3 font-medium text-slate-700 dark:text-slate-300">
+                                  {adv?.advRankTitle ?? 'AI Visual Explorer'}
+                                </td>
+                                <td className="py-3 px-3 font-mono font-bold text-indigo-700 dark:text-indigo-400 tabular-nums">
+                                  {adv?.advXp ?? 0}
+                                </td>
+                                <td className="py-3 px-3 min-w-[130px]">
+                                  <div className="flex items-center justify-between font-mono text-[11px] mb-1 tabular-nums">
+                                    <span>{adv?.completedChallenges.length ?? 0}/25</span>
+                                    <span className="text-slate-400">{advPct}%</span>
+                                  </div>
+                                  <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full bg-indigo-600 dark:bg-indigo-500"
+                                      style={{ width: `${advPct}%` }}
+                                    />
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3 font-mono font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                                  {adv?.avgScore ?? 0}/100
+                                </td>
+                                <td className="py-3 px-3 font-mono tabular-nums">
+                                  {adv?.unlockedAdvBadges.length ?? 0}/{ADVANCED_BADGES.length}
+                                </td>
+                                <td className="py-3 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-400">
+                                  {adv?.advCertificateId || '—'}
+                                </td>
+                              </>
+                            )}
                             <td className="py-3 px-3 text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                              {formatTimestamp(learner.lastActiveMs)}
+                              {formatTimestamp(
+                                adminTrackView === 'advanced'
+                                  ? adv?.updatedAtMs || learner.lastActiveMs
+                                  : learner.lastActiveMs
+                              )}
                             </td>
                             <td className="py-3 px-4 text-right">
                               <button
@@ -697,6 +824,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </div>
                             <div className="text-slate-600 dark:text-slate-300 mt-0.5">
                               {post.body}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(advByUid[inspectedUser.uid]?.submissions.length ?? 0) > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                      <div className="text-xs font-semibold text-indigo-700 dark:text-indigo-400">
+                        AI Advanced Track Submissions ({advByUid[inspectedUser.uid].submissions.length}/25 · Avg {advByUid[inspectedUser.uid].avgScore}/100)
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-56 overflow-y-auto">
+                        {advByUid[inspectedUser.uid].submissions.map((sub) => (
+                          <div
+                            key={sub.id}
+                            className="p-3 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-white dark:bg-slate-900 text-xs flex items-start gap-3"
+                          >
+                            {sub.imageDataUrl && (
+                              <img
+                                src={sub.imageDataUrl}
+                                alt={`Challenge ${sub.challengeId}`}
+                                className="w-16 h-16 rounded-lg object-cover border border-slate-200 dark:border-slate-800 shrink-0"
+                              />
+                            )}
+                            <div className="space-y-1 min-w-0">
+                              <div className="font-mono font-bold text-indigo-700 dark:text-indigo-400">
+                                Challenge #{sub.challengeId} · {sub.totalScore}/100
+                              </div>
+                              <div className="text-[11px] text-slate-600 dark:text-slate-300 line-clamp-2">
+                                {sub.feedback}
+                              </div>
                             </div>
                           </div>
                         ))}

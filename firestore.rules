@@ -122,6 +122,65 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidAdvancedProgress(data, userId) {
+      return data.keys().hasAll([
+          'ownerId', 'advXp', 'totalScoreSum', 'completedChallenges',
+          'unlockedAdvBadges', 'advCertificateId', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'advXp', 'totalScoreSum', 'completedChallenges',
+          'unlockedAdvBadges', 'advCertificateId', 'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId == userId && isValidId(data.ownerId)
+        && data.advXp is number && data.advXp >= 0 && data.advXp <= 25000
+        && data.totalScoreSum is number && data.totalScoreSum >= 0 && data.totalScoreSum <= 2500
+        && data.completedChallenges is list
+        && data.completedChallenges.size() <= 25
+        && (data.completedChallenges.size() == 0 || (data.completedChallenges[0] is string && data.completedChallenges[0].size() <= 12))
+        && data.unlockedAdvBadges is list
+        && data.unlockedAdvBadges.size() <= 15
+        && (data.unlockedAdvBadges.size() == 0 || (data.unlockedAdvBadges[0] is string && data.unlockedAdvBadges[0].size() <= 60))
+        && data.advCertificateId is string && data.advCertificateId.size() >= 4 && data.advCertificateId.size() <= 64
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAdvancedSubmission(data) {
+      return data.keys().hasAll([
+          'ownerId', 'authorName', 'challengeId', 'themeId',
+          'promptUsed', 'imageDataUrl', 'answer1', 'answer2', 'answer3',
+          'answer4', 'answer5', 'scareSummary', 'totalScore',
+          'obsScore', 'reasonScore', 'creativityScore', 'actionScore',
+          'commScore', 'feedback', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'authorName', 'challengeId', 'themeId',
+          'promptUsed', 'imageDataUrl', 'answer1', 'answer2', 'answer3',
+          'answer4', 'answer5', 'scareSummary', 'totalScore',
+          'obsScore', 'reasonScore', 'creativityScore', 'actionScore',
+          'commScore', 'feedback', 'updatedAt'
+        ])
+        && data.ownerId is string && isValidId(data.ownerId)
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100
+        && data.challengeId is string && data.challengeId.size() >= 1 && data.challengeId.size() <= 12
+        && data.themeId in ['products', 'values', 'abstract', 'placements', 'services']
+        && data.promptUsed is string && data.promptUsed.size() <= 1400
+        && data.imageDataUrl is string && data.imageDataUrl.size() <= 280000
+        && data.answer1 is string && data.answer1.size() <= 1200
+        && data.answer2 is string && data.answer2.size() <= 1200
+        && data.answer3 is string && data.answer3.size() <= 1200
+        && data.answer4 is string && data.answer4.size() <= 1200
+        && data.answer5 is string && data.answer5.size() <= 1200
+        && data.scareSummary is string && data.scareSummary.size() <= 1200
+        && data.totalScore is number && data.totalScore >= 0 && data.totalScore <= 100
+        && data.obsScore is number && data.obsScore >= 0 && data.obsScore <= 20
+        && data.reasonScore is number && data.reasonScore >= 0 && data.reasonScore <= 25
+        && data.creativityScore is number && data.creativityScore >= 0 && data.creativityScore <= 20
+        && data.actionScore is number && data.actionScore >= 0 && data.actionScore <= 20
+        && data.commScore is number && data.commScore >= 0 && data.commScore <= 15
+        && data.feedback is string && data.feedback.size() <= 800
+        && data.updatedAt is timestamp;
+    }
+
     // 4. Collection Rules
     match /users/{userId} {
       allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
@@ -203,6 +262,53 @@ service cloud.firestore {
         && incoming().diff(existing()).affectedKeys().hasOnly([
           'xp', 'completedLevels', 'unlockedBadges',
           'wheelSpins', 'completedWheelPrompts', 'certificateId', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /advancedProgress/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isGenuineGoogleUser() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidAdvancedProgress(incoming(), userId)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isValidAdvancedProgress(incoming(), userId)
+        && (isOwner(userId) || isAdmin())
+        && incoming().ownerId == existing().ownerId
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'advXp', 'totalScoreSum', 'completedChallenges',
+          'unlockedAdvBadges', 'advCertificateId', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /advancedSubmissions/{submissionId} {
+      allow get: if isValidId(submissionId)
+        && isGenuineGoogleUser()
+        && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isGenuineGoogleUser()
+        && (existing().ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(submissionId)
+        && isGenuineGoogleUser()
+        && isValidAdvancedSubmission(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(submissionId)
+        && isGenuineGoogleUser()
+        && isValidAdvancedSubmission(incoming())
+        && (existing().ownerId == request.auth.uid || isAdmin())
+        && incoming().ownerId == existing().ownerId
+        && incoming().challengeId == existing().challengeId
+        && incoming().themeId == existing().themeId
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'authorName', 'promptUsed', 'imageDataUrl',
+          'answer1', 'answer2', 'answer3', 'answer4', 'answer5',
+          'scareSummary', 'totalScore', 'obsScore', 'reasonScore',
+          'creativityScore', 'actionScore', 'commScore', 'feedback', 'updatedAt'
         ]);
       allow delete: if false;
     }

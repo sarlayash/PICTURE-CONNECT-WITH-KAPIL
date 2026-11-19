@@ -26,11 +26,13 @@ import { LiveClock } from './LiveClock';
 import { VisualArtwork } from './VisualArtwork';
 import { VideoChallengesSection } from './VideoChallengesSection';
 
-export type AppView = 'journey' | 'levels' | 'wheel' | 'achievements';
+export type AppView = 'journey' | 'levels' | 'wheel' | 'advanced' | 'achievements';
 
 interface OverviewStudioProps {
   learnerName: string;
   progress: LearnerProgressDoc;
+  advCompletedCount?: number;
+  advXp?: number;
   onNavigateView: (view: AppView, levelNum?: number) => void;
   learnerConnections: {
     id: string;
@@ -50,6 +52,8 @@ interface OverviewStudioProps {
 export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   learnerName,
   progress,
+  advCompletedCount = 0,
+  advXp = 0,
   onNavigateView,
   learnerConnections,
   onAddConnection,
@@ -262,6 +266,41 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
           <div className="font-mono tabular-nums text-sm sm:text-base font-bold text-blue-700 dark:text-blue-400 mt-2">
             {progress.certificateId}
           </div>
+        </div>
+      </section>
+
+      {/* Isolated AI-Powered Advanced Track Launch Strip */}
+      <section className="rounded-2xl border border-indigo-200 dark:border-indigo-900/70 bg-gradient-to-r from-[#FDFBF5] via-white to-indigo-50/70 dark:from-slate-900 dark:via-slate-950 dark:to-indigo-950/30 p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+        <div className="space-y-1.5 max-w-2xl">
+          <div className="text-xs font-mono font-bold text-indigo-700 dark:text-indigo-400">
+            NEW SEPARATE JOURNEY · ZERO IMPACT ON CORE XP OR LEVELS
+          </div>
+          <h2 className="font-display text-xl sm:text-2xl font-bold text-slate-950 dark:text-white">
+            AI-Powered Picture Connect — Advanced Track
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+            5 Themes (Products, Values, Abstract Thinking, Placements, Services), 25 visual prompt briefs, image upload, 125 questions, instant 100-mark auto-scoring, and dedicated Advanced PNG Badges &amp; Certificate.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 shrink-0">
+          <div className="text-left sm:text-right font-mono">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+              ADVANCED PROGRESS
+            </div>
+            <div className="text-sm font-bold text-indigo-700 dark:text-indigo-400 tabular-nums">
+              {advCompletedCount}/25 Challenges · {advXp} Adv XP
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigateView('advanced')}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Open AI Advanced Track</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
         </div>
       </section>
 
