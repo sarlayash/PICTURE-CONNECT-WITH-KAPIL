@@ -176,11 +176,11 @@ function renderAndDownloadAdvBadgePng(
   // Badge title & criteria
   ctx.fillStyle = '#FFFFFF';
   ctx.font = '800 58px "Bricolage Grotesque", Georgia, sans-serif';
-  ctx.fillText(badge.title, S / 2, 765);
+  ctx.fillText(badge.title, S / 2, 765, S - 180);
 
   ctx.fillStyle = palette.light;
   ctx.font = '500 25px "Plus Jakarta Sans", system-ui, sans-serif';
-  ctx.fillText(badge.criteriaLabel, S / 2, 818);
+  ctx.fillText(badge.criteriaLabel, S / 2, 818, S - 180);
 
   ctx.strokeStyle = 'rgba(217, 179, 92, 0.72)';
   ctx.lineWidth = 2;
@@ -195,7 +195,7 @@ function renderAndDownloadAdvBadgePng(
 
   ctx.fillStyle = '#FDE047';
   ctx.font = '800 44px "Bricolage Grotesque", sans-serif';
-  ctx.fillText(learnerName, S / 2, 972);
+  ctx.fillText(learnerName, S / 2, 972, S - 180);
 
   ctx.fillStyle = '#94A3B8';
   ctx.font = '600 20px "JetBrains Mono", monospace';
@@ -373,7 +373,7 @@ export const AdvancedAchievements: React.FC<AdvancedAchievementsProps> = ({
 
       ctx.fillStyle = '#0F172A';
       ctx.font = '800 94px "Bricolage Grotesque", Georgia, serif';
-      ctx.fillText(learnerName, W / 2, 658);
+      ctx.fillText(learnerName, W / 2, 658, W - 440);
 
       ctx.strokeStyle = '#CBD5E1';
       ctx.lineWidth = 2;
@@ -384,7 +384,7 @@ export const AdvancedAchievements: React.FC<AdvancedAchievementsProps> = ({
 
       ctx.fillStyle = '#64748B';
       ctx.font = '500 24px "JetBrains Mono", monospace';
-      ctx.fillText(`Verified Google Learner · ${learnerEmail}`, W / 2, 748);
+      ctx.fillText(`Verified Google Learner · ${learnerEmail}`, W / 2, 748, W - 420);
 
       // Citation
       ctx.fillStyle = '#334155';
@@ -392,12 +392,14 @@ export const AdvancedAchievements: React.FC<AdvancedAchievementsProps> = ({
       ctx.fillText(
         'for mastering AI Prompt Design, Visual Evidence Interpretation, SCARE Storytelling,',
         W / 2,
-        842
+        842,
+        W - 400
       );
       ctx.fillText(
         `and Workplace Reasoning across ${completedCount} of 25 Visual Challenges (Products · Values · Abstract · Placements · Services).`,
         W / 2,
-        892
+        892,
+        W - 400
       );
 
       // 4-Metric Ribbon
@@ -432,11 +434,11 @@ export const AdvancedAchievements: React.FC<AdvancedAchievementsProps> = ({
         }
         ctx.fillStyle = '#64748B';
         ctx.font = '700 20px "JetBrains Mono", monospace';
-        ctx.fillText(m.label, cx, boxY + 66);
+        ctx.fillText(m.label, cx, boxY + 66, colW - 36);
 
         ctx.fillStyle = '#0F172A';
         ctx.font = idx === 3 ? '800 25px "Bricolage Grotesque", sans-serif' : '800 36px "Bricolage Grotesque", sans-serif';
-        ctx.fillText(m.value, cx, boxY + 124);
+        ctx.fillText(m.value, cx, boxY + 124, colW - 36);
       });
 
       // Signature Left

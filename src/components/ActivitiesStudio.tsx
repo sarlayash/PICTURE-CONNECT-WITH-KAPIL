@@ -131,15 +131,30 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
   const [selectedMistakeId, setSelectedMistakeId] = useState<string | null>(null);
 
   // Level 7 State (Sell Me This Picture)
+  const parsePitchUsps = (raw?: string): [string, string, string] => {
+    if (!raw) return ['', '', ''];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return [String(parsed[0] || ''), String(parsed[1] || ''), String(parsed[2] || '')];
+      }
+    } catch {
+      const parts = raw.split(/\n|•|\|/).map((s) => s.trim()).filter(Boolean);
+      return [parts[0] || '', parts[1] || '', parts[2] || ''];
+    }
+    return ['', '', ''];
+  };
+
+  const initialUsps = parsePitchUsps(workspace.act7PitchUsps);
   const [sellIdx, setSellIdx] = useState(0);
   const [showSellSample, setShowSellSample] = useState(false);
   const [pitchData, setPitchData] = useState({
     name: workspace.act7PitchName || '',
     tagline: workspace.act7PitchTagline || '',
     audience: workspace.act7PitchAudience || '',
-    usp1: '',
-    usp2: '',
-    usp3: '',
+    usp1: initialUsps[0],
+    usp2: initialUsps[1],
+    usp3: initialUsps[2],
     script: workspace.act7PitchScript || '',
   });
 
@@ -161,32 +176,41 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
   const [finaleNotes, setFinaleNotes] = useState(workspace.act10Notes || '');
 
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const flashTimerRef = useRef<number | null>(null);
+  const noticeTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     setAct2Pitch(workspace.act2Pitch || '');
-    if (workspace.act3StoryTitle !== undefined) setStoryTitle(workspace.act3StoryTitle || '');
+    setStoryTitle(workspace.act3StoryTitle || '');
     if (workspace.act3StoryBeats) {
       try {
         const parsed = JSON.parse(workspace.act3StoryBeats);
         if (Array.isArray(parsed) && parsed.length === 5) {
           setStoryBeats(parsed.map(String));
+        } else {
+          setStoryBeats(['', '', '', '', '']);
         }
       } catch {
-        // ignore invalid json
+        setStoryBeats(['', '', '', '', '']);
       }
+    } else {
+      setStoryBeats(['', '', '', '', '']);
     }
     setMemoryObserved(workspace.act4Observed || '');
     setMemoryMissing(workspace.act4Missing || '');
     setMemoryBeforeAfter(workspace.act4BeforeAfter || '');
     setCeoSolution(workspace.act5CeoSolution || '');
-    setPitchData((prev) => ({
-      ...prev,
-      name: workspace.act7PitchName || prev.name,
-      tagline: workspace.act7PitchTagline || prev.tagline,
-      audience: workspace.act7PitchAudience || prev.audience,
-      script: workspace.act7PitchScript || prev.script,
-    }));
+    const nextUsps = parsePitchUsps(workspace.act7PitchUsps);
+    setPitchData({
+      name: workspace.act7PitchName || '',
+      tagline: workspace.act7PitchTagline || '',
+      audience: workspace.act7PitchAudience || '',
+      usp1: nextUsps[0],
+      usp2: nextUsps[1],
+      usp3: nextUsps[2],
+      script: workspace.act7PitchScript || '',
+    });
     setEmpathyData({
       emotion: workspace.act8Emotion || '',
       situation: workspace.act8Situation || '',
@@ -201,17 +225,20 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
   useEffect(() => {
     setLevelRewardToast(null);
     setSavedNotice(null);
+    setActionError(null);
   }, [activeLevel]);
 
   useEffect(() => {
     return () => {
       if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+      if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current);
     };
   }, []);
 
   const flashNotice = (label: string) => {
     setSavedNotice(label);
-    window.setTimeout(() => setSavedNotice(null), 2600);
+    if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = window.setTimeout(() => setSavedNotice(null), 2600);
   };
 
   const handleSaveAndComplete = async (
@@ -219,6 +246,7 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
     workspacePatch?: Partial<Omit<LearnerWorkspaceDoc, 'ownerId'>>
   ) => {
     setCompletingLevel(true);
+    setActionError(null);
     try {
       if (workspacePatch) {
         await onSaveWorkspace(workspacePatch);
@@ -233,6 +261,10 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
       } else {
         flashNotice('Saved updated work!');
       }
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : 'Unable to save level progress. Please try again.'
+      );
     } finally {
       setCompletingLevel(false);
     }
@@ -251,10 +283,15 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
     e.preventDefault();
     if (!newPerspective.trim() || savingPerspective) return;
     setSavingPerspective(true);
+    setActionError(null);
     try {
       await onAddPerspective(ACT1_PICTURES[act1PicIdx].title, newPerspective.trim());
       setNewPerspective('');
       flashNotice('Perspective added to Learner Wall');
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : 'Unable to add perspective. Please try again.'
+      );
     } finally {
       setSavingPerspective(false);
     }
@@ -355,6 +392,12 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
             />
           </div>
         </div>
+
+        {actionError && (
+          <div className="p-3.5 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 text-xs font-medium text-red-700 dark:text-red-300">
+            {actionError}
+          </div>
+        )}
 
         {levelRewardToast && (
           <div className="p-3.5 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 text-xs font-semibold text-emerald-800 dark:text-emerald-200 flex items-center justify-between gap-3">
@@ -1116,6 +1159,47 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  USP 01 (Value Hook)
+                </label>
+                <input
+                  type="text"
+                  maxLength={180}
+                  value={pitchData.usp1}
+                  onChange={(e) => setPitchData({ ...pitchData, usp1: e.target.value })}
+                  placeholder="First standout benefit"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  USP 02 (Differentiator)
+                </label>
+                <input
+                  type="text"
+                  maxLength={180}
+                  value={pitchData.usp2}
+                  onChange={(e) => setPitchData({ ...pitchData, usp2: e.target.value })}
+                  placeholder="Why it beats alternatives"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  USP 03 (Outcome)
+                </label>
+                <input
+                  type="text"
+                  maxLength={180}
+                  value={pitchData.usp3}
+                  onChange={(e) => setPitchData({ ...pitchData, usp3: e.target.value })}
+                  placeholder="Measurable buyer result"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
+              </div>
+            </div>
             <div>
               <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                 30-Second Sales Pitch
@@ -1136,6 +1220,11 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
                   act7PitchName: pitchData.name,
                   act7PitchTagline: pitchData.tagline,
                   act7PitchAudience: pitchData.audience,
+                  act7PitchUsps: JSON.stringify([
+                    pitchData.usp1.trim(),
+                    pitchData.usp2.trim(),
+                    pitchData.usp3.trim(),
+                  ]).slice(0, 600),
                   act7PitchScript: pitchData.script,
                 })
               }

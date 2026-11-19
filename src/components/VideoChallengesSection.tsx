@@ -31,6 +31,7 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleChallengeSubmit = async (
     e: React.FormEvent,
@@ -42,6 +43,7 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
     if (!text) return;
 
     setSubmittingId(video.id);
+    setErrors((prev) => ({ ...prev, [video.id]: '' }));
     try {
       const res = await onSubmitChallenge(video, text);
       setDrafts((prev) => ({ ...prev, [video.id]: '' }));
@@ -51,6 +53,14 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
           res.newlyAwardedXp > 0
             ? `Challenge submitted! +${res.newlyAwardedXp} XP added to your profile.`
             : 'Updated challenge reflection published to Learner Wall!',
+      }));
+    } catch (err) {
+      setErrors((prev) => ({
+        ...prev,
+        [video.id]:
+          err instanceof Error
+            ? err.message
+            : 'Unable to save video reflection. Please try again.',
       }));
     } finally {
       setSubmittingId(null);
@@ -194,6 +204,11 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
                 </div>
               ) : (
                 <div className="space-y-3 pt-1">
+                  {errors[video.id] && (
+                    <div className="p-2.5 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 text-xs font-medium text-red-700 dark:text-red-300">
+                      {errors[video.id]}
+                    </div>
+                  )}
                   {toast && (
                     <div className="p-2.5 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 text-xs font-semibold text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
                       <Sparkles className="w-3.5 h-3.5 shrink-0" />

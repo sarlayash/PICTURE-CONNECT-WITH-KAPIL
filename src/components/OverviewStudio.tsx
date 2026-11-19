@@ -7,6 +7,7 @@ import {
   Eye,
   EyeOff,
   FileCheck2,
+  Lock,
   Plus,
   Sparkles,
   Trophy,
@@ -42,6 +43,8 @@ interface OverviewStudioProps {
   advXp?: number;
   finalStatus?: 'not_started' | 'in_progress' | 'submitted';
   finalXp?: number;
+  finalEligible?: boolean;
+  finalPrereqLabel?: string;
   onNavigateView: (view: AppView, levelNum?: number) => void;
   learnerConnections: {
     id: string;
@@ -65,6 +68,8 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   advXp = 0,
   finalStatus = 'not_started',
   finalXp = 0,
+  finalEligible = false,
+  finalPrereqLabel = '0/4',
   onNavigateView,
   learnerConnections,
   onAddConnection,
@@ -77,6 +82,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   const [customConcept, setCustomConcept] = useState('');
   const [customReason, setCustomReason] = useState('');
   const [submittingConnection, setSubmittingConnection] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   const activePair =
     CENTRAL_CONCEPT_PAIRS.find((p) => p.id === selectedPairId) ?? CENTRAL_CONCEPT_PAIRS[0];
@@ -99,6 +105,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
     e.preventDefault();
     if (!customPicture.trim() || !customConcept.trim() || !customReason.trim()) return;
     setSubmittingConnection(true);
+    setConnectionError(null);
     try {
       await onAddConnection(
         customPicture.trim(),
@@ -108,6 +115,10 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
       setCustomPicture('');
       setCustomConcept('');
       setCustomReason('');
+    } catch (err) {
+      setConnectionError(
+        err instanceof Error ? err.message : 'Unable to save connection. Please try again.'
+      );
     } finally {
       setSubmittingConnection(false);
     }
@@ -339,7 +350,9 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
                 ? `Completed · ${finalXp}/1000 XP`
                 : finalStatus === 'in_progress'
                 ? 'Exam Clock Active'
-                : 'Not Started · 90:00 Min'}
+                : finalEligible
+                ? 'Ready to Begin · 90:00 Min'
+                : `Locked · ${finalPrereqLabel} Prerequisites`}
             </div>
           </div>
           <button
@@ -347,13 +360,19 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
             onClick={() => onNavigateView('final')}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-950 dark:bg-blue-700 hover:bg-slate-800 dark:hover:bg-blue-600 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
-            <FileCheck2 className="w-4 h-4" />
+            {finalStatus === 'not_started' && !finalEligible ? (
+              <Lock className="w-4 h-4" />
+            ) : (
+              <FileCheck2 className="w-4 h-4" />
+            )}
             <span>
               {finalStatus === 'submitted'
                 ? 'View Score, Cert & LOR PDF'
                 : finalStatus === 'in_progress'
                 ? 'Resume 90-Min Exam'
-                : 'Open 90-Min Final Assessment'}
+                : finalEligible
+                ? 'Open 90-Min Final Assessment'
+                : 'View Prerequisite Checklist'}
             </span>
             <ArrowRight className="w-4 h-4" />
           </button>
@@ -535,6 +554,11 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
             </div>
+            {connectionError && (
+              <div className="p-2.5 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 text-xs text-red-700 dark:text-red-300">
+                {connectionError}
+              </div>
+            )}
             <button
               type="submit"
               disabled={submittingConnection}

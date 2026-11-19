@@ -175,11 +175,11 @@ function renderAndDownloadBadgePng(
   // Badge Title & Description
   ctx.fillStyle = '#FFFFFF';
   ctx.font = '800 66px "Bricolage Grotesque", Georgia, sans-serif';
-  ctx.fillText(badge.title, S / 2, 765);
+  ctx.fillText(badge.title, S / 2, 765, S - 180);
 
   ctx.fillStyle = palette.light;
   ctx.font = '500 26px "Plus Jakarta Sans", system-ui, sans-serif';
-  ctx.fillText(badge.criteriaLabel, S / 2, 818);
+  ctx.fillText(badge.criteriaLabel, S / 2, 818, S - 180);
 
   // Subtle gold divider
   ctx.strokeStyle = 'rgba(200, 155, 60, 0.7)';
@@ -196,7 +196,7 @@ function renderAndDownloadBadgePng(
 
   ctx.fillStyle = '#FDE047';
   ctx.font = '800 44px "Bricolage Grotesque", sans-serif';
-  ctx.fillText(learnerName, S / 2, 972);
+  ctx.fillText(learnerName, S / 2, 972, S - 180);
 
   // Footer strip
   ctx.fillStyle = '#94A3B8';
@@ -358,7 +358,7 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
       // Learner's verified Google Name
       ctx.fillStyle = '#0F172A';
       ctx.font = '800 94px "Bricolage Grotesque", Georgia, serif';
-      ctx.fillText(learnerName, W / 2, 665);
+      ctx.fillText(learnerName, W / 2, 665, W - 440);
 
       // Name underline
       ctx.strokeStyle = '#CBD5E1';
@@ -371,7 +371,7 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
       // Verified email subline
       ctx.fillStyle = '#64748B';
       ctx.font = '500 24px "JetBrains Mono", monospace';
-      ctx.fillText(`Verified Google Learner · ${learnerEmail}`, W / 2, 755);
+      ctx.fillText(`Verified Google Learner · ${learnerEmail}`, W / 2, 755, W - 420);
 
       // Body citation
       ctx.fillStyle = '#334155';
@@ -379,12 +379,14 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
       ctx.fillText(
         'for demonstrating Visual Intelligence, Creative Synthesis, Structured Communication,',
         W / 2,
-        850
+        850,
+        W - 400
       );
       ctx.fillText(
         `and Executive Problem-Solving across ${completedCount} of 10 Experiential Levels.`,
         W / 2,
-        900
+        900,
+        W - 400
       );
 
       // 4-Metric Achievement Ribbon Box
@@ -416,11 +418,11 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
         }
         ctx.fillStyle = '#64748B';
         ctx.font = '700 22px "JetBrains Mono", monospace';
-        ctx.fillText(m.label, cx, boxY + 68);
+        ctx.fillText(m.label, cx, boxY + 68, colW - 36);
 
         ctx.fillStyle = '#0F172A';
         ctx.font = '800 36px "Bricolage Grotesque", sans-serif';
-        ctx.fillText(m.value, cx, boxY + 124);
+        ctx.fillText(m.value, cx, boxY + 124, colW - 36);
       });
 
       // Signature Left: Date & Certificate ID

@@ -382,7 +382,12 @@ service cloud.firestore {
         && isOwner(userId)
         && isValidFinalAssessment(incoming(), userId)
         && incoming().authorEmail == request.auth.token.email
-        && incoming().updatedAt == request.time;
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/learnerProgress/$(userId))
+        && get(/databases/$(database)/documents/learnerProgress/$(userId)).data.completedLevels.size() == 10
+        && get(/databases/$(database)/documents/learnerProgress/$(userId)).data.completedWheelPrompts.size() >= 5
+        && exists(/databases/$(database)/documents/advancedProgress/$(userId))
+        && get(/databases/$(database)/documents/advancedProgress/$(userId)).data.completedChallenges.size() == 25;
       allow update: if isValidId(userId)
         && isValidFinalAssessment(incoming(), userId)
         && incoming().ownerId == existing().ownerId

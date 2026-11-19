@@ -145,7 +145,7 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       // Recipient Name
       ctx.fillStyle = '#0F172A';
       ctx.font = '800 94px "Bricolage Grotesque", Georgia, serif';
-      ctx.fillText(learnerName, W / 2, 646);
+      ctx.fillText(learnerName, W / 2, 646, W - 440);
 
       ctx.strokeStyle = '#CBD5E1';
       ctx.lineWidth = 2;
@@ -159,7 +159,8 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       ctx.fillText(
         `Verified Google Candidate · ${learnerEmail} · ${collegeClean}`,
         W / 2,
-        736
+        736,
+        W - 420
       );
 
       // Citation
@@ -168,12 +169,14 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       ctx.fillText(
         'for successfully completing the 90-Minute Proctored Final Assessment (50% Elevated Rigor)',
         W / 2,
-        826
+        826,
+        W - 400
       );
       ctx.fillText(
         `across Real-World Executive Case Studies, Rapid Synthesis Diagnostics, and SCARE Defense for ${targetRoleClean}.`,
         W / 2,
-        874
+        874,
+        W - 400
       );
 
       // 4-Metric Ribbon
@@ -218,18 +221,18 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
         }
         ctx.fillStyle = '#64748B';
         ctx.font = '700 20px "JetBrains Mono", monospace';
-        ctx.fillText(m.label, cx, boxY + 66);
+        ctx.fillText(m.label, cx, boxY + 66, colW - 36);
 
         ctx.fillStyle = '#0F172A';
         ctx.font = '800 30px "Bricolage Grotesque", sans-serif';
-        ctx.fillText(m.value, cx, boxY + 124);
+        ctx.fillText(m.value, cx, boxY + 124, colW - 36);
       });
 
       // Bottom Signature Strip
       ctx.textAlign = 'left';
       ctx.fillStyle = '#0F172A';
       ctx.font = '700 27px "Plus Jakarta Sans", sans-serif';
-      ctx.fillText(issueDate, 240, 1400);
+      ctx.fillText(issueDate, 240, 1400, 620);
       ctx.strokeStyle = '#94A3B8';
       ctx.beginPath();
       ctx.moveTo(240, 1422);
@@ -240,7 +243,8 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       ctx.fillText(
         `CERT ID: ${finalDoc.finalCertificateId} · LOR: ${finalDoc.lorVerificationId}`,
         240,
-        1464
+        1464,
+        780
       );
 
       // Center Seal
@@ -406,14 +410,17 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       const p4 = `Based on these audited responses, ${learnerName} exhibits the structured reasoning, ethical integrity, customer empathy, and crisp stakeholder communication required to contribute reliably from Day One. I endorse their candidature without reservation for ${targetRoleClean}.`;
 
       docPdf.setFont('times', 'normal');
-      docPdf.setFontSize(10.5);
+      docPdf.setFontSize(10);
       docPdf.setTextColor(30, 41, 59);
 
+      const sigY = pageH - 42;
+      const paraLineH = 4.4;
+
       const writeWrappedParagraph = (text: string) => {
-        y += 6;
+        y += 5;
         const lines = docPdf.splitTextToSize(text, contentW);
         docPdf.text(lines, margin, y);
-        y += lines.length * 4.8 + 1.5;
+        y += lines.length * paraLineH + 1.2;
       };
 
       writeWrappedParagraph(p1);
@@ -422,7 +429,7 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       writeWrappedParagraph(p4);
 
       // Verified Performance Scorecard Box inside LOR
-      y += 4;
+      y = Math.min(y + 3, sigY - 48);
       docPdf.setFillColor(248, 250, 252);
       docPdf.setDrawColor(203, 213, 225);
       docPdf.setLineWidth(0.4);
@@ -451,23 +458,27 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
         docPdf.setFont('helvetica', 'bold');
         docPdf.setFontSize(8.5);
         docPdf.setTextColor(15, 23, 42);
-        const valLines = docPdf.splitTextToSize(col.v, colWidth - 3);
+        const valLines = docPdf.splitTextToSize(col.v, colWidth - 3).slice(0, 2);
         docPdf.text(valLines, cx, y + 20);
       });
 
-      y += 38;
+      y += 35;
 
-      // Mentor Assessment Note
-      docPdf.setFont('helvetica', 'bold');
-      docPdf.setFontSize(8.5);
-      docPdf.setTextColor(71, 85, 105);
-      docPdf.text('ASSESSOR SUMMARY:', margin, y);
-      docPdf.setFont('helvetica', 'normal');
-      const fbLines = docPdf.splitTextToSize(finalDoc.executiveFeedback, contentW);
-      docPdf.text(fbLines, margin, y + 4.5);
+      // Mentor Assessment Note (guarded against signature block overlap)
+      if (y + 10 < sigY) {
+        docPdf.setFont('helvetica', 'bold');
+        docPdf.setFontSize(8.5);
+        docPdf.setTextColor(71, 85, 105);
+        docPdf.text('ASSESSOR SUMMARY:', margin, y);
+        docPdf.setFont('helvetica', 'normal');
+        const maxFbLines = Math.max(1, Math.floor((sigY - (y + 4.5) - 2) / 4));
+        const fbLines = docPdf
+          .splitTextToSize(finalDoc.executiveFeedback, contentW)
+          .slice(0, maxFbLines);
+        docPdf.text(fbLines, margin, y + 4.5);
+      }
 
       // Signature Footer Block
-      const sigY = pageH - 42;
       docPdf.setDrawColor(148, 163, 184);
       docPdf.line(margin, sigY + 12, margin + 62, sigY + 12);
       docPdf.line(pageW - margin - 68, sigY + 12, pageW - margin, sigY + 12);

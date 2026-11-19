@@ -167,9 +167,22 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const isDirtyRef = useRef(false);
+  const hydratedKeyRef = useRef<string>('');
+  const copiedTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimeoutRef.current) window.clearTimeout(copiedTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const existing = submissions[activeChallenge.id];
+    const subKey = `${activeChallenge.id}_${existing?.updatedAtMs ?? existing?.totalScore ?? 'empty'}`;
+    hydratedKeyRef.current = subKey;
+    isDirtyRef.current = false;
+
     if (existing) {
       setPromptUsed(existing.promptUsed || activeChallenge.brief);
       setImageDataUrl(existing.imageDataUrl || '');
@@ -192,12 +205,24 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
     setSubmitBanner(null);
   }, [activeChallenge.id, activeChallenge.brief]);
 
-  // Keep synced if Firestore delivers updated submission for active challenge while mounted
+  // Hydrate all 8 fields if Firestore finishes loading this challenge's submission before user edits
   useEffect(() => {
-    if (!savedSub) return;
-    setPromptUsed((prev) => (prev === activeChallenge.brief && savedSub.promptUsed ? savedSub.promptUsed : prev));
-    setImageDataUrl((prev) => (!prev && savedSub.imageDataUrl ? savedSub.imageDataUrl : prev));
-  }, [savedSub?.id]);
+    if (!savedSub || isDirtyRef.current) return;
+    const subKey = `${activeChallenge.id}_${savedSub.updatedAtMs ?? savedSub.totalScore ?? 'loaded'}`;
+    if (hydratedKeyRef.current === subKey) return;
+    hydratedKeyRef.current = subKey;
+
+    setPromptUsed(savedSub.promptUsed || activeChallenge.brief);
+    setImageDataUrl(savedSub.imageDataUrl || '');
+    setAnswers([
+      savedSub.answer1 || '',
+      savedSub.answer2 || '',
+      savedSub.answer3 || '',
+      savedSub.answer4 || '',
+      savedSub.answer5 || '',
+    ]);
+    setScareSummary(savedSub.scareSummary || '');
+  }, [activeChallenge.id, activeChallenge.brief, savedSub]);
 
   const handleSelectTheme = (themeId: AdvancedThemeId) => {
     setActiveThemeId(themeId);
@@ -208,6 +233,7 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
   };
 
   const handleAppendAddon = (snippet: string) => {
+    isDirtyRef.current = true;
     setPromptUsed((prev) => {
       if (prev.includes(snippet)) return prev;
       const base = prev.trim();
@@ -219,7 +245,8 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
     try {
       await navigator.clipboard.writeText(promptUsed);
       setCopiedPrompt(true);
-      window.setTimeout(() => setCopiedPrompt(false), 2000);
+      if (copiedTimeoutRef.current) window.clearTimeout(copiedTimeoutRef.current);
+      copiedTimeoutRef.current = window.setTimeout(() => setCopiedPrompt(false), 2000);
     } catch {
       // Fallback silent
     }
@@ -240,6 +267,7 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
         setImgError('Image is still too large after compression. Try a smaller screenshot or image.');
         return;
       }
+      isDirtyRef.current = true;
       setImageDataUrl(compressed);
     } catch (err) {
       setImgError(
@@ -252,6 +280,7 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
   };
 
   const handleAnswerChange = (idx: number, value: string) => {
+    isDirtyRef.current = true;
     setAnswers((prev) => {
       const next: [string, string, string, string, string] = [...prev] as [
         string,
@@ -301,6 +330,7 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
         answers,
         scareSummary,
       });
+      isDirtyRef.current = false;
       setSubmitBanner({
         scoreResult: res.scoreResult,
         xpGain: res.newlyAwardedXp,
@@ -754,7 +784,10 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
                     rows={5}
                     maxLength={1380}
                     value={promptUsed}
-                    onChange={(e) => setPromptUsed(e.target.value)}
+                    onChange={(e) => {
+                      isDirtyRef.current = true;
+                      setPromptUsed(e.target.value);
+                    }}
                     placeholder="Refine your prompt by adding Indian/global workplace setting, lighting, expressions, and point of view..."
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-white leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-600"
                   />
@@ -874,7 +907,10 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setImageDataUrl('')}
+                          onClick={() => {
+                            isDirtyRef.current = true;
+                            setImageDataUrl('');
+                          }}
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -976,7 +1012,10 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
                     rows={3}
                     maxLength={1180}
                     value={scareSummary}
-                    onChange={(e) => setScareSummary(e.target.value)}
+                    onChange={(e) => {
+                      isDirtyRef.current = true;
+                      setScareSummary(e.target.value);
+                    }}
                     placeholder="“I can see... I connect this image with... The key risk/cause is... I would recommend...”"
                     className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-white leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-600"
                   />

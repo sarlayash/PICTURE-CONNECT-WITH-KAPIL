@@ -2,10 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { User } from 'firebase/auth';
 import {
   AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
   FileCheck2,
+  Lock,
   Play,
   Save,
   ShieldCheck,
@@ -13,6 +16,7 @@ import {
 } from 'lucide-react';
 import {
   CaseFieldKey,
+  evaluateFinalPrerequisites,
   FINAL_ASSESSMENT_META,
   FINAL_CASE_STUDIES,
   FINAL_MCQS,
@@ -27,6 +31,7 @@ import {
   submitFinalAssessment,
 } from '../services/finalAssessmentService';
 import { LearnerProgressDoc } from '../services/firestoreService';
+import { AppView } from './OverviewStudio';
 import { FinalCredentialsPanel } from './FinalCredentialsPanel';
 
 interface FinalAssessmentStudioProps {
@@ -37,6 +42,7 @@ interface FinalAssessmentStudioProps {
   coreProgress: LearnerProgressDoc;
   advProgress: AdvancedProgressDoc;
   advAvgScore: number;
+  onNavigateView: (view: AppView, levelNum?: number) => void;
 }
 
 type ExamSectionIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -67,6 +73,7 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
   coreProgress,
   advProgress,
   advAvgScore,
+  onNavigateView,
 }) => {
   const [targetRole, setTargetRole] = useState(finalDoc.targetRole);
   const [collegeOrOrg, setCollegeOrOrg] = useState(finalDoc.collegeOrOrg);
@@ -92,6 +99,28 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
 
   const autoSubmittedRef = useRef(false);
   const hydratedOwnerRef = useRef<string>('');
+  const draftTimerRef = useRef<number | null>(null);
+
+  // Ref holding live draft state so the 1s countdown interval never restarts on keystrokes
+  const latestDraftRef = useRef({
+    targetRole,
+    collegeOrOrg,
+    mcqAnswers,
+    caseResponses,
+    capstoneScare,
+  });
+  latestDraftRef.current = {
+    targetRole,
+    collegeOrOrg,
+    mcqAnswers,
+    caseResponses,
+    capstoneScare,
+  };
+
+  const prereq = useMemo(
+    () => evaluateFinalPrerequisites(coreProgress, advProgress),
+    [coreProgress, advProgress]
+  );
 
   // Hydrate local editor from Firestore when doc arrives initially or transitions status
   useEffect(() => {
@@ -105,6 +134,12 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
       setCapstoneScare(finalDoc.capstoneScare);
     }
   }, [finalDoc]);
+
+  useEffect(() => {
+    return () => {
+      if (draftTimerRef.current) window.clearTimeout(draftTimerRef.current);
+    };
+  }, []);
 
   // Strict 90-Minute Proctored Countdown synchronized to startedAtMs
   useEffect(() => {
@@ -124,15 +159,17 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
       if (rem <= 0 && !autoSubmittedRef.current) {
         autoSubmittedRef.current = true;
         window.clearInterval(timer);
+        const snapshot = latestDraftRef.current;
         void submitFinalAssessment({
           user,
           startedAtMs: finalDoc.startedAtMs,
-          targetRole,
-          collegeOrOrg,
-          mcqAnswers,
-          caseResponses,
-          capstoneScare,
+          targetRole: snapshot.targetRole,
+          collegeOrOrg: snapshot.collegeOrOrg,
+          mcqAnswers: snapshot.mcqAnswers,
+          caseResponses: snapshot.caseResponses,
+          capstoneScare: snapshot.capstoneScare,
         }).catch((err) => {
+          autoSubmittedRef.current = false;
           setErrorMsg(
             err instanceof Error ? err.message : 'Auto-submit failed on timeout.'
           );
@@ -141,16 +178,7 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [
-    finalDoc.status,
-    finalDoc.startedAtMs,
-    user,
-    targetRole,
-    collegeOrOrg,
-    mcqAnswers,
-    caseResponses,
-    capstoneScare,
-  ]);
+  }, [finalDoc.status, finalDoc.startedAtMs, user]);
 
   const answeredMcqCount = useMemo(
     () => mcqAnswers.filter((a) => a >= 0 && a <= 3).length,
@@ -165,6 +193,12 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
 
   const handleStartExam = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!prereq.eligible) {
+      setErrorMsg(
+        `Please complete all Basic & AI Advanced prerequisites first (${prereq.completedSections}/${prereq.totalSections} sections complete).`
+      );
+      return;
+    }
     setErrorMsg(null);
     setStarting(true);
     try {
@@ -173,6 +207,8 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
         user,
         targetRole: targetRole || 'Entry-Level Analyst / Software & Business Role',
         collegeOrOrg: collegeOrOrg || 'Placement Candidate',
+        coreProgress,
+        advProgress,
       });
     } catch (err) {
       setErrorMsg(
@@ -198,7 +234,8 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
         capstoneScare,
       });
       setDraftSavedNote('Draft synced to cloud');
-      window.setTimeout(() => setDraftSavedNote(null), 2500);
+      if (draftTimerRef.current) window.clearTimeout(draftTimerRef.current);
+      draftTimerRef.current = window.setTimeout(() => setDraftSavedNote(null), 2500);
     } catch (err) {
       setErrorMsg(
         err instanceof Error ? err.message : 'Failed to sync draft.'
@@ -346,6 +383,81 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
             </div>
           </div>
 
+          {/* Strict Curriculum Prerequisite Checklist (Basic + AI Advanced) */}
+          <div
+            className={`rounded-xl border p-5 space-y-4 ${
+              prereq.eligible
+                ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20'
+                : 'border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/20'
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                {prereq.eligible ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                ) : (
+                  <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                )}
+                <div>
+                  <h2 className="font-display text-base font-bold text-slate-950 dark:text-white">
+                    {prereq.eligible
+                      ? 'All Basic & AI Advanced Prerequisites Verified — Exam Unlocked'
+                      : 'Final Assessment Locked — Complete Both Basic & AI Advanced Tracks First'}
+                  </h2>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    The 90-minute 1000 XP proctored capstone unlocks automatically once every Basic section and all 25 AI Advanced challenges are complete.
+                  </p>
+                </div>
+              </div>
+              <span className="font-mono text-xs font-bold text-slate-900 dark:text-white shrink-0 tabular-nums">
+                {prereq.completedSections}/{prereq.totalSections} Sections · {prereq.overallPct}% Ready
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {prereq.items.map((item) => (
+                <div
+                  key={item.id}
+                  className={`rounded-xl border p-3.5 flex items-start justify-between gap-3 ${
+                    item.complete
+                      ? 'border-emerald-200 dark:border-emerald-800/70 bg-white dark:bg-slate-900'
+                      : 'border-amber-200 dark:border-amber-800/70 bg-white dark:bg-slate-900'
+                  }`}
+                >
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      {item.complete ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      ) : (
+                        <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                      )}
+                      <span className="font-display text-xs sm:text-sm font-bold text-slate-950 dark:text-white truncate">
+                        {item.label}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-snug">
+                      {item.detail}
+                    </p>
+                    <div className="font-mono text-[11px] font-semibold text-slate-700 dark:text-slate-300 tabular-nums">
+                      Progress: {item.current} / {item.required}
+                    </div>
+                  </div>
+
+                  {!item.complete && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigateView(item.targetView, item.targetLevel)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-[11px] font-semibold whitespace-nowrap shrink-0 cursor-pointer"
+                    >
+                      <span>Complete</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
           {errorMsg && (
             <div className="p-3.5 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 text-xs text-red-700 dark:text-red-300">
               {errorMsg}
@@ -362,10 +474,11 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
                 <input
                   type="text"
                   maxLength={115}
+                  disabled={!prereq.eligible}
                   value={targetRole}
                   onChange={(e) => setTargetRole(e.target.value)}
                   placeholder="e.g., Software Development Engineer / Business Analyst"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600 disabled:opacity-60"
                 />
               </div>
               <div>
@@ -375,25 +488,35 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
                 <input
                   type="text"
                   maxLength={115}
+                  disabled={!prereq.eligible}
                   value={collegeOrOrg}
                   onChange={(e) => setCollegeOrOrg(e.target.value)}
                   placeholder="e.g., B.Tech CSE 2026 · FACE Prep Placement Batch"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600 disabled:opacity-60"
                 />
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="text-xs text-slate-500 dark:text-slate-400">
-                Candidate: <strong className="text-slate-900 dark:text-white">{learnerName}</strong> ({learnerEmail}) · Timer begins immediately upon clicking Start.
+                Candidate: <strong className="text-slate-900 dark:text-white">{learnerName}</strong> ({learnerEmail}) ·{' '}
+                {prereq.eligible
+                  ? 'Timer begins immediately upon clicking Start.'
+                  : `Complete ${prereq.totalSections - prereq.completedSections} remaining section(s) above to unlock exam start.`}
               </div>
               <button
                 type="submit"
-                disabled={starting}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60"
+                disabled={starting || !prereq.eligible}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Play className="w-4 h-4" />
-                <span>{starting ? 'Initializing 90:00 Clock...' : 'Start 90-Minute Final Assessment'}</span>
+                {prereq.eligible ? <Play className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                <span>
+                  {!prereq.eligible
+                    ? `Locked (${prereq.completedSections}/${prereq.totalSections} Prerequisites)`
+                    : starting
+                    ? 'Initializing 90:00 Clock...'
+                    : 'Start 90-Minute Final Assessment'}
+                </span>
               </button>
             </div>
           </form>

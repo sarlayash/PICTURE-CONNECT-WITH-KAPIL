@@ -11,11 +11,14 @@ import {
 } from 'firebase/firestore';
 import {
   CaseFieldKey,
+  evaluateFinalPrerequisites,
   FINAL_ASSESSMENT_META,
   FinalGradeResult,
   gradeFinalAssessment,
 } from '../data/finalAssessmentData';
 import { db, handleFirestoreError, OperationType } from '../firebase';
+import { AdvancedProgressDoc } from './advancedFirestoreService';
+import { LearnerProgressDoc } from './firestoreService';
 
 function clip(value: string, max: number): string {
   return value.trim().slice(0, max);
@@ -236,8 +239,16 @@ export async function startFinalAssessmentSession(params: {
   user: User;
   targetRole: string;
   collegeOrOrg: string;
+  coreProgress: Pick<LearnerProgressDoc, 'completedLevels' | 'completedWheelPrompts'>;
+  advProgress: Pick<AdvancedProgressDoc, 'completedChallenges'>;
 }): Promise<number> {
-  const { user, targetRole, collegeOrOrg } = params;
+  const { user, targetRole, collegeOrOrg, coreProgress, advProgress } = params;
+  const prereq = evaluateFinalPrerequisites(coreProgress, advProgress);
+  if (!prereq.eligible) {
+    throw new Error(
+      `Final Assessment is locked (${prereq.completedSections}/${prereq.totalSections} sections complete). ${prereq.missingSummary}`
+    );
+  }
   const path = `finalAssessments/${user.uid}`;
   const ref = doc(db, 'finalAssessments', user.uid);
   const startedAtMs = Date.now();

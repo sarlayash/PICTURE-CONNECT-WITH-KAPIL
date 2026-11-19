@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { ADVANCED_BADGES } from '../data/advancedTrackData';
+import { evaluateFinalPrerequisites } from '../data/finalAssessmentData';
 import { BADGES } from '../data/workshopData';
 import {
   ADMIN_EMAIL,
@@ -132,14 +133,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const filteredRecords = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const list = records.filter((r) => {
+      const adv = advByUid[r.uid];
+      const fin = finalByUid[r.uid];
       const matchesSearch =
         !q ||
         r.displayName.toLowerCase().includes(q) ||
         r.email.toLowerCase().includes(q) ||
         r.certificateId.toLowerCase().includes(q) ||
-        r.rankTitle.toLowerCase().includes(q);
+        r.rankTitle.toLowerCase().includes(q) ||
+        (adv?.advCertificateId || '').toLowerCase().includes(q) ||
+        (fin?.finalCertificateId || '').toLowerCase().includes(q) ||
+        (fin?.lorVerificationId || '').toLowerCase().includes(q) ||
+        (fin?.targetRole || '').toLowerCase().includes(q) ||
+        (fin?.collegeOrOrg || '').toLowerCase().includes(q);
 
       if (!matchesSearch) return false;
+
+      if (adminTrackView === 'advanced') {
+        const advDone = adv?.completedChallenges.length ?? 0;
+        if (statusFilter === 'mastered') return advDone >= 25;
+        if (statusFilter === 'active') return advDone > 0 && advDone < 25;
+        if (statusFilter === 'starter') return advDone === 0;
+        return true;
+      }
+
+      if (adminTrackView === 'final') {
+        const prereq = evaluateFinalPrerequisites(
+          {
+            completedLevels: r.completedLevels,
+            completedWheelPrompts: r.completedWheelPrompts,
+          },
+          { completedChallenges: adv?.completedChallenges ?? [] }
+        );
+        if (statusFilter === 'mastered') return Boolean(fin?.status === 'submitted' && fin.passed);
+        if (statusFilter === 'active') {
+          return prereq.eligible || fin?.status === 'in_progress' || fin?.status === 'submitted';
+        }
+        if (statusFilter === 'starter') return !prereq.eligible && (!fin || fin.status === 'not_started');
+        return true;
+      }
+
       if (statusFilter === 'mastered') return r.completedLevels.length === 10;
       if (statusFilter === 'active') {
         return r.completedLevels.length > 0 && r.completedLevels.length < 10;
@@ -158,11 +191,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (sortBy === 'recent') {
         return b.lastActiveMs - a.lastActiveMs;
       }
+      if (adminTrackView === 'advanced') {
+        return (advByUid[b.uid]?.advXp ?? 0) - (advByUid[a.uid]?.advXp ?? 0) || b.xp - a.xp;
+      }
+      if (adminTrackView === 'final') {
+        return (
+          (finalByUid[b.uid]?.totalXpAwarded ?? 0) - (finalByUid[a.uid]?.totalXpAwarded ?? 0) ||
+          b.xp - a.xp
+        );
+      }
       return b.xp - a.xp || b.completedLevels.length - a.completedLevels.length;
     });
 
     return list;
-  }, [records, searchQuery, statusFilter, sortBy]);
+  }, [records, advByUid, finalByUid, adminTrackView, searchQuery, statusFilter, sortBy]);
 
   if (!open) return null;
 
@@ -616,9 +658,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-white"
                   >
                     <option value="all">All Users ({totalLearners})</option>
-                    <option value="mastered">10/10 Mastery Only</option>
-                    <option value="active">Active in Progress</option>
-                    <option value="starter">0 Levels Completed</option>
+                    <option value="mastered">
+                      {adminTrackView === 'advanced'
+                        ? '25/25 AI Mastery Only'
+                        : adminTrackView === 'final'
+                        ? 'Final Passed (>=600 XP)'
+                        : '10/10 Mastery Only'}
+                    </option>
+                    <option value="active">
+                      {adminTrackView === 'final'
+                        ? 'Eligible / In Progress / Submitted'
+                        : 'Active in Progress'}
+                    </option>
+                    <option value="starter">
+                      {adminTrackView === 'final'
+                        ? 'Prerequisites Locked'
+                        : adminTrackView === 'advanced'
+                        ? '0 AI Challenges Completed'
+                        : '0 Levels Completed'}
+                    </option>
                   </select>
 
                   <select
@@ -791,9 +849,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     </span>
                                   ) : fin?.status === 'in_progress' ? (
                                     <span className="text-blue-700 dark:text-blue-400">IN PROGRESS</span>
-                                  ) : (
-                                    <span className="text-slate-400">NOT STARTED</span>
-                                  )}
+                                  ) : (() => {
+                                    const prereq = evaluateFinalPrerequisites(
+                                      {
+                                        completedLevels: learner.completedLevels,
+                                        completedWheelPrompts: learner.completedWheelPrompts,
+                                      },
+                                      { completedChallenges: adv?.completedChallenges ?? [] }
+                                    );
+                                    return prereq.eligible ? (
+                                      <span className="text-emerald-700 dark:text-emerald-400">
+                                        UNLOCKED (4/4)
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400">
+                                        LOCKED ({prereq.completedSections}/4)
+                                      </span>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="py-3 px-3 font-mono font-bold text-slate-950 dark:text-white tabular-nums">
                                   {fin ? `${fin.totalXpAwarded}/1000` : '—'}
@@ -901,6 +974,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {inspectedUser.workspace.act7PitchName
                           ? `${inspectedUser.workspace.act7PitchName}: ${
                               inspectedUser.workspace.act7PitchScript || ''
+                            }${
+                              inspectedUser.workspace.act7PitchUsps
+                                ? ` · USPs: ${inspectedUser.workspace.act7PitchUsps}`
+                                : ''
                             }`
                           : 'Not submitted yet'}
                       </p>

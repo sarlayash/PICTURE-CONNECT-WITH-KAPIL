@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Award, Lock, LogOut, Moon, ShieldCheck, Sun } from 'lucide-react';
+import { evaluateFinalPrerequisites } from './data/finalAssessmentData';
 import { BADGES, getLearnerRank, WORKSHOP_META } from './data/workshopData';
 import {
   auth,
@@ -211,12 +212,16 @@ function PictureConnectWorkspace() {
         )
       : 0;
 
-  const navItems: { id: AppView; label: string }[] = [
+  const finalPrereq = evaluateFinalPrerequisites(progress, advProgress);
+  const isFinalLocked =
+    finalAssessment.status === 'not_started' && !finalPrereq.eligible;
+
+  const navItems: { id: AppView; label: string; locked?: boolean }[] = [
     { id: 'journey', label: 'Journey' },
     { id: 'levels', label: 'Levels 1–10' },
     { id: 'wheel', label: 'Spin Wheel' },
     { id: 'advanced', label: 'AI Advanced' },
-    { id: 'final', label: 'Final 1000 XP' },
+    { id: 'final', label: 'Final 1000 XP', locked: isFinalLocked },
   ];
 
   return (
@@ -243,13 +248,14 @@ function PictureConnectWorkspace() {
                   key={item.id}
                   type="button"
                   onClick={() => handleNavigateView(item.id)}
-                  className={`py-1 border-b-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  className={`inline-flex items-center gap-1.5 py-1 border-b-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                     active
                       ? 'border-blue-700 text-slate-950 dark:border-blue-400 dark:text-white font-semibold'
                       : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
                   }`}
                 >
-                  {item.label}
+                  {item.locked && <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
+                  <span>{item.label}</span>
                 </button>
               );
             })}
@@ -275,13 +281,14 @@ function PictureConnectWorkspace() {
                 key={item.id}
                 type="button"
                 onClick={() => handleNavigateView(item.id)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer ${
                   active
                     ? 'bg-blue-700 text-white'
                     : 'text-slate-600 dark:text-slate-400'
                 }`}
               >
-                {item.label}
+                {item.locked && <Lock className="w-3 h-3" />}
+                <span>{item.label}</span>
               </button>
             );
           })}
@@ -339,6 +346,8 @@ function PictureConnectWorkspace() {
             advXp={advProgress.advXp}
             finalStatus={finalAssessment.status}
             finalXp={finalAssessment.totalXpAwarded}
+            finalEligible={finalPrereq.eligible}
+            finalPrereqLabel={`${finalPrereq.completedSections}/${finalPrereq.totalSections}`}
             onNavigateView={handleNavigateView}
             learnerConnections={conceptConnections}
             onAddConnection={async (picture, concept, explanation) => {
@@ -431,6 +440,7 @@ function PictureConnectWorkspace() {
             coreProgress={progress}
             advProgress={advProgress}
             advAvgScore={advAvgScore}
+            onNavigateView={handleNavigateView}
           />
         )}
 

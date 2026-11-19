@@ -3,6 +3,8 @@ import caseEvBatteryRecall from '../assets/images/case_ev_battery_recall_1795091
 import caseHospitalTriageAi from '../assets/images/case_hospital_triage_ai_1795091210462.jpg';
 import caseSaasChurnWarroom from '../assets/images/case_saas_churn_warroom_1795091210363.jpg';
 import caseCampusPlacementPanel from '../assets/images/case_campus_placement_panel_1795091211941.jpg';
+import { ADVANCED_THEMES } from './advancedTrackData';
+import { VIDEO_CASE_STUDIES, WHEEL_DECKS } from './workshopData';
 
 export type CaseFieldKey =
   | 'c1a'
@@ -767,3 +769,139 @@ export function gradeFinalAssessment(input: {
     executiveFeedback: feedbackParts.join(' ').slice(0, 980),
   };
 }
+
+export interface FinalPrerequisiteItem {
+  id: 'core_levels' | 'core_videos' | 'core_wheel' | 'advanced_challenges';
+  label: string;
+  detail: string;
+  current: number;
+  required: number;
+  complete: boolean;
+  targetView: 'levels' | 'journey' | 'wheel' | 'advanced';
+  targetLevel?: number;
+}
+
+export interface FinalPrerequisiteStatus {
+  eligible: boolean;
+  completedSections: number;
+  totalSections: number;
+  overallPct: number;
+  missingSummary: string;
+  items: FinalPrerequisiteItem[];
+}
+
+export function evaluateFinalPrerequisites(
+  coreProgress: {
+    completedLevels: number[];
+    completedWheelPrompts: string[];
+  },
+  advProgress: {
+    completedChallenges: string[];
+  }
+): FinalPrerequisiteStatus {
+  const completedLevelSet = new Set(coreProgress.completedLevels);
+  const completedPromptSet = new Set(coreProgress.completedWheelPrompts);
+  const completedAdvSet = new Set(advProgress.completedChallenges);
+
+  // 1. All 10 Basic Levels (1..10)
+  const requiredLevels = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const levelsDone = requiredLevels.filter((n) => completedLevelSet.has(n)).length;
+  const firstMissingLevel = requiredLevels.find((n) => !completedLevelSet.has(n)) ?? 1;
+
+  // 2. Both Portal Video Case Studies
+  const requiredVideoIds = VIDEO_CASE_STUDIES.map((v) => v.id);
+  const videosDone = requiredVideoIds.filter((id) => completedPromptSet.has(id)).length;
+
+  // 3. All 3 Spinning Wheel Decks (at least 1 prompt completed per deck)
+  const decksDone = WHEEL_DECKS.filter((deck) =>
+    deck.segments.some((seg) => completedPromptSet.has(seg.id))
+  ).length;
+  const missingDeckNames = WHEEL_DECKS.filter(
+    (deck) => !deck.segments.some((seg) => completedPromptSet.has(seg.id))
+  ).map((d) => d.name);
+
+  // 4. All 25 AI Advanced Track Challenges (5 themes x 5)
+  const allAdvChallengeIds = ADVANCED_THEMES.flatMap((t) =>
+    t.challenges.map((c) => c.id)
+  );
+  const advDone = allAdvChallengeIds.filter((id) => completedAdvSet.has(id)).length;
+
+  const items: FinalPrerequisiteItem[] = [
+    {
+      id: 'core_levels',
+      label: 'Basic Track · Levels 1 to 10',
+      detail:
+        levelsDone === 10
+          ? 'All 10 core experiential levels completed.'
+          : `Complete remaining levels (next: Level ${firstMissingLevel}).`,
+      current: levelsDone,
+      required: 10,
+      complete: levelsDone === 10,
+      targetView: 'levels',
+      targetLevel: firstMissingLevel,
+    },
+    {
+      id: 'core_videos',
+      label: 'Basic Track · Video Case Challenges',
+      detail:
+        videosDone === requiredVideoIds.length
+          ? 'Both Customer Delight & British Airways reflections submitted.'
+          : 'Submit reflections for both portal video case studies on the Journey tab.',
+      current: videosDone,
+      required: requiredVideoIds.length,
+      complete: videosDone === requiredVideoIds.length,
+      targetView: 'journey',
+    },
+    {
+      id: 'core_wheel',
+      label: 'Basic Track · Spinning Wheel Studio (All 3 Decks)',
+      detail:
+        decksDone === WHEEL_DECKS.length
+          ? 'Completed challenges across all 3 spinning wheel decks.'
+          : `Complete at least 1 exercise in: ${missingDeckNames.join(', ')}.`,
+      current: decksDone,
+      required: WHEEL_DECKS.length,
+      complete: decksDone === WHEEL_DECKS.length,
+      targetView: 'wheel',
+    },
+    {
+      id: 'advanced_challenges',
+      label: 'AI Advanced Track · All 25 Challenges (5 Themes)',
+      detail:
+        advDone === allAdvChallengeIds.length
+          ? 'All 25 AI-powered prompt & visual challenges scored.'
+          : `Complete all 5 themes (${allAdvChallengeIds.length - advDone} challenge${
+              allAdvChallengeIds.length - advDone === 1 ? '' : 's'
+            } remaining).`,
+      current: advDone,
+      required: allAdvChallengeIds.length,
+      complete: advDone === allAdvChallengeIds.length,
+      targetView: 'advanced',
+    },
+  ];
+
+  const completedSections = items.filter((item) => item.complete).length;
+  const totalMilestones =
+    requiredLevels.length +
+    requiredVideoIds.length +
+    WHEEL_DECKS.length +
+    allAdvChallengeIds.length;
+  const doneMilestones = levelsDone + videosDone + decksDone + advDone;
+  const overallPct = Math.round((doneMilestones / totalMilestones) * 100);
+
+  const missingLabels = items.filter((i) => !i.complete).map((i) => i.label);
+  const missingSummary =
+    missingLabels.length === 0
+      ? 'All Basic and AI Advanced prerequisites verified.'
+      : `Pending: ${missingLabels.join(' · ')}`;
+
+  return {
+    eligible: completedSections === items.length,
+    completedSections,
+    totalSections: items.length,
+    overallPct,
+    missingSummary,
+    items,
+  };
+}
+

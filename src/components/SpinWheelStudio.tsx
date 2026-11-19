@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CheckCircle2,
   Compass,
@@ -36,6 +36,14 @@ export const SpinWheelStudio: React.FC<SpinWheelStudioProps> = ({
   const [responseText, setResponseText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [rewardBanner, setRewardBanner] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const spinTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (spinTimerRef.current) window.clearTimeout(spinTimerRef.current);
+    };
+  }, []);
 
   const deck = useMemo(
     () => WHEEL_DECKS.find((d) => d.id === deckId) ?? WHEEL_DECKS[0],
@@ -49,6 +57,7 @@ export const SpinWheelStudio: React.FC<SpinWheelStudioProps> = ({
     setActiveSegment(nextDeck.segments[0]);
     setShowHint(false);
     setRewardBanner(null);
+    setSubmitError(null);
   };
 
   const handleSpin = () => {
@@ -66,10 +75,12 @@ export const SpinWheelStudio: React.FC<SpinWheelStudioProps> = ({
 
     setIsSpinning(true);
     setRewardBanner(null);
+    setSubmitError(null);
     setShowHint(false);
     setRotationDeg(nextRotation);
 
-    window.setTimeout(() => {
+    if (spinTimerRef.current) window.clearTimeout(spinTimerRef.current);
+    spinTimerRef.current = window.setTimeout(() => {
       setIsSpinning(false);
       setActiveSegment(deck.segments[pickedIndex]);
     }, 3600);
@@ -79,6 +90,7 @@ export const SpinWheelStudio: React.FC<SpinWheelStudioProps> = ({
     e.preventDefault();
     if (!responseText.trim() || submitting) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
       const result = await onCompleteWheelPrompt(
         activeSegment.id,
@@ -93,6 +105,10 @@ export const SpinWheelStudio: React.FC<SpinWheelStudioProps> = ({
             ? ` · New badge unlocked!`
             : ''
         }`
+      );
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : 'Unable to save wheel response. Please try again.'
       );
     } finally {
       setSubmitting(false);
@@ -156,6 +172,9 @@ export const SpinWheelStudio: React.FC<SpinWheelStudioProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {WHEEL_DECKS.map((item) => {
           const active = item.id === deckId;
+          const deckDoneCount = item.segments.filter((seg) =>
+            progress.completedWheelPrompts.includes(seg.id)
+          ).length;
           return (
             <button
               key={item.id}
@@ -168,8 +187,19 @@ export const SpinWheelStudio: React.FC<SpinWheelStudioProps> = ({
                   : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
               }`}
             >
-              <div className="font-display text-sm font-bold text-slate-950 dark:text-white">
-                {item.name}
+              <div className="flex items-center justify-between gap-2">
+                <div className="font-display text-sm font-bold text-slate-950 dark:text-white">
+                  {item.name}
+                </div>
+                <span
+                  className={`font-mono text-[11px] font-bold tabular-nums shrink-0 ${
+                    deckDoneCount > 0
+                      ? 'text-emerald-700 dark:text-emerald-400'
+                      : 'text-slate-400'
+                  }`}
+                >
+                  {deckDoneCount}/{item.segments.length} Done
+                </span>
               </div>
               <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
                 {item.subtitle}
@@ -353,6 +383,12 @@ export const SpinWheelStudio: React.FC<SpinWheelStudioProps> = ({
                 />
               </div>
             </div>
+
+            {submitError && (
+              <div className="p-3.5 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 text-xs font-medium text-red-700 dark:text-red-300">
+                {submitError}
+              </div>
+            )}
 
             {rewardBanner && (
               <div className="p-3.5 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 text-xs font-semibold text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
