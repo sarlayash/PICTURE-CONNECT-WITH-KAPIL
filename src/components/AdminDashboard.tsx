@@ -1,16 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { User } from 'firebase/auth';
 import {
+  CheckCircle2,
   Download,
   Eye,
   FileCheck2,
   FileJson,
   Lock,
   LogOut,
+  MessageSquare,
   RotateCcw,
   Search,
   ShieldCheck,
   Sparkles,
+  Star,
   Trophy,
   Users,
   X,
@@ -42,11 +45,24 @@ import {
   AdminCareerSkillsSummary,
   subscribeAdminCareerSkillsData,
 } from '../services/careerSkillsFirestoreService';
-import { MASTER_BADGES } from '../data/masterUniverseData';
+import {
+  MASTER_BADGES,
+  MASTER_MCQS,
+  MASTER_TRACKS,
+} from '../data/masterUniverseData';
 import {
   AdminMasterSkillsSummary,
   subscribeAdminMasterData,
 } from '../services/masterUniverseFirestoreService';
+import {
+  adminUpdateFeedback,
+  FEEDBACK_CATEGORY_META,
+  FEEDBACK_SECTION_LABELS,
+  FeedbackSectionId,
+  FeedbackStatus,
+  SectionFeedbackDoc,
+  subscribeAdminFeedback,
+} from '../services/feedbackFirestoreService';
 import {
   AdminUserRecord,
   subscribeAdminLiveData,
@@ -103,8 +119,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [masterByUid, setMasterByUid] = useState<
     Record<string, AdminMasterSkillsSummary>
   >({});
+  const [feedbackItems, setFeedbackItems] = useState<SectionFeedbackDoc[]>([]);
+  const [fbSectionFilter, setFbSectionFilter] = useState<
+    FeedbackSectionId | 'all'
+  >('all');
+  const [fbStatusFilter, setFbStatusFilter] = useState<FeedbackStatus | 'all'>(
+    'all'
+  );
+  const [fbRatingFilter, setFbRatingFilter] = useState<'all' | '5' | 'low'>(
+    'all'
+  );
+  const [fbDraftNotes, setFbDraftNotes] = useState<Record<string, string>>({});
+  const [fbSavingId, setFbSavingId] = useState<string | null>(null);
   const [adminTrackView, setAdminTrackView] = useState<
-    'core' | 'advanced' | 'shopping' | 'career' | 'universe' | 'final'
+    'core' | 'advanced' | 'shopping' | 'career' | 'universe' | 'final' | 'feedback'
   >('core');
   const [lastSyncMs, setLastSyncMs] = useState<number>(0);
   const [streamError, setStreamError] = useState<string | null>(null);
@@ -172,6 +200,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setStreamError(errMsg);
       }
     );
+    const unsubFeedback = subscribeAdminFeedback(
+      (items) => {
+        setFeedbackItems(items);
+      },
+      (errMsg) => {
+        setStreamError(errMsg);
+      }
+    );
 
     return () => {
       unsubCore();
@@ -180,6 +216,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       unsubShop();
       unsubCareer();
       unsubMaster();
+      unsubFeedback();
     };
   }, [open, credentialsUnlocked, hasAdminGoogleSession]);
 
@@ -211,8 +248,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (adminTrackView === 'universe') {
         const mcqsDone = master?.answeredMcqs.length ?? 0;
         const tracksDone = master?.completedTracks.length ?? 0;
-        if (statusFilter === 'mastered') return tracksDone >= 12;
-        if (statusFilter === 'active') return mcqsDone > 0 && tracksDone < 12;
+        if (statusFilter === 'mastered') return tracksDone >= MASTER_TRACKS.length;
+        if (statusFilter === 'active') return mcqsDone > 0 && tracksDone < MASTER_TRACKS.length;
         if (statusFilter === 'starter') return mcqsDone === 0;
         return true;
       }
@@ -372,12 +409,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       'Career Cert ID',
       'Universe Tech XP',
       'Universe Rank',
-      'Universe MCQs (/120)',
-      'Aptitude & Grammar (/40)',
-      'C/C++/Java/DSA (/40)',
+      `Universe MCQs (/${MASTER_MCQS.length})`,
+      'Aptitude & Verbal 7 (/70)',
+      'C/C++/Java/Python/DSA (/50)',
+      'Python (/10)',
       'Excel/BI/DBMS/Cloud (/40)',
       'Universe Accuracy %',
-      'Universe Badges (/8)',
+      `Universe Badges (/${MASTER_BADGES.length})`,
       'Universe Cert ID',
       'Final Exam Status',
       'Final Attempt #',
@@ -444,9 +482,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         career?.careerCertificateId ?? '',
         master?.masterXp ?? 0,
         master?.masterRankTitle ?? 'Universe Explorer',
-        `${master?.answeredMcqs.length ?? 0}/120`,
-        `${master?.aptitudeGrammarCorrect ?? 0}/40`,
-        `${master?.codingDsaCorrect ?? 0}/40`,
+        `${master?.answeredMcqs.length ?? 0}/${MASTER_MCQS.length}`,
+        `${master?.aptitudeGrammarCorrect ?? 0}/70`,
+        `${master?.codingDsaCorrect ?? 0}/50`,
+        `${master?.pythonCorrect ?? 0}/10`,
         `${master?.dataCloudCorrect ?? 0}/40`,
         `${master?.accuracyPct ?? 0}%`,
         `${master?.unlockedMasterBadges.length ?? 0}/${MASTER_BADGES.length}`,
@@ -541,6 +580,139 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     } finally {
       setResetBusy(false);
     }
+  };
+
+  const filteredFeedback = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return feedbackItems.filter((item) => {
+      if (fbSectionFilter !== 'all' && item.sectionId !== fbSectionFilter) {
+        return false;
+      }
+      if (fbStatusFilter !== 'all' && item.status !== fbStatusFilter) {
+        return false;
+      }
+      if (fbRatingFilter === '5' && item.rating !== 5) return false;
+      if (fbRatingFilter === 'low' && item.rating > 3) return false;
+      if (!q) return true;
+      return (
+        item.authorName.toLowerCase().includes(q) ||
+        item.authorEmail.toLowerCase().includes(q) ||
+        item.sectionLabel.toLowerCase().includes(q) ||
+        item.subTopic.toLowerCase().includes(q) ||
+        item.highlights.toLowerCase().includes(q) ||
+        item.improvement.toLowerCase().includes(q)
+      );
+    });
+  }, [
+    feedbackItems,
+    fbSectionFilter,
+    fbStatusFilter,
+    fbRatingFilter,
+    searchQuery,
+  ]);
+
+  const feedbackAvgRating = useMemo(() => {
+    if (feedbackItems.length === 0) return 0;
+    const sum = feedbackItems.reduce((acc, f) => acc + f.rating, 0);
+    return Number((sum / feedbackItems.length).toFixed(2));
+  }, [feedbackItems]);
+
+  const feedbackWowPct = useMemo(() => {
+    if (feedbackItems.length === 0) return 0;
+    const fiveStar = feedbackItems.filter((f) => f.rating === 5).length;
+    return Math.round((fiveStar / feedbackItems.length) * 100);
+  }, [feedbackItems]);
+
+  const feedbackOpenCount = useMemo(
+    () => feedbackItems.filter((f) => f.status === 'new').length,
+    [feedbackItems]
+  );
+
+  const feedbackBySectionStats = useMemo(() => {
+    const sections = Object.keys(FEEDBACK_SECTION_LABELS) as FeedbackSectionId[];
+    return sections.map((secId) => {
+      const list = feedbackItems.filter((f) => f.sectionId === secId);
+      const avg =
+        list.length > 0
+          ? Number(
+              (list.reduce((s, x) => s + x.rating, 0) / list.length).toFixed(1)
+            )
+          : 0;
+      return {
+        sectionId: secId,
+        label: FEEDBACK_SECTION_LABELS[secId],
+        count: list.length,
+        avg,
+      };
+    });
+  }, [feedbackItems]);
+
+  const handleUpdateFeedbackStatus = async (
+    item: SectionFeedbackDoc,
+    nextStatus: FeedbackStatus
+  ) => {
+    setFbSavingId(item.id);
+    setStreamError(null);
+    try {
+      const note =
+        fbDraftNotes[item.id] !== undefined
+          ? fbDraftNotes[item.id]
+          : item.adminNote;
+      await adminUpdateFeedback({
+        feedbackId: item.id,
+        status: nextStatus,
+        adminNote: note,
+      });
+    } catch (err) {
+      setStreamError(
+        err instanceof Error ? err.message : 'Unable to update feedback status.'
+      );
+    } finally {
+      setFbSavingId(null);
+    }
+  };
+
+  const handleDownloadFeedbackCsvReport = () => {
+    const headers = [
+      'Submitted At',
+      'Learner Name',
+      'Learner Email',
+      'Section',
+      'Sub-Topic',
+      'Category',
+      'Star Rating (/5)',
+      'WOW Highlights',
+      'Improvement / Advancement Suggestion',
+      'Status',
+      'Mentor Kapil Reply / Action Note',
+    ];
+    const rows = filteredFeedback.map((f) => [
+      formatTimestamp(f.createdAtMs),
+      f.authorName,
+      f.authorEmail,
+      f.sectionLabel,
+      f.subTopic,
+      FEEDBACK_CATEGORY_META.find((c) => c.id === f.category)?.label ||
+        f.category,
+      f.rating,
+      f.highlights,
+      f.improvement,
+      f.status.toUpperCase(),
+      f.adminNote,
+    ]);
+    const csvContent =
+      '\uFEFF' +
+      [headers, ...rows].map((row) => row.map(escapeCsv).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `Employability-Universe-Feedback-Report-${dateStamp}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const totalLearners = records.length;
@@ -772,7 +944,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         : 'bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300'
                     }`}
                   >
-                    Tech, Data &amp; Aptitude (12 Tracks · 120 MCQs)
+                    Tech, Python &amp; Grammar ({MASTER_TRACKS.length} Tracks · {MASTER_MCQS.length} MCQs)
                   </button>
                   <button
                     type="button"
@@ -785,14 +957,326 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   >
                     Final Exam (1000 XP · LOR PDF)
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdminTrackView('feedback')}
+                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                      adminTrackView === 'feedback'
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-300'
+                    }`}
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>
+                      Feedback Reports ({feedbackItems.length}
+                      {feedbackOpenCount > 0 ? ` · ${feedbackOpenCount} New` : ''})
+                    </span>
+                  </button>
                 </div>
                 <div className="text-xs font-mono text-slate-500 dark:text-slate-400">
                   {finalSubmittedCount} Final ({finalPassedCount} Passed) ·{' '}
-                  {Object.values(masterByUid).filter((m) => m.completedTracks.length >= 12).length} Tech 12/12 ·{' '}
-                  {Object.values(careerByUid).filter((c) => c.completedCategories.length >= 3).length} Career 3/3
+                  {Object.values(masterByUid).filter((m) => m.completedTracks.length >= MASTER_TRACKS.length).length} Universe {MASTER_TRACKS.length}/{MASTER_TRACKS.length} ·{' '}
+                  {feedbackItems.length} Feedback ({feedbackAvgRating || '—'}★)
                 </div>
               </div>
 
+              {/* DEDICATED LEARNER FEEDBACK REPORTS VIEW */}
+              {adminTrackView === 'feedback' ? (
+                <div className="space-y-6">
+                  {/* Feedback KPI Strip */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 p-4">
+                      <div className="flex items-center justify-between text-xs text-amber-800 dark:text-amber-300 font-semibold">
+                        <span>Total Feedback Entries</span>
+                        <MessageSquare className="w-4 h-4" />
+                      </div>
+                      <div className="font-mono text-2xl font-bold text-slate-950 dark:text-white mt-2 tabular-nums">
+                        {feedbackItems.length}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/60 dark:bg-indigo-950/20 p-4">
+                      <div className="flex items-center justify-between text-xs text-indigo-800 dark:text-indigo-300 font-semibold">
+                        <span>Average Portal Rating</span>
+                        <Star className="w-4 h-4 fill-amber-400 text-amber-500" />
+                      </div>
+                      <div className="font-mono text-2xl font-bold text-slate-950 dark:text-white mt-2 tabular-nums">
+                        {feedbackAvgRating > 0 ? `${feedbackAvgRating} / 5.0` : '—'}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/60 dark:bg-emerald-950/20 p-4">
+                      <div className="flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300 font-semibold">
+                        <span>5★ WOW Experience Rate</span>
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                      <div className="font-mono text-2xl font-bold text-slate-950 dark:text-white mt-2 tabular-nums">
+                        {feedbackWowPct}%
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/20 p-4">
+                      <div className="flex items-center justify-between text-xs text-rose-800 dark:text-rose-300 font-semibold">
+                        <span>New / Actionable Items</span>
+                        <CheckCircle2 className="w-4 h-4" />
+                      </div>
+                      <div className="font-mono text-2xl font-bold text-slate-950 dark:text-white mt-2 tabular-nums">
+                        {feedbackOpenCount}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section-by-Section Average Rating Breakdown */}
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950 p-5 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <h3 className="font-display text-sm font-bold text-slate-950 dark:text-white">
+                          Section-by-Section Learner Satisfaction &amp; Improvement Pulse
+                        </h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Click any section card below to filter improvement suggestions for that exact section.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleDownloadFeedbackCsvReport}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download Feedback CSV Report</span>
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                      {feedbackBySectionStats.map((sec) => {
+                        const active = fbSectionFilter === sec.sectionId;
+                        return (
+                          <button
+                            key={sec.sectionId}
+                            type="button"
+                            onClick={() =>
+                              setFbSectionFilter(active ? 'all' : sec.sectionId)
+                            }
+                            className={`text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                              active
+                                ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40'
+                                : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-amber-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                              <span className="font-semibold text-slate-900 dark:text-white truncate">
+                                {sec.label}
+                              </span>
+                              <span className="font-mono font-bold text-amber-600 dark:text-amber-400 shrink-0">
+                                {sec.count > 0 ? `${sec.avg}★` : '—'}
+                              </span>
+                            </div>
+                            <div className="mt-2 flex items-center gap-2">
+                              <div className="h-1.5 flex-1 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-amber-500"
+                                  style={{ width: `${(sec.avg / 5) * 100}%` }}
+                                />
+                              </div>
+                              <span className="text-[11px] font-mono text-slate-500">
+                                {sec.count} resp.
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Filter Bar */}
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <div className="relative flex-1 min-w-[220px] max-w-sm">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search learner, sub-topic, or suggestion..."
+                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                    <select
+                      value={fbSectionFilter}
+                      onChange={(e) =>
+                        setFbSectionFilter(
+                          e.target.value as FeedbackSectionId | 'all'
+                        )
+                      }
+                      className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-white"
+                    >
+                      <option value="all">All Sections</option>
+                      {(
+                        Object.keys(
+                          FEEDBACK_SECTION_LABELS
+                        ) as FeedbackSectionId[]
+                      ).map((k) => (
+                        <option key={k} value={k}>
+                          {FEEDBACK_SECTION_LABELS[k]}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={fbStatusFilter}
+                      onChange={(e) =>
+                        setFbStatusFilter(
+                          e.target.value as FeedbackStatus | 'all'
+                        )
+                      }
+                      className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-white"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="new">New (Needs Review)</option>
+                      <option value="reviewed">Reviewed</option>
+                      <option value="implemented">Implemented</option>
+                    </select>
+                    <select
+                      value={fbRatingFilter}
+                      onChange={(e) =>
+                        setFbRatingFilter(
+                          e.target.value as 'all' | '5' | 'low'
+                        )
+                      }
+                      className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-white"
+                    >
+                      <option value="all">All Ratings</option>
+                      <option value="5">5★ WOW Only</option>
+                      <option value="low">1★ – 3★ (Priority Fixes)</option>
+                    </select>
+                  </div>
+
+                  {/* Live Feedback Action Cards */}
+                  {filteredFeedback.length === 0 ? (
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-10 text-center space-y-2">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">
+                        No feedback entries match these filters yet.
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        As learners submit ratings &amp; improvement ideas from any portal section, they appear live here in real time.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3.5">
+                      {filteredFeedback.map((fb) => {
+                        const catLabel =
+                          FEEDBACK_CATEGORY_META.find(
+                            (c) => c.id === fb.category
+                          )?.label || fb.category;
+                        const draftValue =
+                          fbDraftNotes[fb.id] !== undefined
+                            ? fbDraftNotes[fb.id]
+                            : fb.adminNote;
+                        return (
+                          <div
+                            key={fb.id}
+                            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 space-y-3"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="space-y-1">
+                                <div className="flex flex-wrap items-center gap-2 text-xs">
+                                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-mono font-bold">
+                                    {fb.rating}★
+                                  </span>
+                                  <span className="font-bold text-slate-950 dark:text-white">
+                                    {fb.authorName}
+                                  </span>
+                                  <span className="font-mono text-[11px] text-slate-500">
+                                    ({fb.authorEmail})
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-semibold">
+                                    {fb.sectionLabel}
+                                  </span>
+                                  {fb.subTopic && (
+                                    <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                                      {fb.subTopic}
+                                    </span>
+                                  )}
+                                  <span className="text-[11px] text-slate-500">
+                                    · {catLabel}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] font-mono text-slate-400">
+                                  Submitted {formatTimestamp(fb.createdAtMs)}
+                                </div>
+                              </div>
+
+                              <span
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-bold uppercase ${
+                                  fb.status === 'implemented'
+                                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                                    : fb.status === 'reviewed'
+                                    ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300'
+                                    : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
+                                }`}
+                              >
+                                {fb.status}
+                              </span>
+                            </div>
+
+                            {fb.highlights && (
+                              <div className="rounded-lg bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-900/60 px-3 py-2 text-xs text-emerald-950 dark:text-emerald-200">
+                                <strong>WOW Highlight: </strong>
+                                {fb.highlights}
+                              </div>
+                            )}
+
+                            <div className="rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-slate-100 leading-relaxed">
+                              <strong className="text-slate-500 dark:text-slate-400 text-[11px] uppercase block mb-0.5">
+                                Learner Improvement / Advancement Suggestion
+                              </strong>
+                              {fb.improvement}
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                              <input
+                                type="text"
+                                value={draftValue}
+                                onChange={(e) =>
+                                  setFbDraftNotes((prev) => ({
+                                    ...prev,
+                                    [fb.id]: e.target.value,
+                                  }))
+                                }
+                                maxLength={500}
+                                placeholder="Write Mentor Kapil’s reply / action taken (visible to the learner)..."
+                                className="flex-1 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              />
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  disabled={fbSavingId === fb.id}
+                                  onClick={() =>
+                                    handleUpdateFeedbackStatus(fb, 'reviewed')
+                                  }
+                                  className="px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold cursor-pointer disabled:opacity-60"
+                                >
+                                  {fbSavingId === fb.id
+                                    ? 'Saving...'
+                                    : 'Mark Reviewed'}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={fbSavingId === fb.id}
+                                  onClick={() =>
+                                    handleUpdateFeedbackStatus(
+                                      fb,
+                                      'implemented'
+                                    )
+                                  }
+                                  className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-60"
+                                >
+                                  Mark Implemented
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
               {/* 4 KPI Summary Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4">
@@ -864,7 +1348,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         : adminTrackView === 'career'
                         ? 'All 3 Career Tests Completed'
                         : adminTrackView === 'universe'
-                        ? 'All 12 Tech/Aptitude Tracks Done'
+                        ? `All ${MASTER_TRACKS.length} Tech/Python/Grammar Tracks Done`
                         : adminTrackView === 'final'
                         ? 'Final Passed (>=600 XP)'
                         : '10/10 Mastery Only'}
@@ -967,8 +1451,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <>
                           <th className="py-3 px-3">Universe Rank</th>
                           <th className="py-3 px-3">Universe XP</th>
-                          <th className="py-3 px-3">MCQs (/120)</th>
-                          <th className="py-3 px-3">Apt+Grm / Code / Data</th>
+                          <th className="py-3 px-3">MCQs (/{MASTER_MCQS.length})</th>
+                          <th className="py-3 px-3">Verbal / Code+Py / Data</th>
                           <th className="py-3 px-3">Accuracy</th>
                           <th className="py-3 px-3">Badges &amp; Cert ID</th>
                         </>
@@ -1013,7 +1497,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         );
                         const master = masterByUid[learner.uid];
                         const masterPct = Math.round(
-                          ((master?.answeredMcqs.length ?? 0) / 120) * 100
+                          ((master?.answeredMcqs.length ?? 0) /
+                            MASTER_MCQS.length) *
+                            100
                         );
                         const fin = finalByUid[learner.uid];
                         return (
@@ -1163,7 +1649,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   </td>
                                   <td className="py-3 px-3 min-w-[130px]">
                                     <div className="flex items-center justify-between font-mono text-[11px] mb-1 tabular-nums">
-                                      <span>{master?.answeredMcqs.length ?? 0}/120</span>
+                                      <span>
+                                        {master?.answeredMcqs.length ?? 0}/{MASTER_MCQS.length}
+                                      </span>
                                       <span className="text-slate-400">{masterPct}%</span>
                                     </div>
                                     <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
@@ -1181,9 +1669,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   </td>
                                   <td className="py-3 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-400">
                                     {master?.unlockedMasterBadges.length ?? 0}/{MASTER_BADGES.length} ·{' '}
-                                    {(master?.completedTracks.length ?? 0) >= 12
+                                    {(master?.completedTracks.length ?? 0) >= MASTER_TRACKS.length
                                       ? master?.masterCertificateId
-                                      : `${master?.completedTracks.length ?? 0}/12 Tracks`}
+                                      : `${master?.completedTracks.length ?? 0}/${MASTER_TRACKS.length} Tracks`}
                                   </td>
                                 </>
                               ) : (
@@ -1471,7 +1959,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {masterByUid[inspectedUser.uid] && (
                     <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                       <div className="text-xs font-semibold text-violet-700 dark:text-violet-400">
-                        EMPLOYABILITY UNIVERSE · Tech, Data &amp; Aptitude (12 Tracks) ·{' '}
+                        EMPLOYABILITY UNIVERSE · Tech, Python, Verbal &amp; Data ({MASTER_TRACKS.length} Tracks) ·{' '}
                         {masterByUid[inspectedUser.uid].masterXp} XP ·{' '}
                         {masterByUid[inspectedUser.uid].correctMcqs.length}/{masterByUid[inspectedUser.uid].answeredMcqs.length} ({masterByUid[inspectedUser.uid].accuracyPct}%) ·{' '}
                         {masterByUid[inspectedUser.uid].unlockedMasterBadges.length}/{MASTER_BADGES.length} Badges ·{' '}
@@ -1479,15 +1967,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                         <div className="p-2.5 rounded-xl border border-violet-200 dark:border-violet-900/60 bg-white dark:bg-slate-900 font-mono">
-                          <div className="text-[11px] text-slate-500">Aptitude &amp; Grammar (4 Tracks)</div>
+                          <div className="text-[11px] text-slate-500">Aptitude &amp; Verbal (7 Tracks)</div>
                           <div className="font-bold text-slate-950 dark:text-white mt-0.5 tabular-nums">
-                            {masterByUid[inspectedUser.uid].aptitudeGrammarCorrect}/40 Correct
+                            {masterByUid[inspectedUser.uid].aptitudeGrammarCorrect}/70 Correct
                           </div>
                         </div>
                         <div className="p-2.5 rounded-xl border border-violet-200 dark:border-violet-900/60 bg-white dark:bg-slate-900 font-mono">
-                          <div className="text-[11px] text-slate-500">C, C++, Java &amp; DSA (4 Tracks)</div>
+                          <div className="text-[11px] text-slate-500">C, C++, Java, Python &amp; DSA (5)</div>
                           <div className="font-bold text-slate-950 dark:text-white mt-0.5 tabular-nums">
-                            {masterByUid[inspectedUser.uid].codingDsaCorrect}/40 Correct
+                            {masterByUid[inspectedUser.uid].codingDsaCorrect}/50 Correct (Py: {masterByUid[inspectedUser.uid].pythonCorrect}/10)
                           </div>
                         </div>
                         <div className="p-2.5 rounded-xl border border-violet-200 dark:border-violet-900/60 bg-white dark:bg-slate-900 font-mono">
@@ -1574,6 +2062,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   )}
                 </div>
+              )}
+                </>
               )}
             </>
           )}

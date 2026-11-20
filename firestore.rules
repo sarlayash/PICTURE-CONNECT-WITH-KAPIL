@@ -265,26 +265,60 @@ service cloud.firestore {
         && data.ownerId is string && data.ownerId == userId && isValidId(data.ownerId)
         && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100
         && data.authorEmail is string && data.authorEmail.size() <= 160
-        && data.masterXp is number && data.masterXp >= 0 && data.masterXp <= 50000
-        && data.studiedPlaybooks is list && data.studiedPlaybooks.size() <= 80
+        && data.masterXp is number && data.masterXp >= 0 && data.masterXp <= 60000
+        && data.studiedPlaybooks is list && data.studiedPlaybooks.size() <= 120
         && (data.studiedPlaybooks.size() == 0 || (data.studiedPlaybooks[0] is string && data.studiedPlaybooks[0].size() <= 40))
-        && data.answeredMcqs is list && data.answeredMcqs.size() <= 120
+        && data.answeredMcqs is list && data.answeredMcqs.size() <= 160
         && (data.answeredMcqs.size() == 0 || (data.answeredMcqs[0] is string && data.answeredMcqs[0].size() <= 20))
-        && data.correctMcqs is list && data.correctMcqs.size() <= 120
+        && data.correctMcqs is list && data.correctMcqs.size() <= 160
         && (data.correctMcqs.size() == 0 || (data.correctMcqs[0] is string && data.correctMcqs[0].size() <= 20))
-        && data.hintUsedMcqs is list && data.hintUsedMcqs.size() <= 120
+        && data.hintUsedMcqs is list && data.hintUsedMcqs.size() <= 160
         && (data.hintUsedMcqs.size() == 0 || (data.hintUsedMcqs[0] is string && data.hintUsedMcqs[0].size() <= 20))
-        && data.mcqChoices is list && data.mcqChoices.size() <= 120
+        && data.mcqChoices is list && data.mcqChoices.size() <= 160
         && (data.mcqChoices.size() == 0 || (data.mcqChoices[0] is number && data.mcqChoices[0] >= -1 && data.mcqChoices[0] <= 3))
-        && data.completedTracks is list && data.completedTracks.size() <= 12
+        && data.completedTracks is list && data.completedTracks.size() <= 16
         && (data.completedTracks.size() == 0 || data.completedTracks[0] in [
           'aptitude', 'grammar', 'parts_of_speech', 'parts_of_grammar',
-          'c_lang', 'cpp_lang', 'java_lang', 'dsa',
+          'tenses', 'punctuation', 'idioms',
+          'c_lang', 'cpp_lang', 'java_lang', 'python_lang', 'dsa',
           'excel', 'power_bi', 'dbms', 'cloud'
         ])
         && data.unlockedMasterBadges is list && data.unlockedMasterBadges.size() <= 12
         && (data.unlockedMasterBadges.size() == 0 || (data.unlockedMasterBadges[0] is string && data.unlockedMasterBadges[0].size() <= 60))
         && data.masterCertificateId is string && data.masterCertificateId.size() >= 4 && data.masterCertificateId.size() <= 64
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSectionFeedback(data) {
+      return data.keys().hasAll([
+          'authorId', 'authorName', 'authorEmail', 'sectionId', 'sectionLabel',
+          'subTopic', 'category', 'rating', 'highlights', 'improvement',
+          'status', 'adminNote', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'authorId', 'authorName', 'authorEmail', 'sectionId', 'sectionLabel',
+          'subTopic', 'category', 'rating', 'highlights', 'improvement',
+          'status', 'adminNote', 'createdAt', 'updatedAt'
+        ])
+        && data.authorId is string && isValidId(data.authorId)
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100
+        && data.authorEmail is string && data.authorEmail.size() >= 3 && data.authorEmail.size() <= 160
+        && data.sectionId in [
+          'journey', 'levels', 'wheel', 'shopping', 'career',
+          'universe', 'advanced', 'final', 'achievements'
+        ]
+        && data.sectionLabel is string && data.sectionLabel.size() >= 1 && data.sectionLabel.size() <= 80
+        && data.subTopic is string && data.subTopic.size() <= 100
+        && data.category in [
+          'content_depth', 'new_topic', 'ui_ux',
+          'practice_problems', 'mentor_appreciation'
+        ]
+        && data.rating is int && data.rating >= 1 && data.rating <= 5
+        && data.highlights is string && data.highlights.size() <= 400
+        && data.improvement is string && data.improvement.size() >= 4 && data.improvement.size() <= 1000
+        && data.status in ['new', 'reviewed', 'implemented']
+        && data.adminNote is string && data.adminNote.size() <= 500
+        && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
 
@@ -618,6 +652,34 @@ service cloud.firestore {
           'completedTracks', 'unlockedMasterBadges', 'masterCertificateId', 'updatedAt'
         ]);
       allow delete: if false;
+    }
+
+    match /sectionFeedback/{feedbackId} {
+      allow get: if isValidId(feedbackId)
+        && isGenuineGoogleUser()
+        && (existing().authorId == request.auth.uid || isAdmin());
+      allow list: if isGenuineGoogleUser()
+        && (existing().authorId == request.auth.uid || isAdmin());
+      allow create: if isValidId(feedbackId)
+        && isGenuineGoogleUser()
+        && isValidSectionFeedback(incoming())
+        && incoming().authorId == request.auth.uid
+        && incoming().authorEmail == request.auth.token.email
+        && incoming().status == 'new'
+        && incoming().adminNote == ''
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(feedbackId)
+        && isAdmin()
+        && isValidSectionFeedback(incoming())
+        && incoming().authorId == existing().authorId
+        && incoming().authorEmail == existing().authorEmail
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'status', 'adminNote', 'updatedAt'
+        ]);
+      allow delete: if isValidId(feedbackId) && isAdmin();
     }
   }
 }

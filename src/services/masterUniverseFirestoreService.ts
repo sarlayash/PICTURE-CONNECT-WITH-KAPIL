@@ -47,6 +47,8 @@ export interface AdminMasterSkillsSummary extends MasterSkillsProgressDoc {
   aptitudeGrammarCorrect: number;
   codingDsaCorrect: number;
   dataCloudCorrect: number;
+  pythonCorrect: number;
+  verbalExtendedCorrect: number;
 }
 
 export function buildMasterCertificateId(uid: string): string {
@@ -94,7 +96,7 @@ function mapMasterDoc(
         .filter((id): id is MasterTrackId =>
           VALID_TRACK_IDS.has(id as MasterTrackId)
         )
-        .slice(0, 12)
+        .slice(0, 16)
     : [];
 
   const updatedObj = data.updatedAt as { toMillis?: () => number } | undefined;
@@ -105,16 +107,16 @@ function mapMasterDoc(
     authorEmail: String(data.authorEmail || ''),
     masterXp: Number(data.masterXp || 0),
     studiedPlaybooks: Array.isArray(data.studiedPlaybooks)
-      ? data.studiedPlaybooks.map(String).slice(0, 80)
+      ? data.studiedPlaybooks.map(String).slice(0, 120)
       : [],
     answeredMcqs: Array.isArray(data.answeredMcqs)
-      ? data.answeredMcqs.map(String).slice(0, 120)
+      ? data.answeredMcqs.map(String).slice(0, 160)
       : [],
     correctMcqs: Array.isArray(data.correctMcqs)
-      ? data.correctMcqs.map(String).slice(0, 120)
+      ? data.correctMcqs.map(String).slice(0, 160)
       : [],
     hintUsedMcqs: Array.isArray(data.hintUsedMcqs)
-      ? data.hintUsedMcqs.map(String).slice(0, 120)
+      ? data.hintUsedMcqs.map(String).slice(0, 160)
       : [],
     mcqChoices: rawChoices,
     completedTracks,
@@ -151,13 +153,13 @@ async function persistMasterDoc(
         100
       ),
       authorEmail: clip(user.email || '', 160),
-      masterXp: Math.min(50000, Math.max(0, Math.round(nextState.masterXp))),
-      studiedPlaybooks: nextState.studiedPlaybooks.slice(0, 80),
-      answeredMcqs: nextState.answeredMcqs.slice(0, 120),
-      correctMcqs: nextState.correctMcqs.slice(0, 120),
-      hintUsedMcqs: nextState.hintUsedMcqs.slice(0, 120),
-      mcqChoices: nextState.mcqChoices.slice(0, 120),
-      completedTracks: nextState.completedTracks.slice(0, 12),
+      masterXp: Math.min(60000, Math.max(0, Math.round(nextState.masterXp))),
+      studiedPlaybooks: nextState.studiedPlaybooks.slice(0, 120),
+      answeredMcqs: nextState.answeredMcqs.slice(0, 160),
+      correctMcqs: nextState.correctMcqs.slice(0, 160),
+      hintUsedMcqs: nextState.hintUsedMcqs.slice(0, 160),
+      mcqChoices: nextState.mcqChoices.slice(0, 160),
+      completedTracks: nextState.completedTracks.slice(0, 16),
       unlockedMasterBadges: nextState.unlockedMasterBadges.slice(0, 12),
       masterCertificateId:
         nextState.masterCertificateId || buildMasterCertificateId(user.uid),
@@ -207,10 +209,10 @@ export async function markMasterPlaybookStudied(params: {
     return { newlyAwardedXp: 0, newlyUnlockedBadges: [] };
   }
 
-  const nextStudied = [...current.studiedPlaybooks, cleanId].slice(0, 80);
-  // Up to 180 bonus XP for studying playbooks (+5 XP for first 36 cards)
-  const xpGain = current.studiedPlaybooks.length < 36 ? 5 : 0;
-  const nextXp = Math.min(50000, current.masterXp + xpGain);
+  const nextStudied = [...current.studiedPlaybooks, cleanId].slice(0, 120);
+  // Up to 240 bonus XP for studying playbooks (+5 XP for first 48 cards)
+  const xpGain = current.studiedPlaybooks.length < 48 ? 5 : 0;
+  const nextXp = Math.min(60000, current.masterXp + xpGain);
 
   const nextBadges = computeMasterBadges({
     answeredMcqs: current.answeredMcqs,
@@ -263,13 +265,13 @@ export async function submitMasterMcqAnswer(params: {
   }
 
   const isCorrect = chosenOption === item.correctIndex;
-  const nextAnswered = [...current.answeredMcqs, item.id].slice(0, 120);
+  const nextAnswered = [...current.answeredMcqs, item.id].slice(0, 160);
   const nextCorrect = isCorrect
-    ? [...current.correctMcqs, item.id].slice(0, 120)
+    ? [...current.correctMcqs, item.id].slice(0, 160)
     : current.correctMcqs;
   const nextHints =
     usedHint && !current.hintUsedMcqs.includes(item.id)
-      ? [...current.hintUsedMcqs, item.id].slice(0, 120)
+      ? [...current.hintUsedMcqs, item.id].slice(0, 160)
       : current.hintUsedMcqs;
 
   const nextChoices = [...current.mcqChoices];
@@ -277,7 +279,7 @@ export async function submitMasterMcqAnswer(params: {
   nextChoices[mcqIndex] = chosenOption;
 
   const xpGain = isCorrect ? (usedHint ? item.xpWithHint : item.xpClean) : 5;
-  const nextXp = Math.min(50000, current.masterXp + xpGain);
+  const nextXp = Math.min(60000, current.masterXp + xpGain);
   const nextCompletedTracks = deriveCompletedTracks(nextAnswered);
 
   const computedBadges = computeMasterBadges({
@@ -334,7 +336,7 @@ export async function resetMasterTrackTest(params: {
   });
 
   // Recalculate XP cleanly from remaining answers + studied playbooks so retakes never inflate XP
-  const remainingStudiedXp = Math.min(36, current.studiedPlaybooks.length) * 5;
+  const remainingStudiedXp = Math.min(48, current.studiedPlaybooks.length) * 5;
   const remainingMcqXp = MASTER_MCQS.reduce((acc, q) => {
     if (!nextAnswered.includes(q.id)) return acc;
     if (nextCorrect.includes(q.id)) {
@@ -385,6 +387,11 @@ export function subscribeAdminMasterData(
           aptitudeGrammarCorrect: pillarStats.aptitude_grammar.correct,
           codingDsaCorrect: pillarStats.coding_dsa.correct,
           dataCloudCorrect: pillarStats.data_cloud.correct,
+          pythonCorrect: trackStats.python_lang.correct,
+          verbalExtendedCorrect:
+            trackStats.tenses.correct +
+            trackStats.punctuation.correct +
+            trackStats.idioms.correct,
         };
       });
       onData(out);

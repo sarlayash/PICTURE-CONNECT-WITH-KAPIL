@@ -247,7 +247,7 @@ export const WORKSHOP_META = {
   title: 'EMPLOYABILITY UNIVERSE With Kapil',
   shortTitle: 'EMPLOYABILITY UNIVERSE',
   subtitle:
-    'Picture Connect · Communication · Aptitude & Grammar · C, C++, Java & DSA · Excel, Power BI, DBMS & Cloud',
+    'Picture Connect · Communication · Aptitude, Grammar, Tenses, Punctuation & Idioms · C, C++, Java, Python & DSA · Excel, Power BI, DBMS & Cloud',
   institution: 'One-Stop Placement & Career Mastery Portal',
   positioning: 'See Beyond. Think Beyond. Code, Analyze & Lead Beyond.',
   poweredBy: 'Powered By Kapil',
@@ -255,14 +255,14 @@ export const WORKSHOP_META = {
     'Picture Connect',
     'Shopping & Negotiation',
     'Indianism, Interview & GD',
-    'Aptitude & English Grammar',
-    'C, C++, Java & DSA',
+    'Aptitude, Grammar, Tenses, Punctuation & Idioms',
+    'C, C++, Java, Python & DSA',
     'Excel, Power BI, DBMS & Cloud',
   ],
   corePhilosophy:
-    'True placement readiness unites visual clarity, global communication, sharp aptitude & grammar, clean algorithmic code, and modern data-cloud execution.',
+    'True placement readiness unites visual clarity, global communication, sharp aptitude & verbal polish, clean algorithmic code, and modern data-cloud execution.',
   learnerPromise:
-    'Your one-stop mastery portal — train across communication, negotiation, interviews, group discussions, aptitude, grammar, C/C++/Java/DSA, Excel, Power BI, DBMS, and Cloud Computing with verified badges and certificates.',
+    'Your one-stop mastery portal — train across communication, negotiation, interviews, group discussions, aptitude, grammar, tenses, punctuation, idioms, C/C++/Java/Python/DSA, Excel, Power BI, DBMS, and Cloud Computing with Live Crisp Notes, 160 FAANG/MNC solved problems, verified badges and certificates.',
 };
 
 export const ACADEMY_CATEGORIES: AcademyCategory[] = [
@@ -336,11 +336,11 @@ export const ACADEMY_CATEGORIES: AcademyCategory[] = [
   {
     id: 'aptitude-grammar',
     number: '06.',
-    title: 'Aptitude & English Grammar',
-    subtitle: 'Quant · Grammar · Parts of Speech · Syntax',
+    title: 'Aptitude, Grammar, Tenses & Idioms',
+    subtitle: 'Quant · Grammar · Tenses · Punctuation · Idioms',
     description:
-      'Ace campus placement tests across Quantitative Aptitude, Core English Grammar, Parts of Speech, and Parts of Grammar (Clauses, Phrases & Syntax).',
-    highlights: '4 Tracks · 24 Playbooks · 40 MCQs',
+      'Ace campus placement tests across Quantitative Aptitude, Grammar, Parts of Speech & Grammar, Tenses, Punctuation, and Corporate Idioms with Live Notes & 70 FAANG/MNC solved problems.',
+    highlights: '7 Tracks · Live Notes · 70 Problems · 70 MCQs',
     image: MASTER_UNIVERSE_IMAGES.aptitudeGrammar,
     imageAlt:
       'Editorial study desk with quantitative aptitude notebooks, grammar reference handbook, fountain pen, and precision calculator',
@@ -350,11 +350,11 @@ export const ACADEMY_CATEGORIES: AcademyCategory[] = [
   {
     id: 'coding-dsa',
     number: '07.',
-    title: 'C, C++, Java & DSA',
-    subtitle: 'Pointers · OOP · JVM · Trees, Graphs & DP',
+    title: 'C, C++, Java, Python & DSA',
+    subtitle: 'Pointers · OOP · JVM · Pythonic Code · DSA',
     description:
-      'Build rock-solid software engineering mastery in C, C++ STL, Java Collections & Concurrency, and Data Structures & Algorithms with 40 hinted MCQs.',
-    highlights: '4 Languages/DSA · 24 Playbooks · 40 MCQs',
+      'Build rock-solid software engineering mastery in C, C++ STL, Java, Python, and Data Structures & Algorithms with Live Crisp Notes, 50 FAANG/MNC solved problems & 50 hinted MCQs.',
+    highlights: '5 Coding Tracks · 50 Problems · 50 MCQs',
     image: MASTER_UNIVERSE_IMAGES.programmingDsa,
     imageAlt:
       'Modern developer desk displaying clean algorithmic code and binary tree diagrams in a sleek navy software engineering studio',
@@ -367,8 +367,8 @@ export const ACADEMY_CATEGORIES: AcademyCategory[] = [
     title: 'Excel, Power BI, DBMS & Cloud',
     subtitle: 'XLOOKUP · DAX · SQL & ACID · AWS/Azure/GCP',
     description:
-      'Master corporate analytics and infrastructure: Excel formulas & PivotTables, Power BI star schemas & DAX, DBMS normalization & SQL, and Cloud architecture.',
-    highlights: '4 Tech Tracks · 24 Playbooks · 40 MCQs',
+      'Master corporate analytics and infrastructure: Excel, Power BI DAX, DBMS SQL & Normalization, and Cloud architecture with Live Notes, 40 FAANG/MNC solved problems & 40 MCQs.',
+    highlights: '4 Tech Tracks · 40 Problems · 40 MCQs',
     image: MASTER_UNIVERSE_IMAGES.excelPowerBi,
     imageAlt:
       'Business intelligence workstation showing clean executive KPI dashboards, financial charts, and cloud database diagrams',

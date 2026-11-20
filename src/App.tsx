@@ -3,7 +3,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { Award, Lock, LogOut, Moon, ShieldCheck, Sun } from 'lucide-react';
 import { evaluateFinalPrerequisites } from './data/finalAssessmentData';
 import { getNavSectionTheme } from './data/themeColors';
-import { BADGES, getLearnerRank, WORKSHOP_META } from './data/workshopData';
+import { BADGES, getLearnerRank, LEVELS, WORKSHOP_META } from './data/workshopData';
 import {
   auth,
   isGenuineGoogleUser,
@@ -73,6 +73,8 @@ import { CareerSkillsStudio } from './components/CareerSkillsStudio';
 import { MasterUniverseStudio } from './components/MasterUniverseStudio';
 import { FinalAssessmentStudio } from './components/FinalAssessmentStudio';
 import { AdminDashboard } from './components/AdminDashboard';
+import { SectionFeedbackBar } from './components/SectionFeedbackBar';
+import { FEEDBACK_SECTION_LABELS } from './services/feedbackFirestoreService';
 
 const THEME_STORAGE_KEY = 'pcwk_theme_v2';
 
@@ -90,6 +92,9 @@ function PictureConnectWorkspace() {
   const [activeMasterTrack, setActiveMasterTrack] = useState<
     MasterTrackId | undefined
   >(undefined);
+  const [activeMasterTrackTitle, setActiveMasterTrackTitle] = useState<string>(
+    'Quantitative & Logical Aptitude'
+  );
   const [adminOpen, setAdminOpen] = useState(false);
 
   const [connections, setConnections] = useState<ConnectionPostDoc[]>([]);
@@ -330,6 +335,19 @@ function PictureConnectWorkspace() {
   ];
 
   const activeSectionTheme = getNavSectionTheme(view);
+  const activeLevelObj = LEVELS.find((lvl) => lvl.level === activeLevel);
+  const feedbackSubTopic =
+    view === 'levels'
+      ? `Level ${activeLevel}${activeLevelObj ? `: ${activeLevelObj.title}` : ''}`
+      : view === 'career'
+      ? activeCareerTab === 'indianism'
+        ? 'Indianism & Global English'
+        : activeCareerTab === 'interview'
+        ? 'Interview Skills'
+        : 'GD Skills'
+      : view === 'universe'
+      ? activeMasterTrackTitle
+      : '';
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -469,9 +487,9 @@ function PictureConnectWorkspace() {
             masterAnswered={masterProgress.answeredMcqs.length}
             masterCorrect={masterProgress.correctMcqs.length}
             masterXp={masterProgress.masterXp}
-            aptitudeGrammarScore={`${masterPillarStats.aptitude_grammar.correct}/40 Correct`}
-            codingDsaScore={`${masterPillarStats.coding_dsa.correct}/40 Correct`}
-            dataCloudScore={`${masterPillarStats.data_cloud.correct}/40 Correct`}
+            aptitudeGrammarScore={`${masterPillarStats.aptitude_grammar.correct}/${masterPillarStats.aptitude_grammar.total} Correct`}
+            codingDsaScore={`${masterPillarStats.coding_dsa.correct}/${masterPillarStats.coding_dsa.total} Correct`}
+            dataCloudScore={`${masterPillarStats.data_cloud.correct}/${masterPillarStats.data_cloud.total} Correct`}
             finalStatus={finalAssessment.status}
             finalXp={finalAssessment.totalXpAwarded}
             finalPassed={finalAssessment.passed}
@@ -578,6 +596,7 @@ function PictureConnectWorkspace() {
             masterProgress={masterProgress}
             initialPillar={activeMasterPillar}
             initialTrack={activeMasterTrack}
+            onActiveTrackChange={setActiveMasterTrackTitle}
           />
         )}
 
@@ -612,6 +631,16 @@ function PictureConnectWorkspace() {
             onNavigateToLevels={(lvl) => handleNavigateView('levels', lvl)}
           />
         )}
+
+        {/* Per-Section Learner Feedback Bar — Feeds Mentor Kapil's Admin Feedback Reports */}
+        <div className="no-print pt-4">
+          <SectionFeedbackBar
+            user={user}
+            sectionId={view}
+            sectionLabel={FEEDBACK_SECTION_LABELS[view]}
+            subTopic={feedbackSubTopic}
+          />
+        </div>
       </main>
 
       {/* Clean Footer with Theme Switcher & Powered By Kapil Attribution */}

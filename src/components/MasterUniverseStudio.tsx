@@ -3,8 +3,14 @@ import { User } from 'firebase/auth';
 import {
   Award,
   BookOpen,
+  Briefcase,
+  Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Copy,
   Download,
+  FileText,
   HelpCircle,
   Lightbulb,
   Lock,
@@ -13,11 +19,14 @@ import {
   Sparkles,
   Trophy,
   XCircle,
+  Zap,
 } from 'lucide-react';
 import {
   computeMasterPillarStats,
   computeMasterTrackStats,
   getMasterUniverseRank,
+  getTrackLiveNotes,
+  getTrackSolvedProblems,
   MASTER_BADGES,
   MASTER_MCQS,
   MASTER_PILLARS,
@@ -44,10 +53,12 @@ interface MasterUniverseStudioProps {
   masterProgress: MasterSkillsProgressDoc;
   initialPillar?: MasterPillarId | 'credentials';
   initialTrack?: MasterTrackId;
+  onActiveTrackChange?: (trackTitle: string) => void;
 }
 
 type StudioTopTab = MasterPillarId | 'credentials';
-type TrackInnerMode = 'mcq' | 'study';
+type TrackInnerMode = 'notes' | 'problems' | 'mcq' | 'study';
+type ProblemTierFilter = 'ALL' | 'FAANG' | 'MNC' | 'Product';
 
 const BADGE_PALETTES: Record<
   MasterBadgeDefinition['accent'],
@@ -214,12 +225,19 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
   masterProgress,
   initialPillar = 'aptitude_grammar',
   initialTrack,
+  onActiveTrackChange,
 }) => {
   const [activePillar, setActivePillar] = useState<StudioTopTab>(initialPillar);
   const [activeTrack, setActiveTrack] = useState<MasterTrackId>(
     initialTrack ?? 'aptitude'
   );
-  const [innerMode, setInnerMode] = useState<TrackInnerMode>('mcq');
+  const [innerMode, setInnerMode] = useState<TrackInnerMode>('notes');
+  const [problemTierFilter, setProblemTierFilter] =
+    useState<ProblemTierFilter>('ALL');
+  const [expandedProblems, setExpandedProblems] = useState<
+    Record<string, boolean>
+  >({});
+  const [copiedNotes, setCopiedNotes] = useState(false);
   const [revealedHints, setRevealedHints] = useState<Record<string, boolean>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [retakeConfirm, setRetakeConfirm] = useState(false);
@@ -291,10 +309,34 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
     [activeTrack]
   );
 
+  useEffect(() => {
+    if (!onActiveTrackChange) return;
+    if (activePillar === 'credentials') {
+      onActiveTrackChange('Badges & Master PNG Certificate');
+    } else {
+      onActiveTrackChange(currentTrackDef.title);
+    }
+  }, [activePillar, currentTrackDef.title, onActiveTrackChange]);
+
   const trackPlaybooks = useMemo(
     () => MASTER_PLAYBOOKS.filter((p) => p.trackId === activeTrack),
     [activeTrack]
   );
+
+  const trackLiveNotes = useMemo(
+    () => getTrackLiveNotes(activeTrack),
+    [activeTrack]
+  );
+
+  const trackProblems = useMemo(
+    () => getTrackSolvedProblems(activeTrack),
+    [activeTrack]
+  );
+
+  const filteredProblems = useMemo(() => {
+    if (problemTierFilter === 'ALL') return trackProblems;
+    return trackProblems.filter((p) => p.companyTier === problemTierFilter);
+  }, [trackProblems, problemTierFilter]);
 
   const trackMcqs = useMemo(
     () =>
@@ -307,11 +349,40 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
   const handleSelectPillar = (tab: StudioTopTab) => {
     setActivePillar(tab);
     setRetakeConfirm(false);
+    setProblemTierFilter('ALL');
     if (tab !== 'credentials') {
       const def = MASTER_PILLARS.find((p) => p.id === tab);
       if (def && !def.trackIds.includes(activeTrack)) {
         setActiveTrack(def.trackIds[0]);
       }
+    }
+  };
+
+  const handleCopyCheatSheet = async () => {
+    if (!trackLiveNotes) return;
+    const text = [
+      `${trackLiveNotes.headline} — EMPLOYABILITY UNIVERSE With Kapil`,
+      '',
+      trackLiveNotes.quickSummary,
+      '',
+      'KEY CONCEPTS:',
+      ...trackLiveNotes.coreBullets.map((b) => `- ${b.title}: ${b.point}`),
+      '',
+      'GOLDEN SHORTCUTS:',
+      ...trackLiveNotes.goldenShortcuts.map((s) => `* ${s}`),
+      '',
+      'COMMON TRAPS:',
+      ...trackLiveNotes.commonTraps.map((t) => `! ${t}`),
+      '',
+      "MENTOR KAPIL'S PLACEMENT TIPS:",
+      ...trackLiveNotes.mentorKapilTips.map((tip, i) => `${i + 1}. ${tip}`),
+    ].join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedNotes(true);
+      setTimeout(() => setCopiedNotes(false), 2200);
+    } catch {
+      // Clipboard fallback silently ignored in sandboxed iframes
     }
   };
 
@@ -450,9 +521,9 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
       );
 
       ctx.fillStyle = '#475569';
-      ctx.font = '600 28px "Plus Jakarta Sans", sans-serif';
+      ctx.font = '600 25px "Plus Jakarta Sans", sans-serif';
       ctx.fillText(
-        'APTITUDE · ENGLISH GRAMMAR · C / C++ / JAVA / DSA · EXCEL · POWER BI · DBMS · CLOUD',
+        'APTITUDE · GRAMMAR · TENSES · PUNCTUATION · IDIOMS · C / C++ / JAVA / PYTHON / DSA · EXCEL · BI · DBMS · CLOUD',
         W / 2,
         365
       );
@@ -476,7 +547,7 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
       ctx.font = '500 29px "Plus Jakarta Sans", sans-serif';
       wrapCanvasText(
         ctx,
-        `for demonstrating verified technical, analytical, and linguistic competence across EMPLOYABILITY UNIVERSE With Kapil (${completedTracksCount}/12 skill tracks completed, ${totalCorrect}/${totalAnswered} graded MCQs solved at ${overallAccuracy}% accuracy, earning ${masterProgress.masterXp} Universe XP as "${rank.title}").`,
+        `for demonstrating verified technical, analytical, and linguistic competence across EMPLOYABILITY UNIVERSE With Kapil (${completedTracksCount}/${MASTER_TRACKS.length} skill tracks completed, ${totalCorrect}/${totalAnswered} graded MCQs solved at ${overallAccuracy}% accuracy, earning ${masterProgress.masterXp} Universe XP as "${rank.title}").`,
         W / 2,
         682,
         1800,
@@ -486,20 +557,20 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
       // 4 Pillar / Metric Tiles
       const metrics = [
         {
-          label: 'APTITUDE & GRAMMAR',
-          value: `${pillarStats.aptitude_grammar.correct}/40`,
+          label: 'APTITUDE & VERBAL (7)',
+          value: `${pillarStats.aptitude_grammar.correct}/${pillarStats.aptitude_grammar.total}`,
         },
         {
-          label: 'C · C++ · JAVA · DSA',
-          value: `${pillarStats.coding_dsa.correct}/40`,
+          label: 'C · C++ · JAVA · PY · DSA',
+          value: `${pillarStats.coding_dsa.correct}/${pillarStats.coding_dsa.total}`,
         },
         {
           label: 'EXCEL · BI · DBMS · CLOUD',
-          value: `${pillarStats.data_cloud.correct}/40`,
+          value: `${pillarStats.data_cloud.correct}/${pillarStats.data_cloud.total}`,
         },
         {
           label: 'UNIVERSE XP & BADGES',
-          value: `${masterProgress.masterXp} XP · ${masterProgress.unlockedMasterBadges.length}/8`,
+          value: `${masterProgress.masterXp} XP · ${masterProgress.unlockedMasterBadges.length}/${MASTER_BADGES.length}`,
         },
       ];
 
@@ -608,7 +679,7 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1.5 max-w-3xl">
             <div className="text-xs font-mono font-bold text-violet-700 dark:text-violet-400">
-              EMPLOYABILITY UNIVERSE WITH KAPIL · 12 PLACEMENT SUBJECTS · 120 HINTED MCQS
+              EMPLOYABILITY UNIVERSE WITH KAPIL · {MASTER_TRACKS.length} PLACEMENT TRACKS · 160 FAANG/MNC PROBLEMS · {MASTER_MCQS.length} MCQS
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-slate-950 dark:text-white">
               {MASTER_UNIVERSE_META.title}
@@ -628,7 +699,7 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
             <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
               <div className="text-[11px] text-slate-500 dark:text-slate-400">MCQS DONE</div>
               <div className="text-lg font-bold text-slate-950 dark:text-white tabular-nums">
-                {totalAnswered}/120
+                {totalAnswered}/{MASTER_MCQS.length}
               </div>
             </div>
             <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
@@ -655,11 +726,11 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
             </span>{' '}
             · Tracks Completed:{' '}
             <span className="font-bold text-blue-700 dark:text-blue-400 tabular-nums">
-              {completedTracksCount}/12
+              {completedTracksCount}/{MASTER_TRACKS.length}
             </span>{' '}
             · Playbooks Studied:{' '}
             <span className="font-bold text-slate-950 dark:text-white tabular-nums">
-              {masterProgress.studiedPlaybooks.length}/72
+              {masterProgress.studiedPlaybooks.length}/{MASTER_PLAYBOOKS.length}
             </span>
           </div>
           <div>
@@ -704,7 +775,9 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
             }`}
           >
             <Award className="w-3.5 h-3.5" />
-            <span>Badges ({masterProgress.unlockedMasterBadges.length}/8) &amp; PNG Certificate</span>
+            <span>
+              Badges ({masterProgress.unlockedMasterBadges.length}/{MASTER_BADGES.length}) &amp; PNG Certificate
+            </span>
           </button>
         </div>
         </div>
@@ -827,11 +900,35 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                <div className="inline-flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setInnerMode('notes')}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                      innerMode === 'notes'
+                        ? activeTrackTheme.activeButton
+                        : 'border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Live Notes &amp; Kapil’s Tips</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInnerMode('problems')}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                      innerMode === 'problems'
+                        ? activeTrackTheme.activeButton
+                        : 'border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <Briefcase className="w-3.5 h-3.5" />
+                    <span>10 Company Problems</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => setInnerMode('mcq')}
-                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                       innerMode === 'mcq'
                         ? activeTrackTheme.activeButton
                         : 'border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -845,7 +942,7 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
                   <button
                     type="button"
                     onClick={() => setInnerMode('study')}
-                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                       innerMode === 'study'
                         ? activeTrackTheme.activeButton
                         : 'border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -895,7 +992,313 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
             </div>
           </section>
 
-          {/* Inner Mode 1: Study Playbooks (6 Cards) */}
+          {/* Inner Mode 0: Crisp Live Notes & Mentor Kapil's Placement Tips */}
+          {innerMode === 'notes' && trackLiveNotes && (
+            <section className="space-y-5">
+              {/* Crisp Summary Header */}
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="space-y-1 max-w-3xl">
+                    <div className={`text-[11px] font-mono font-bold uppercase tracking-wider ${activeTrackTheme.text}`}>
+                      LIVE CRISP REVISION NOTES · HIGH-YIELD SUMMARY
+                    </div>
+                    <h3 className="font-display text-xl sm:text-2xl font-bold text-slate-950 dark:text-white">
+                      {trackLiveNotes.headline}
+                    </h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                      {trackLiveNotes.quickSummary}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyCheatSheet}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 transition-colors cursor-pointer shrink-0"
+                  >
+                    {copiedNotes ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Copied Cheat Sheet!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Cheat Sheet</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* 5 Crisp Concept Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-2">
+                  {trackLiveNotes.coreBullets.map((item, idx) => (
+                    <div
+                      key={item.title}
+                      className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70 p-4 space-y-1.5"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-[11px] font-mono font-bold ${activeTrackTheme.text}`}
+                        >
+                          0{idx + 1}.
+                        </span>
+                        <h4 className="font-display text-sm font-bold text-slate-950 dark:text-white">
+                          {item.title}
+                        </h4>
+                      </div>
+                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                        {item.point}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Golden Shortcuts vs Common Placement Traps */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900/70 bg-emerald-50/50 dark:bg-emerald-950/20 p-5 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-mono font-bold text-emerald-800 dark:text-emerald-300">
+                    <Zap className="w-4 h-4" />
+                    <span>GOLDEN SHORTCUTS &amp; MEMORY HOOKS</span>
+                  </div>
+                  <ul className="space-y-2.5 text-xs sm:text-sm text-emerald-950 dark:text-emerald-100">
+                    {trackLiveNotes.goldenShortcuts.map((shortcut, i) => (
+                      <li key={i} className="flex items-start gap-2.5 leading-relaxed">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                        <span>{shortcut}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl border border-rose-200 dark:border-rose-900/70 bg-rose-50/50 dark:bg-rose-950/20 p-5 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-mono font-bold text-rose-800 dark:text-rose-300">
+                    <XCircle className="w-4 h-4" />
+                    <span>COMMON INTERVIEW &amp; SCREENING TRAPS</span>
+                  </div>
+                  <ul className="space-y-2.5 text-xs sm:text-sm text-rose-950 dark:text-rose-100">
+                    {trackLiveNotes.commonTraps.map((trap, i) => (
+                      <li key={i} className="flex items-start gap-2.5 leading-relaxed">
+                        <span className="font-mono font-bold text-rose-600 dark:text-rose-400 shrink-0">
+                          !
+                        </span>
+                        <span>{trap}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Signature Mentor Kapil's Placement Tips Spotlight */}
+              <div className="rounded-2xl bg-gradient-to-br from-[#061229] via-[#0B1F44] to-[#112A5C] border border-amber-400/30 p-6 text-white shadow-sm space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-400/40 flex items-center justify-center text-amber-300">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-mono font-bold uppercase tracking-widest text-amber-300">
+                        MENTOR KAPIL’S PLACEMENT PLAYBOOK
+                      </div>
+                      <h4 className="font-display text-base sm:text-lg font-bold text-white">
+                        How to Crack {currentTrackDef.shortTitle} Rounds in FAANG, TCS, Wipro, Capgemini, Amazon &amp; Cognizant
+                      </h4>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setInnerMode('problems')}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-extrabold transition-colors cursor-pointer"
+                  >
+                    <Briefcase className="w-3.5 h-3.5" />
+                    <span>Jump to 10 Solved Company Problems</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                  {trackLiveNotes.mentorKapilTips.map((tip, idx) => (
+                    <div
+                      key={idx}
+                      className="rounded-xl bg-white/5 border border-white/10 p-4 text-xs sm:text-sm text-slate-100 leading-relaxed"
+                    >
+                      <div className="text-[11px] font-mono font-bold text-amber-300 mb-1.5">
+                        KAPIL’S TIP #{idx + 1}
+                      </div>
+                      {tip}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Inner Mode 1: 10 Real Solved Company Problems (FAANG, TCS, Wipro, Capgemini, Amazon, TechM, Cognizant) */}
+          {innerMode === 'problems' && (
+            <section className="space-y-4">
+              {/* Filter & Expand Toolbar */}
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400 mr-1">
+                    FILTER BY COMPANY TIER:
+                  </span>
+                  {(
+                    [
+                      { id: 'ALL', label: `All (${trackProblems.length})` },
+                      {
+                        id: 'FAANG',
+                        label: `FAANG (${trackProblems.filter((p) => p.companyTier === 'FAANG').length})`,
+                      },
+                      {
+                        id: 'MNC',
+                        label: `TCS / Wipro / Capgemini / MNC (${trackProblems.filter((p) => p.companyTier === 'MNC').length})`,
+                      },
+                      {
+                        id: 'Product',
+                        label: `Product (${trackProblems.filter((p) => p.companyTier === 'Product').length})`,
+                      },
+                    ] as const
+                  )
+                    .filter((tab) => tab.id === 'ALL' || !tab.label.endsWith('(0)'))
+                    .map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setProblemTierFilter(tab.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                          problemTierFilter === tab.id
+                            ? activeTrackTheme.activeButton
+                            : 'border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allOpen = filteredProblems.every(
+                        (p) => expandedProblems[p.id]
+                      );
+                      const next = { ...expandedProblems };
+                      filteredProblems.forEach((p) => {
+                        next[p.id] = !allOpen;
+                      });
+                      setExpandedProblems(next);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                  >
+                    <span>
+                      {filteredProblems.every((p) => expandedProblems[p.id])
+                        ? 'Collapse All Solutions'
+                        : 'Reveal All Solutions'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Problem Cards */}
+              <div className="space-y-4">
+                {filteredProblems.map((prob, idx) => {
+                  const isOpen = Boolean(expandedProblems[prob.id]);
+                  const tierStyle =
+                    prob.companyTier === 'FAANG'
+                      ? 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
+                      : prob.companyTier === 'Product'
+                      ? 'bg-violet-100 dark:bg-violet-950/60 text-violet-800 dark:text-violet-300 border-violet-200 dark:border-violet-800'
+                      : 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border-sky-200 dark:border-sky-800';
+                  const diffStyle =
+                    prob.difficulty === 'Hard'
+                      ? 'text-rose-700 dark:text-rose-400'
+                      : prob.difficulty === 'Medium'
+                      ? 'text-amber-700 dark:text-amber-400'
+                      : 'text-emerald-700 dark:text-emerald-400';
+
+                  return (
+                    <article
+                      key={prob.id}
+                      className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 space-y-4"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+                          <span className={`font-extrabold ${activeTrackTheme.text}`}>
+                            PROBLEM {String(idx + 1).padStart(2, '0')}
+                          </span>
+                          <span
+                            className={`px-2.5 py-0.5 rounded-md border font-bold ${tierStyle}`}
+                          >
+                            Asked at {prob.company}
+                          </span>
+                          <span className={`font-bold ${diffStyle}`}>
+                            · {prob.difficulty}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedProblems((prev) => ({
+                              ...prev,
+                              [prob.id]: !prev[prob.id],
+                            }))
+                          }
+                          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                            isOpen
+                              ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900'
+                              : `${activeTrackTheme.activeButton}`
+                          }`}
+                        >
+                          <span>{isOpen ? 'Hide Solution' : 'Reveal Solved Approach'}</span>
+                          {isOpen ? (
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          ) : (
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+
+                      <h3 className="font-display text-base sm:text-lg font-bold text-slate-950 dark:text-white">
+                        {prob.title}
+                      </h3>
+
+                      <div className="rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 text-xs sm:text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed font-sans">
+                        {prob.problem}
+                      </div>
+
+                      {isOpen && (
+                        <div className="space-y-3 pt-1">
+                          <div className="rounded-xl bg-[#07142B] text-slate-100 border border-slate-800 p-4 text-xs sm:text-sm whitespace-pre-wrap font-mono leading-relaxed overflow-x-auto">
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 mb-2">
+                              VERIFIED SOLUTION &amp; STEP-BY-STEP WALKTHROUGH
+                            </div>
+                            {prob.solution}
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/25 p-3.5 text-xs text-emerald-950 dark:text-emerald-200 leading-relaxed">
+                              <strong className="font-bold text-emerald-800 dark:text-emerald-300">
+                                Key Takeaway:{' '}
+                              </strong>
+                              {prob.keyTakeaway}
+                            </div>
+                            <div className="rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/70 dark:bg-amber-950/25 p-3.5 text-xs text-amber-950 dark:text-amber-200 leading-relaxed">
+                              <strong className="font-bold text-amber-800 dark:text-amber-300">
+                                Mentor Kapil’s Interview Tip:{' '}
+                              </strong>
+                              {prob.kapilTip}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Inner Mode 2: Study Playbooks (6 Cards) */}
           {innerMode === 'study' && (
             <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {trackPlaybooks.map((card, i) => {
@@ -1110,11 +1513,11 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
                 Employability Universe Badges ({masterProgress.unlockedMasterBadges.length}/{MASTER_BADGES.length})
               </h2>
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                Download high-resolution 1200×1200 PNG medallions for LinkedIn and placement portfolios as you unlock milestones across all 12 subjects.
+                Download high-resolution 1200×1200 PNG medallions for LinkedIn and placement portfolios as you unlock milestones across all {MASTER_TRACKS.length} subjects.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {MASTER_BADGES.map((badge) => {
                 const unlocked = masterProgress.unlockedMasterBadges.includes(badge.id);
                 const pal = BADGE_PALETTES[badge.accent];
@@ -1182,7 +1585,7 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
                   Multi-Domain Employability Certificate (2400×1700 PNG)
                 </h2>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                  Unlocks after completing any 3 subject tests (30+ MCQs). Upgrades to Master Certificate of Full-Stack Employability at 12/12 tracks with ≥75% accuracy.
+                  Unlocks after completing any 3 subject tests (30+ MCQs). Upgrades to Master Certificate of Full-Stack Employability at 12+ tracks with ≥75% accuracy.
                 </p>
               </div>
 
@@ -1228,21 +1631,21 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto pt-2 text-xs font-mono">
                 <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/70">
-                  <div className="text-[10px] text-slate-500">APTITUDE &amp; GRAMMAR</div>
+                  <div className="text-[10px] text-slate-500">APTITUDE &amp; VERBAL (7)</div>
                   <div className="font-bold text-slate-950 dark:text-white mt-0.5 tabular-nums">
-                    {pillarStats.aptitude_grammar.correct}/40
+                    {pillarStats.aptitude_grammar.correct}/{pillarStats.aptitude_grammar.total}
                   </div>
                 </div>
                 <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/70">
-                  <div className="text-[10px] text-slate-500">C · C++ · JAVA · DSA</div>
+                  <div className="text-[10px] text-slate-500">C · C++ · JAVA · PY · DSA</div>
                   <div className="font-bold text-slate-950 dark:text-white mt-0.5 tabular-nums">
-                    {pillarStats.coding_dsa.correct}/40
+                    {pillarStats.coding_dsa.correct}/{pillarStats.coding_dsa.total}
                   </div>
                 </div>
                 <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/70">
                   <div className="text-[10px] text-slate-500">EXCEL · BI · DBMS · CLOUD</div>
                   <div className="font-bold text-slate-950 dark:text-white mt-0.5 tabular-nums">
-                    {pillarStats.data_cloud.correct}/40
+                    {pillarStats.data_cloud.correct}/{pillarStats.data_cloud.total}
                   </div>
                 </div>
               </div>

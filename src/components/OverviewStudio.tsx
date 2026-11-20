@@ -119,8 +119,8 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   masterAnswered = 0,
   masterCorrect = 0,
   masterXp = 0,
-  aptitudeGrammarScore = '0/40 Correct',
-  codingDsaScore = '0/40 Correct',
+  aptitudeGrammarScore = '0/70 Correct',
+  codingDsaScore = '0/50 Correct',
   dataCloudScore = '0/40 Correct',
   finalStatus = 'not_started',
   finalXp = 0,
@@ -209,9 +209,9 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
               Welcome, <span className="font-semibold text-slate-900 dark:text-white">{learnerName}</span>.{' '}
               Your one-stop mastery portal for{' '}
               <span className="font-semibold text-slate-900 dark:text-white">
-                Picture Connect, Shopping &amp; Negotiation, Indianism, Interview &amp; GD, Aptitude &amp; Grammar, C/C++/Java/DSA, Excel, Power BI, DBMS &amp; Cloud Computing
+                Picture Connect, Shopping &amp; Negotiation, Indianism, Interview &amp; GD, Aptitude, Grammar, Tenses, Punctuation, Idioms, C/C++/Java/Python/DSA, Excel, Power BI, DBMS &amp; Cloud Computing
               </span>{' '}
-              — with verified PNG badges, certificates &amp; Placement LOR PDF.
+              — with Live Crisp Notes, 160 FAANG/MNC solved problems, 38 PNG badges, certificates &amp; Placement LOR PDF.
             </p>
           </div>
 
@@ -361,7 +361,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
               EMPLOYABILITY UNIVERSE — Choose Your Track
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-              One-stop placement mastery across Communication, Aptitude &amp; Grammar, C/C++/Java/DSA, Excel, Power BI, DBMS, Cloud &amp; Capstone.
+              One-stop placement mastery across Communication, Aptitude, Grammar/Tenses/Punctuation/Idioms, C/C++/Java/Python/DSA, Excel, Power BI, DBMS, Cloud &amp; Capstone.
             </p>
           </div>
           <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
@@ -455,18 +455,18 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
         </div>
       </section>
 
-      {/* Isolated 12-Track Master Tech, Data, Aptitude & Grammar Universe Launch Strip */}
+      {/* Isolated 16-Track Master Tech, Data, Aptitude & Verbal Universe Launch Strip */}
       <section className="rounded-2xl border border-blue-300 dark:border-blue-800/80 bg-gradient-to-r from-[#0B1733] via-[#10224A] to-[#172C5E] text-white p-5 sm:p-6 space-y-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div className="space-y-1.5 max-w-2xl">
             <div className="text-xs font-mono font-bold text-sky-400">
-              ONE-STOP MASTER HUB · 12 SUBJECT TRACKS · 72 PLAYBOOKS · 120 MCQS · 8 BADGES + PNG CERT
+              ONE-STOP MASTER HUB · 16 TRACKS · LIVE NOTES · 160 FAANG/MNC PROBLEMS · 160 MCQS · 10 BADGES + PNG CERT
             </div>
             <h2 className="font-display text-xl sm:text-2xl font-bold text-white">
-              Aptitude, Grammar, C, C++, Java, DSA, Excel, Power BI, DBMS &amp; Cloud
+              Aptitude, Grammar, Tenses, Punctuation, Idioms, C, C++, Java, Python, DSA, Excel, Power BI, DBMS &amp; Cloud
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Every core technical &amp; aptitude subject recruiters test — structured in Kapil’s signature Study Playbook + Hinted MCQ + Retake + PNG Badge &amp; Official Certificate format without impacting your existing progress.
+              Every core technical, coding &amp; verbal subject recruiters test — complete with Live Crisp Notes, Mentor Kapil’s Placement Tips, 10 real FAANG/TCS/Wipro/Capgemini/Amazon/Cognizant/TechM solved problems per topic, Hinted MCQs, PNG Badges &amp; Official Certificate without impacting your existing progress.
             </p>
           </div>
 
@@ -476,7 +476,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
                 UNIVERSE TECH PROGRESS
               </div>
               <div className="text-sm font-bold text-sky-300 tabular-nums">
-                {masterAnswered}/120 MCQs ({masterCorrect} Correct) · {masterXp} XP
+                {masterAnswered}/160 MCQs ({masterCorrect} Correct) · {masterXp} XP
               </div>
             </div>
             <button
@@ -485,7 +485,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-950 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
               <Sparkles className="w-4 h-4 text-blue-700" />
-              <span>Open 12-Track Master Studio</span>
+              <span>Open 16-Track Master Studio</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

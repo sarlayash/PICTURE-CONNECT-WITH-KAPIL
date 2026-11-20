@@ -11,6 +11,22 @@ import {
   DATA_CLOUD_PLAYBOOKS,
 } from './masterDataCloudData';
 import {
+  EXTENDED_TRACKS_MCQS,
+  EXTENDED_TRACKS_PLAYBOOKS,
+} from './masterExtendedTracksData';
+import {
+  PILLAR1_LIVE_NOTES,
+  PILLAR1_SOLVED_PROBLEMS,
+} from './masterNotesAndProblemsPillar1';
+import {
+  PILLAR2_LIVE_NOTES,
+  PILLAR2_SOLVED_PROBLEMS,
+} from './masterNotesAndProblemsPillar2';
+import {
+  PILLAR3_LIVE_NOTES,
+  PILLAR3_SOLVED_PROBLEMS,
+} from './masterNotesAndProblemsPillar3';
+import {
   MASTER_BADGES,
   MASTER_PILLARS,
   MASTER_TRACKS,
@@ -18,21 +34,54 @@ import {
   MasterPillarId,
   MasterPlaybookCard,
   MasterTrackId,
+  SolvedCompanyProblem,
+  TrackLiveNotes,
 } from './masterUniverseTypes';
 
 export * from './masterUniverseTypes';
 
+// 96 Study Playbooks (6 per track across 16 tracks).
+// Extended tracks (Tenses, Punctuation, Idioms, Python) are appended to preserve existing IDs.
 export const MASTER_PLAYBOOKS: MasterPlaybookCard[] = [
   ...APTITUDE_GRAMMAR_PLAYBOOKS,
   ...CODING_DSA_PLAYBOOKS,
   ...DATA_CLOUD_PLAYBOOKS,
+  ...EXTENDED_TRACKS_PLAYBOOKS,
 ];
 
+// 160 Graded Hinted MCQs (10 per track across 16 tracks).
+// CRITICAL: EXTENDED_TRACKS_MCQS are appended at indices 120..159 so existing learners'
+// mcqChoices[0..119] in Firestore remain 100% aligned with zero data corruption.
 export const MASTER_MCQS: MasterMcq[] = [
   ...APTITUDE_GRAMMAR_MCQS,
   ...CODING_DSA_MCQS,
   ...DATA_CLOUD_MCQS,
+  ...EXTENDED_TRACKS_MCQS,
 ];
+
+// Live Crisp Revision Notes + Mentor Kapil's Placement Tips for all 16 tracks
+export const ALL_TRACK_LIVE_NOTES: Record<MasterTrackId, TrackLiveNotes> = {
+  ...PILLAR1_LIVE_NOTES,
+  ...PILLAR2_LIVE_NOTES,
+  ...PILLAR3_LIVE_NOTES,
+} as Record<MasterTrackId, TrackLiveNotes>;
+
+// 160 Real Solved Company Problems (10 per track from FAANG, TCS, Wipro, Capgemini, Amazon, TechM, Cognizant, Infosys, Deloitte, Accenture)
+export const ALL_SOLVED_COMPANY_PROBLEMS: SolvedCompanyProblem[] = [
+  ...PILLAR1_SOLVED_PROBLEMS,
+  ...PILLAR2_SOLVED_PROBLEMS,
+  ...PILLAR3_SOLVED_PROBLEMS,
+];
+
+export function getTrackLiveNotes(trackId: MasterTrackId): TrackLiveNotes {
+  return ALL_TRACK_LIVE_NOTES[trackId];
+}
+
+export function getTrackSolvedProblems(
+  trackId: MasterTrackId
+): SolvedCompanyProblem[] {
+  return ALL_SOLVED_COMPANY_PROBLEMS.filter((p) => p.trackId === trackId);
+}
 
 export interface MasterTrackScoreSummary {
   trackId: MasterTrackId;
@@ -124,6 +173,10 @@ export function computeMasterBadges(params: {
   const completedTracksCount = MASTER_TRACKS.filter(
     (t) => trackStats[t.id].completed
   ).length;
+  const verbalExtendedCorrect =
+    trackStats.tenses.correct +
+    trackStats.punctuation.correct +
+    trackStats.idioms.correct;
 
   return MASTER_BADGES.filter((b) =>
     b.checkUnlocked({
@@ -131,6 +184,8 @@ export function computeMasterBadges(params: {
       codingDsaCorrect: pillarStats.coding_dsa.correct,
       dataCloudCorrect: pillarStats.data_cloud.correct,
       dsaCorrect: trackStats.dsa.correct,
+      pythonCorrect: trackStats.python_lang.correct,
+      verbalExtendedCorrect,
       totalAnswered: params.answeredMcqs.length,
       totalCorrect: params.correctMcqs.length,
       cleanCorrect,

@@ -531,7 +531,7 @@
     },
     "MasterSkillsProgress": {
       "title": "MasterSkillsProgress",
-      "description": "Isolated EMPLOYABILITY UNIVERSE Master Tech, Aptitude & Grammar progress covering 12 tracks (Aptitude, Grammar, Parts of Speech, Parts of Grammar, C, C++, Java, DSA, Excel, Power BI, DBMS, Cloud Computing) with 72 playbooks, 120 graded MCQs, 8 PNG badges, and PNG certificate ID.",
+      "description": "Isolated EMPLOYABILITY UNIVERSE Master Tech, Python, Aptitude, Grammar, Tenses, Punctuation, Idioms & Data progress covering 16 tracks with 96 playbooks, 160 graded MCQs, 10 PNG badges, and PNG certificate ID.",
       "type": "object",
       "properties": {
         "ownerId": {
@@ -542,31 +542,31 @@
         },
         "authorName": { "type": "string", "minLength": 1, "maxLength": 100 },
         "authorEmail": { "type": "string", "maxLength": 160 },
-        "masterXp": { "type": "number", "minimum": 0, "maximum": 50000 },
+        "masterXp": { "type": "number", "minimum": 0, "maximum": 60000 },
         "studiedPlaybooks": {
           "type": "array",
           "items": { "type": "string" },
-          "maxItems": 80
+          "maxItems": 120
         },
         "answeredMcqs": {
           "type": "array",
           "items": { "type": "string" },
-          "maxItems": 120
+          "maxItems": 160
         },
         "correctMcqs": {
           "type": "array",
           "items": { "type": "string" },
-          "maxItems": 120
+          "maxItems": 160
         },
         "hintUsedMcqs": {
           "type": "array",
           "items": { "type": "string" },
-          "maxItems": 120
+          "maxItems": 160
         },
         "mcqChoices": {
           "type": "array",
           "items": { "type": "number" },
-          "maxItems": 120
+          "maxItems": 160
         },
         "completedTracks": {
           "type": "array",
@@ -577,9 +577,13 @@
               "grammar",
               "parts_of_speech",
               "parts_of_grammar",
+              "tenses",
+              "punctuation",
+              "idioms",
               "c_lang",
               "cpp_lang",
               "java_lang",
+              "python_lang",
               "dsa",
               "excel",
               "power_bi",
@@ -587,7 +591,7 @@
               "cloud"
             ]
           },
-          "maxItems": 12
+          "maxItems": 16
         },
         "unlockedMasterBadges": {
           "type": "array",
@@ -610,6 +614,73 @@
         "completedTracks",
         "unlockedMasterBadges",
         "masterCertificateId",
+        "updatedAt"
+      ]
+    },
+    "SectionFeedback": {
+      "title": "SectionFeedback",
+      "description": "Learner feedback, star rating, highlights, and improvement/advancement suggestions for every section of EMPLOYABILITY UNIVERSE With Kapil.",
+      "type": "object",
+      "properties": {
+        "authorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "authorEmail": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "sectionId": {
+          "type": "string",
+          "enum": [
+            "journey",
+            "levels",
+            "wheel",
+            "shopping",
+            "career",
+            "universe",
+            "advanced",
+            "final",
+            "achievements"
+          ]
+        },
+        "sectionLabel": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "subTopic": { "type": "string", "maxLength": 100 },
+        "category": {
+          "type": "string",
+          "enum": [
+            "content_depth",
+            "new_topic",
+            "ui_ux",
+            "practice_problems",
+            "mentor_appreciation"
+          ]
+        },
+        "rating": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "highlights": { "type": "string", "maxLength": 400 },
+        "improvement": { "type": "string", "minLength": 4, "maxLength": 1000 },
+        "status": {
+          "type": "string",
+          "enum": ["new", "reviewed", "implemented"]
+        },
+        "adminNote": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "authorId",
+        "authorName",
+        "authorEmail",
+        "sectionId",
+        "sectionLabel",
+        "subTopic",
+        "category",
+        "rating",
+        "highlights",
+        "improvement",
+        "status",
+        "adminNote",
+        "createdAt",
         "updatedAt"
       ]
     }
@@ -653,7 +724,11 @@
     },
     "/masterSkillsProgress/{userId}": {
       "schema": { "$ref": "#/entities/MasterSkillsProgress" },
-      "description": "12-track Master Universe progress (Aptitude, Grammar, Parts of Speech, Parts of Grammar, C, C++, Java, DSA, Excel, Power BI, DBMS, Cloud Computing) with 72 playbooks, 120 graded MCQs, XP, 8 badges, and Certificate ID."
+      "description": "16-track Master Universe progress (Aptitude, Grammar, Parts of Speech, Parts of Grammar, Tenses, Punctuation, Idioms, C, C++, Java, Python, DSA, Excel, Power BI, DBMS, Cloud Computing) with 96 playbooks, 160 graded MCQs, XP, 10 badges, and Certificate ID."
+    },
+    "/sectionFeedback/{feedbackId}": {
+      "schema": { "$ref": "#/entities/SectionFeedback" },
+      "description": "Learner ratings, highlights, and improvement suggestions submitted per section for Mentor Kapil's Admin Feedback Reports."
     }
   }
 }
