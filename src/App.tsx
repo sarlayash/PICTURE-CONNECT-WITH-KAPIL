@@ -35,6 +35,11 @@ import {
   FinalAssessmentDoc,
   subscribeFinalAssessment,
 } from './services/finalAssessmentService';
+import {
+  createDefaultShoppingProgress,
+  ShoppingProgressDoc,
+  subscribeShoppingProgress,
+} from './services/shoppingFirestoreService';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { GoogleAuthGate } from './components/GoogleAuthGate';
 import { AppView, OverviewStudio } from './components/OverviewStudio';
@@ -42,6 +47,7 @@ import { ActivitiesStudio } from './components/ActivitiesStudio';
 import { SpinWheelStudio } from './components/SpinWheelStudio';
 import { AchievementsCertificate } from './components/AchievementsCertificate';
 import { AdvancedTrackStudio } from './components/AdvancedTrackStudio';
+import { ShoppingNegotiationStudio } from './components/ShoppingNegotiationStudio';
 import { FinalAssessmentStudio } from './components/FinalAssessmentStudio';
 import { AdminDashboard } from './components/AdminDashboard';
 
@@ -69,6 +75,9 @@ function PictureConnectWorkspace() {
   >({});
   const [finalAssessment, setFinalAssessment] = useState<FinalAssessmentDoc>(() =>
     createDefaultFinalAssessment('pending')
+  );
+  const [shoppingProgress, setShoppingProgress] = useState<ShoppingProgressDoc>(() =>
+    createDefaultShoppingProgress('pending')
   );
 
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -117,6 +126,13 @@ function PictureConnectWorkspace() {
           nextUser.email || ''
         )
       );
+      setShoppingProgress(
+        createDefaultShoppingProgress(
+          nextUser.uid,
+          nextUser.displayName || nextUser.email?.split('@')[0] || 'Verified Learner',
+          nextUser.email || ''
+        )
+      );
       setAuthReady(true);
       try {
         await upsertUserAccount(nextUser);
@@ -140,6 +156,7 @@ function PictureConnectWorkspace() {
       setAdvSubmissions
     );
     const unsubFinal = subscribeFinalAssessment(user, setFinalAssessment);
+    const unsubShopping = subscribeShoppingProgress(user, setShoppingProgress);
 
     return () => {
       unsubConnections();
@@ -148,6 +165,7 @@ function PictureConnectWorkspace() {
       unsubAdvProgress();
       unsubAdvSubmissions();
       unsubFinal();
+      unsubShopping();
     };
   }, [authReady, user]);
 
@@ -220,6 +238,7 @@ function PictureConnectWorkspace() {
     { id: 'journey', label: 'Journey' },
     { id: 'levels', label: 'Levels 1–10' },
     { id: 'wheel', label: 'Spin Wheel' },
+    { id: 'shopping', label: 'Shop & Negotiate' },
     { id: 'advanced', label: 'AI Advanced' },
     { id: 'final', label: 'Final 1000 XP', locked: isFinalLocked },
   ];
@@ -344,6 +363,9 @@ function PictureConnectWorkspace() {
             progress={progress}
             advCompletedCount={advProgress.completedChallenges.length}
             advXp={advProgress.advXp}
+            shopCompletedMcqs={shoppingProgress.answeredMcqs.length}
+            shopXp={shoppingProgress.shopXp}
+            shopRoleplayScore={shoppingProgress.roleplayScore}
             finalStatus={finalAssessment.status}
             finalXp={finalAssessment.totalXpAwarded}
             finalPassed={finalAssessment.passed}
@@ -420,6 +442,15 @@ function PictureConnectWorkspace() {
               );
               return recordWheelCompletion(user.uid, progress, promptId, xpReward);
             }}
+          />
+        )}
+
+        {view === 'shopping' && (
+          <ShoppingNegotiationStudio
+            user={user}
+            learnerName={learnerName}
+            learnerEmail={user.email || ''}
+            shoppingProgress={shoppingProgress}
           />
         )}
 

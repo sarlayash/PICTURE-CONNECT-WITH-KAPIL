@@ -32,6 +32,7 @@ export type AppView =
   | 'journey'
   | 'levels'
   | 'wheel'
+  | 'shopping'
   | 'advanced'
   | 'final'
   | 'achievements';
@@ -41,6 +42,9 @@ interface OverviewStudioProps {
   progress: LearnerProgressDoc;
   advCompletedCount?: number;
   advXp?: number;
+  shopCompletedMcqs?: number;
+  shopXp?: number;
+  shopRoleplayScore?: number;
   finalStatus?: 'not_started' | 'in_progress' | 'submitted';
   finalXp?: number;
   finalPassed?: boolean;
@@ -68,6 +72,9 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   progress,
   advCompletedCount = 0,
   advXp = 0,
+  shopCompletedMcqs = 0,
+  shopXp = 0,
+  shopRoleplayScore = 0,
   finalStatus = 'not_started',
   finalXp = 0,
   finalPassed = false,
@@ -325,6 +332,41 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
           >
             <Sparkles className="w-4 h-4" />
             <span>Open AI Advanced Track</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </section>
+
+      {/* Isolated Shopping & Negotiation Skills Module (FACE Konfi-07) */}
+      <section className="rounded-2xl border border-emerald-200 dark:border-emerald-900/70 bg-gradient-to-r from-[#F7FDF9] via-white to-blue-50/70 dark:from-slate-900 dark:via-slate-950 dark:to-emerald-950/20 p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+        <div className="space-y-1.5 max-w-2xl">
+          <div className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400">
+            NEW SKILL LEVEL · FACE KONFI-07 SOLVED EXAMPLES + HINTED MCQS + PNG CERT
+          </div>
+          <h2 className="font-display text-xl sm:text-2xl font-bold text-slate-950 dark:text-white">
+            Shopping &amp; Negotiation Skills Studio
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+            Master all 42 FACE Konfi-07 shopping riddles (38 solved examples), 20 hint-assisted MCQs, an interactive Negotiation Role-Play Lab (Courteousness, Logic, Persuasion, Convincing, Precision), 6 PNG Badges &amp; PNG Certificate.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 shrink-0">
+          <div className="text-left sm:text-right font-mono">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+              NEGOTIATION PROGRESS
+            </div>
+            <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
+              {shopCompletedMcqs}/20 MCQs · Lab {shopRoleplayScore}/100 · {shopXp} XP
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigateView('shopping')}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Open Shopping &amp; Negotiation</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

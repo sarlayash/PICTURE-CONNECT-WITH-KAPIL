@@ -33,6 +33,11 @@ import {
   subscribeAdminFinalAssessments,
 } from '../services/finalAssessmentService';
 import {
+  AdminShoppingUserSummary,
+  subscribeAdminShoppingData,
+} from '../services/shoppingFirestoreService';
+import { SHOPPING_BADGES } from '../data/shoppingNegotiationData';
+import {
   AdminUserRecord,
   subscribeAdminLiveData,
 } from '../services/firestoreService';
@@ -79,7 +84,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [finalByUid, setFinalByUid] = useState<
     Record<string, FinalAssessmentDoc>
   >({});
-  const [adminTrackView, setAdminTrackView] = useState<'core' | 'advanced' | 'final'>('core');
+  const [shopByUid, setShopByUid] = useState<
+    Record<string, AdminShoppingUserSummary>
+  >({});
+  const [adminTrackView, setAdminTrackView] = useState<
+    'core' | 'advanced' | 'shopping' | 'final'
+  >('core');
   const [lastSyncMs, setLastSyncMs] = useState<number>(0);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [googleBusy, setGoogleBusy] = useState(false);
@@ -122,11 +132,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setStreamError(errMsg);
       }
     );
+    const unsubShop = subscribeAdminShoppingData(
+      (shopMap) => {
+        setShopByUid(shopMap);
+      },
+      (errMsg) => {
+        setStreamError(errMsg);
+      }
+    );
 
     return () => {
       unsubCore();
       unsubAdv();
       unsubFinal();
+      unsubShop();
     };
   }, [open, credentialsUnlocked, hasAdminGoogleSession]);
 
@@ -135,6 +154,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const list = records.filter((r) => {
       const adv = advByUid[r.uid];
       const fin = finalByUid[r.uid];
+      const shop = shopByUid[r.uid];
       const matchesSearch =
         !q ||
         r.displayName.toLowerCase().includes(q) ||
@@ -142,12 +162,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         r.certificateId.toLowerCase().includes(q) ||
         r.rankTitle.toLowerCase().includes(q) ||
         (adv?.advCertificateId || '').toLowerCase().includes(q) ||
+        (shop?.shopCertificateId || '').toLowerCase().includes(q) ||
         (fin?.finalCertificateId || '').toLowerCase().includes(q) ||
         (fin?.lorVerificationId || '').toLowerCase().includes(q) ||
         (fin?.targetRole || '').toLowerCase().includes(q) ||
         (fin?.collegeOrOrg || '').toLowerCase().includes(q);
 
       if (!matchesSearch) return false;
+
+      if (adminTrackView === 'shopping') {
+        const mcqsDone = shop?.answeredMcqs.length ?? 0;
+        if (statusFilter === 'mastered') return Boolean(shop?.completedModule);
+        if (statusFilter === 'active') return mcqsDone > 0 && !shop?.completedModule;
+        if (statusFilter === 'starter') return mcqsDone === 0 && (shop?.roleplayScore ?? 0) === 0;
+        return true;
+      }
 
       if (adminTrackView === 'advanced') {
         const advDone = adv?.completedChallenges.length ?? 0;
@@ -191,6 +220,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (sortBy === 'recent') {
         return b.lastActiveMs - a.lastActiveMs;
       }
+      if (adminTrackView === 'shopping') {
+        return (shopByUid[b.uid]?.shopXp ?? 0) - (shopByUid[a.uid]?.shopXp ?? 0) || b.xp - a.xp;
+      }
       if (adminTrackView === 'advanced') {
         return (advByUid[b.uid]?.advXp ?? 0) - (advByUid[a.uid]?.advXp ?? 0) || b.xp - a.xp;
       }
@@ -204,7 +236,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
 
     return list;
-  }, [records, advByUid, finalByUid, adminTrackView, searchQuery, statusFilter, sortBy]);
+  }, [records, advByUid, shopByUid, finalByUid, adminTrackView, searchQuery, statusFilter, sortBy]);
 
   if (!open) return null;
 
@@ -259,6 +291,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       'Advanced Avg Auto-Score (/100)',
       'Advanced Badges (/8)',
       'Advanced Certificate ID',
+      'Shop & Negotiation XP',
+      'Shop Rank',
+      'Shop MCQs (/20)',
+      'Shop Accuracy %',
+      'Shop Hints Used',
+      'Shop Role-Play (/100)',
+      'Shop Badges (/6)',
+      'Shop Certificate ID',
       'Final Exam Status',
       'Final Attempt #',
       'Final Total XP (/1000)',
@@ -284,6 +324,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const rows = filteredRecords.map((r) => {
       const adv = advByUid[r.uid];
       const fin = finalByUid[r.uid];
+      const shop = shopByUid[r.uid];
       return [
         r.displayName,
         r.email,
@@ -302,6 +343,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         adv?.avgScore ?? 0,
         `${adv?.unlockedAdvBadges.length ?? 0}/${ADVANCED_BADGES.length}`,
         adv?.advCertificateId ?? '',
+        shop?.shopXp ?? 0,
+        shop?.shopRankTitle ?? 'Window Shopper',
+        `${shop?.answeredMcqs.length ?? 0}/20`,
+        `${shop?.accuracyPct ?? 0}%`,
+        shop?.hintUsedMcqs.length ?? 0,
+        shop?.roleplayScore ?? 0,
+        `${shop?.unlockedShopBadges.length ?? 0}/${SHOPPING_BADGES.length}`,
+        shop?.shopCertificateId ?? '',
         fin?.status ?? 'not_started',
         fin?.attemptCount ?? 0,
         fin?.totalXpAwarded ?? 0,
@@ -316,7 +365,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         fin?.lorVerificationId ?? '',
         formatTimestamp(r.createdAtMs),
         formatTimestamp(
-          Math.max(r.lastActiveMs, adv?.updatedAtMs ?? 0, fin?.submittedAtMs ?? 0)
+          Math.max(
+            r.lastActiveMs,
+            adv?.updatedAtMs ?? 0,
+            shop?.updatedAtMs ?? 0,
+            fin?.submittedAtMs ?? 0
+          )
         ),
         r.workspace.act2Pitch || '',
         r.workspace.act3StoryTitle || '',
@@ -350,6 +404,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       learners: filteredRecords.map((r) => ({
         ...r,
         advancedTrack: advByUid[r.uid] ?? null,
+        shoppingNegotiation: shopByUid[r.uid] ?? null,
         finalAssessment: finalByUid[r.uid] ?? null,
       })),
     };
@@ -583,6 +638,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </button>
                   <button
                     type="button"
+                    onClick={() => setAdminTrackView('shopping')}
+                    className={`px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                      adminTrackView === 'shopping'
+                        ? 'bg-teal-700 text-white'
+                        : 'bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    Shopping &amp; Negotiation (Konfi-07)
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setAdminTrackView('final')}
                     className={`px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
                       adminTrackView === 'final'
@@ -594,7 +660,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </button>
                 </div>
                 <div className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                  {finalSubmittedCount} Final Submitted ({finalPassedCount} Passed)
+                  {finalSubmittedCount} Final Submitted ({finalPassedCount} Passed) ·{' '}
+                  {Object.values(shopByUid).filter((s) => s.completedModule).length} Shop Certified
                 </div>
               </div>
 
@@ -664,6 +731,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <option value="mastered">
                       {adminTrackView === 'advanced'
                         ? '25/25 AI Mastery Only'
+                        : adminTrackView === 'shopping'
+                        ? 'Shopping Certified Only'
                         : adminTrackView === 'final'
                         ? 'Final Passed (>=600 XP)'
                         : '10/10 Mastery Only'}
@@ -676,6 +745,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <option value="starter">
                       {adminTrackView === 'final'
                         ? 'Prerequisites Locked'
+                        : adminTrackView === 'shopping'
+                        ? 'Not Started Shopping Yet'
                         : adminTrackView === 'advanced'
                         ? '0 AI Challenges Completed'
                         : '0 Levels Completed'}
@@ -738,6 +809,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <th className="py-3 px-3">Adv Badges</th>
                           <th className="py-3 px-3">Adv Cert ID</th>
                         </>
+                      ) : adminTrackView === 'shopping' ? (
+                        <>
+                          <th className="py-3 px-3">Shop Rank</th>
+                          <th className="py-3 px-3">Shop XP</th>
+                          <th className="py-3 px-3">MCQs (/20)</th>
+                          <th className="py-3 px-3">Accuracy &amp; Hints</th>
+                          <th className="py-3 px-3">Role-Play (/100)</th>
+                          <th className="py-3 px-3">Badges &amp; Cert ID</th>
+                        </>
                       ) : (
                         <>
                           <th className="py-3 px-3">Exam Status</th>
@@ -768,6 +848,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         const adv = advByUid[learner.uid];
                         const advPct = Math.round(
                           ((adv?.completedChallenges.length ?? 0) / 25) * 100
+                        );
+                        const shop = shopByUid[learner.uid];
+                        const shopPct = Math.round(
+                          ((shop?.answeredMcqs.length ?? 0) / 20) * 100
                         );
                         const fin = finalByUid[learner.uid];
                         return (
@@ -843,68 +927,101 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   {adv?.advCertificateId || '—'}
                                 </td>
                               </>
-                            ) : (
-                              <>
-                                <td className="py-3 px-3 font-mono font-semibold">
-                                  {fin?.status === 'submitted' ? (
-                                    <span className={fin.passed ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}>
-                                      {fin.passed
-                                        ? `PASSED (Att #${Math.max(1, fin.attemptCount)})`
-                                        : Math.max(1, fin.attemptCount) < 2
-                                        ? 'FAIL ATT 1/2 (RETAKE OPEN)'
-                                        : `FAIL ATT ${fin.attemptCount}/2 (ADMIN REQ)`}
-                                    </span>
-                                  ) : fin?.status === 'in_progress' ? (
-                                    <span className="text-blue-700 dark:text-blue-400">
-                                      IN PROGRESS (ATT #{Math.max(1, fin.attemptCount)})
-                                    </span>
-                                  ) : (() => {
-                                    const prereq = evaluateFinalPrerequisites(
-                                      {
-                                        completedLevels: learner.completedLevels,
-                                        completedWheelPrompts: learner.completedWheelPrompts,
-                                      },
-                                      { completedChallenges: adv?.completedChallenges ?? [] }
-                                    );
-                                    return prereq.eligible ? (
-                                      <span className="text-emerald-700 dark:text-emerald-400">
-                                        UNLOCKED (4/4)
+                              ) : adminTrackView === 'shopping' ? (
+                                <>
+                                  <td className="py-3 px-3 font-medium text-slate-700 dark:text-slate-300">
+                                    {shop?.shopRankTitle ?? 'Window Shopper'}
+                                  </td>
+                                  <td className="py-3 px-3 font-mono font-bold text-teal-700 dark:text-teal-400 tabular-nums">
+                                    {shop?.shopXp ?? 0}
+                                  </td>
+                                  <td className="py-3 px-3 min-w-[130px]">
+                                    <div className="flex items-center justify-between font-mono text-[11px] mb-1 tabular-nums">
+                                      <span>{shop?.answeredMcqs.length ?? 0}/20</span>
+                                      <span className="text-slate-400">{shopPct}%</span>
+                                    </div>
+                                    <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                                      <div
+                                        className="h-full rounded-full bg-teal-600 dark:bg-teal-500"
+                                        style={{ width: `${shopPct}%` }}
+                                      />
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3 font-mono tabular-nums">
+                                    {shop?.accuracyPct ?? 0}% ({shop?.hintUsedMcqs.length ?? 0} hints)
+                                  </td>
+                                  <td className="py-3 px-3 font-mono font-bold text-slate-950 dark:text-white tabular-nums">
+                                    {shop?.roleplayScore ?? 0}/100
+                                  </td>
+                                  <td className="py-3 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-400">
+                                    {shop?.unlockedShopBadges.length ?? 0}/{SHOPPING_BADGES.length} ·{' '}
+                                    {shop?.completedModule ? shop.shopCertificateId : 'In Progress'}
+                                  </td>
+                                </>
+                              ) : (
+                                <>
+                                  <td className="py-3 px-3 font-mono font-semibold">
+                                    {fin?.status === 'submitted' ? (
+                                      <span className={fin.passed ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}>
+                                        {fin.passed
+                                          ? `PASSED (Att #${Math.max(1, fin.attemptCount)})`
+                                          : Math.max(1, fin.attemptCount) < 2
+                                          ? 'FAIL ATT 1/2 (RETAKE OPEN)'
+                                          : `FAIL ATT ${fin.attemptCount}/2 (ADMIN REQ)`}
                                       </span>
-                                    ) : (
-                                      <span className="text-slate-400">
-                                        LOCKED ({prereq.completedSections}/4)
+                                    ) : fin?.status === 'in_progress' ? (
+                                      <span className="text-blue-700 dark:text-blue-400">
+                                        IN PROGRESS (ATT #{Math.max(1, fin.attemptCount)})
                                       </span>
-                                    );
-                                  })()}
-                                </td>
-                                <td className="py-3 px-3 font-mono font-bold text-slate-950 dark:text-white tabular-nums">
-                                  {fin ? `${fin.totalXpAwarded}/1000` : '—'}
-                                </td>
-                                <td className="py-3 px-3 font-mono tabular-nums">
-                                  {fin ? `${fin.mcqScore}/400` : '—'}
-                                </td>
-                                <td className="py-3 px-3 font-mono tabular-nums">
-                                  {fin ? `${fin.caseScore}/500` : '—'}
-                                </td>
-                                <td className="py-3 px-3 font-mono tabular-nums">
-                                  {fin ? `${fin.scareScore}/100` : '—'}
-                                </td>
-                                <td className="py-3 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-400">
-                                  {fin?.status === 'submitted'
-                                    ? `${fin.lorVerificationId} · ${fin.gradeTier}`
-                                    : '—'}
-                                </td>
-                              </>
-                            )}
-                            <td className="py-3 px-3 text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                              {formatTimestamp(
-                                adminTrackView === 'final'
-                                  ? fin?.submittedAtMs || fin?.startedAtMs || learner.lastActiveMs
-                                  : adminTrackView === 'advanced'
-                                  ? adv?.updatedAtMs || learner.lastActiveMs
-                                  : learner.lastActiveMs
+                                    ) : (() => {
+                                      const prereq = evaluateFinalPrerequisites(
+                                        {
+                                          completedLevels: learner.completedLevels,
+                                          completedWheelPrompts: learner.completedWheelPrompts,
+                                        },
+                                        { completedChallenges: adv?.completedChallenges ?? [] }
+                                      );
+                                      return prereq.eligible ? (
+                                        <span className="text-emerald-700 dark:text-emerald-400">
+                                          UNLOCKED (4/4)
+                                        </span>
+                                      ) : (
+                                        <span className="text-slate-400">
+                                          LOCKED ({prereq.completedSections}/4)
+                                        </span>
+                                      );
+                                    })()}
+                                  </td>
+                                  <td className="py-3 px-3 font-mono font-bold text-slate-950 dark:text-white tabular-nums">
+                                    {fin ? `${fin.totalXpAwarded}/1000` : '—'}
+                                  </td>
+                                  <td className="py-3 px-3 font-mono tabular-nums">
+                                    {fin ? `${fin.mcqScore}/400` : '—'}
+                                  </td>
+                                  <td className="py-3 px-3 font-mono tabular-nums">
+                                    {fin ? `${fin.caseScore}/500` : '—'}
+                                  </td>
+                                  <td className="py-3 px-3 font-mono tabular-nums">
+                                    {fin ? `${fin.scareScore}/100` : '—'}
+                                  </td>
+                                  <td className="py-3 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-400">
+                                    {fin?.status === 'submitted'
+                                      ? `${fin.lorVerificationId} · ${fin.gradeTier}`
+                                      : '—'}
+                                  </td>
+                                </>
                               )}
-                            </td>
+                              <td className="py-3 px-3 text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                                {formatTimestamp(
+                                  adminTrackView === 'final'
+                                    ? fin?.submittedAtMs || fin?.startedAtMs || learner.lastActiveMs
+                                    : adminTrackView === 'shopping'
+                                    ? shop?.updatedAtMs || learner.lastActiveMs
+                                    : adminTrackView === 'advanced'
+                                    ? adv?.updatedAtMs || learner.lastActiveMs
+                                    : learner.lastActiveMs
+                                )}
+                              </td>
                             <td className="py-3 px-4 text-right">
                               <button
                                 type="button"
@@ -1065,6 +1182,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {shopByUid[inspectedUser.uid] && (
+                    <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                      <div className="text-xs font-semibold text-teal-700 dark:text-teal-400">
+                        Shopping &amp; Negotiation Skills (Konfi-07) · {shopByUid[inspectedUser.uid].shopXp} XP · MCQs{' '}
+                        {shopByUid[inspectedUser.uid].correctMcqs.length}/{shopByUid[inspectedUser.uid].answeredMcqs.length} ({shopByUid[inspectedUser.uid].accuracyPct}%) · Role-Play{' '}
+                        {shopByUid[inspectedUser.uid].roleplayScore}/100 · Cert {shopByUid[inspectedUser.uid].shopCertificateId}
+                      </div>
+                      {shopByUid[inspectedUser.uid].roleplayDraft && (
+                        <div className="p-3 rounded-xl border border-teal-200 dark:border-teal-900/60 bg-white dark:bg-slate-900 text-xs space-y-1">
+                          <div className="font-mono font-bold text-slate-900 dark:text-white">
+                            Role-Play Script Submission ({shopByUid[inspectedUser.uid].unlockedShopBadges.length}/6 Badges)
+                          </div>
+                          <p className="text-slate-600 dark:text-slate-300">
+                            {shopByUid[inspectedUser.uid].roleplayDraft}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
 

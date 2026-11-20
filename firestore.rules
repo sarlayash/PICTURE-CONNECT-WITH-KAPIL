@@ -181,6 +181,43 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidShoppingProgress(data, userId) {
+      return data.keys().hasAll([
+          'ownerId', 'authorName', 'authorEmail', 'shopXp', 'studiedExamples',
+          'answeredMcqs', 'correctMcqs', 'hintUsedMcqs', 'mcqChoices',
+          'roleplayDraft', 'roleplayScore', 'roleplayFeedback',
+          'unlockedShopBadges', 'shopCertificateId', 'completedModule', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'authorName', 'authorEmail', 'shopXp', 'studiedExamples',
+          'answeredMcqs', 'correctMcqs', 'hintUsedMcqs', 'mcqChoices',
+          'roleplayDraft', 'roleplayScore', 'roleplayFeedback',
+          'unlockedShopBadges', 'shopCertificateId', 'completedModule', 'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId == userId && isValidId(data.ownerId)
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100
+        && data.authorEmail is string && data.authorEmail.size() <= 160
+        && data.shopXp is number && data.shopXp >= 0 && data.shopXp <= 20000
+        && data.studiedExamples is list && data.studiedExamples.size() <= 45
+        && (data.studiedExamples.size() == 0 || (data.studiedExamples[0] is string && data.studiedExamples[0].size() <= 40))
+        && data.answeredMcqs is list && data.answeredMcqs.size() <= 20
+        && (data.answeredMcqs.size() == 0 || (data.answeredMcqs[0] is string && data.answeredMcqs[0].size() <= 20))
+        && data.correctMcqs is list && data.correctMcqs.size() <= 20
+        && (data.correctMcqs.size() == 0 || (data.correctMcqs[0] is string && data.correctMcqs[0].size() <= 20))
+        && data.hintUsedMcqs is list && data.hintUsedMcqs.size() <= 20
+        && (data.hintUsedMcqs.size() == 0 || (data.hintUsedMcqs[0] is string && data.hintUsedMcqs[0].size() <= 20))
+        && data.mcqChoices is list && data.mcqChoices.size() <= 20
+        && (data.mcqChoices.size() == 0 || (data.mcqChoices[0] is number && data.mcqChoices[0] >= -1 && data.mcqChoices[0] <= 3))
+        && data.roleplayDraft is string && data.roleplayDraft.size() <= 1500
+        && data.roleplayScore is number && data.roleplayScore >= 0 && data.roleplayScore <= 100
+        && data.roleplayFeedback is string && data.roleplayFeedback.size() <= 800
+        && data.unlockedShopBadges is list && data.unlockedShopBadges.size() <= 12
+        && (data.unlockedShopBadges.size() == 0 || (data.unlockedShopBadges[0] is string && data.unlockedShopBadges[0].size() <= 60))
+        && data.shopCertificateId is string && data.shopCertificateId.size() >= 4 && data.shopCertificateId.size() <= 64
+        && data.completedModule is bool
+        && data.updatedAt is timestamp;
+    }
+
     function isValidFinalAssessment(data, userId) {
       return data.keys().hasAll([
           'ownerId', 'authorName', 'authorEmail', 'targetRole', 'collegeOrOrg',
@@ -449,6 +486,27 @@ service cloud.firestore {
             ])
           )
         );
+      allow delete: if false;
+    }
+
+    match /shoppingProgress/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isGenuineGoogleUser() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidShoppingProgress(incoming(), userId)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isValidShoppingProgress(incoming(), userId)
+        && (isOwner(userId) || isAdmin())
+        && incoming().ownerId == existing().ownerId
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'authorName', 'authorEmail', 'shopXp', 'studiedExamples',
+          'answeredMcqs', 'correctMcqs', 'hintUsedMcqs', 'mcqChoices',
+          'roleplayDraft', 'roleplayScore', 'roleplayFeedback',
+          'unlockedShopBadges', 'shopCertificateId', 'completedModule', 'updatedAt'
+        ]);
       allow delete: if false;
     }
   }
