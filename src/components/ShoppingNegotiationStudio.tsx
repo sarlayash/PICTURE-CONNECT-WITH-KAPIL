@@ -32,6 +32,7 @@ import {
   submitNegotiationRoleplay,
   submitShoppingMcqAnswer,
 } from '../services/shoppingFirestoreService';
+import { SmartImage } from './SmartImage';
 
 interface ShoppingNegotiationStudioProps {
   user: User;
@@ -515,10 +516,15 @@ export const ShoppingNegotiationStudio: React.FC<ShoppingNegotiationStudioProps>
   return (
     <div className="space-y-6">
       {/* Studio Overview Header */}
-      <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 space-y-5">
+      <section className="rounded-2xl border border-emerald-200 dark:border-emerald-900/60 bg-white dark:bg-slate-900 overflow-hidden">
+        <div
+          className="h-1.5 w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500"
+          aria-hidden="true"
+        />
+        <div className="p-6 sm:p-8 space-y-5">
         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
           <div className="space-y-2 max-w-3xl">
-            <div className="text-xs font-mono font-bold text-blue-700 dark:text-blue-400">
+            <div className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400">
               {SHOPPING_MODULE_META.subtitle} · {SHOPPING_MODULE_META.poweredBy}
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-950 dark:text-white">
@@ -534,10 +540,12 @@ export const ShoppingNegotiationStudio: React.FC<ShoppingNegotiationStudioProps>
 
           <div className="space-y-3 sm:min-w-[290px] lg:max-w-[340px] shrink-0">
             <div className="aspect-[16/9] w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950">
-              <img
+              <SmartImage
                 src={SHOPPING_MODULE_META.heroImage}
                 alt="Shopping and Negotiation Skills executive session"
-                referrerPolicy="no-referrer"
+                fallbackTitle="Shopping & Negotiation Skills"
+                fallbackSubtitle="FACE Konfi-07 & Deal Mastery Lab"
+                priority
                 className="w-full h-full object-cover"
               />
             </div>
@@ -581,33 +589,50 @@ export const ShoppingNegotiationStudio: React.FC<ShoppingNegotiationStudioProps>
           </div>
         </div>
 
-        {/* Navigation Tabs */}
+        {/* Color-Coded Navigation Tabs */}
         <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
           {[
-            { id: 'examples' as StudioTab, label: '01. Solved Examples (38)' },
-            { id: 'mcqs' as StudioTab, label: `02. MCQs with Hints (${answeredCount}/20)` },
+            {
+              id: 'examples' as StudioTab,
+              label: '01. Solved Examples (38)',
+              activeCls: 'bg-emerald-700 border-emerald-700 text-white shadow-sm',
+              idleCls:
+                'border-emerald-200 dark:border-emerald-900 bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200 hover:border-emerald-500',
+            },
+            {
+              id: 'mcqs' as StudioTab,
+              label: `02. MCQs with Hints (${answeredCount}/20)`,
+              activeCls: 'bg-teal-700 border-teal-700 text-white shadow-sm',
+              idleCls:
+                'border-teal-200 dark:border-teal-900 bg-teal-50/70 dark:bg-teal-950/30 text-teal-900 dark:text-teal-200 hover:border-teal-500',
+            },
             {
               id: 'roleplay' as StudioTab,
               label: `03. Role-Play Lab (${shoppingProgress.roleplayScore}/100)`,
+              activeCls: 'bg-amber-600 border-amber-600 text-white shadow-sm',
+              idleCls:
+                'border-amber-200 dark:border-amber-900 bg-amber-50/70 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 hover:border-amber-500',
             },
             {
               id: 'credentials' as StudioTab,
               label: `04. Badges & PNG Certificate (${shoppingProgress.unlockedShopBadges.length}/6)`,
+              activeCls: 'bg-violet-700 border-violet-700 text-white shadow-sm',
+              idleCls:
+                'border-violet-200 dark:border-violet-900 bg-violet-50/70 dark:bg-violet-950/30 text-violet-900 dark:text-violet-200 hover:border-violet-500',
             },
           ].map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'bg-blue-700 text-white'
-                  : 'bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
+              className={`px-4 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === tab.id ? tab.activeCls : tab.idleCls
               }`}
             >
               {tab.label}
             </button>
           ))}
+        </div>
         </div>
       </section>
 

@@ -29,6 +29,7 @@ import {
   LearnerProgressDoc,
   LearnerWorkspaceDoc,
 } from '../services/firestoreService';
+import { getLevelTheme } from '../data/themeColors';
 import { StageTimer } from './StageTimer';
 import { VisualArtwork } from './VisualArtwork';
 
@@ -328,28 +329,33 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
   const activeClue = BOARDROOM_CLUES.find((c) => c.id === activeClueId) ?? BOARDROOM_CLUES[0];
   const activeMistake = WORKPLACE_MISTAKES.find((m) => m.id === selectedMistakeId);
 
+  const activeLevelTheme = getLevelTheme(levelDef.level);
+
   return (
     <div className="space-y-6">
-      {/* Horizontal Levels 1-10 Navigator */}
+      {/* Horizontal Color-Coded Levels 1-10 Navigator */}
       <div className="overflow-x-auto pb-1">
         <div className="flex items-center gap-2 min-w-max">
           {LEVELS.map((item) => {
             const active = item.level === activeLevel;
             const done = progress.completedLevels.includes(item.level);
+            const itemTheme = getLevelTheme(item.level);
             return (
               <button
                 key={item.level}
                 type="button"
                 onClick={() => onSelectLevel(item.level)}
-                className={`px-3.5 py-2 rounded-lg border text-xs font-medium transition-colors cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+                className={`px-3.5 py-2 rounded-lg border text-xs font-medium transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
                   active
-                    ? 'bg-blue-700 border-blue-700 text-white font-semibold'
+                    ? `${itemTheme.activeButton} font-semibold shadow-sm`
                     : done
                     ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 hover:border-emerald-500'
-                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-400'
+                    : `${itemTheme.softSurface} ${itemTheme.softBorder} text-slate-800 dark:text-slate-200 ${itemTheme.ringHover}`
                 }`}
               >
-                <span className="font-mono font-bold">L{String(item.level).padStart(2, '0')}</span>
+                <span className={`font-mono font-bold ${active ? 'text-white' : itemTheme.text}`}>
+                  L{String(item.level).padStart(2, '0')}
+                </span>
                 <span>{item.title.split('!')[0]}</span>
                 {done && <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
               </button>
@@ -358,13 +364,18 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
         </div>
       </div>
 
-      {/* Level Header Card */}
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-5">
+      {/* Level Header Card with Distinct Level Color Accent */}
+      <div className={`rounded-2xl border ${activeLevelTheme.softBorder} bg-white dark:bg-slate-900 overflow-hidden`}>
+        <div
+          className={`h-1.5 w-full bg-gradient-to-r ${activeLevelTheme.topBar}`}
+          aria-hidden="true"
+        />
+        <div className="p-6 space-y-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-500 dark:text-slate-400">
-              <span className="font-semibold text-blue-700 dark:text-blue-400">
-                LEVEL {String(levelDef.level).padStart(2, '0')}
+              <span className={`font-bold ${activeLevelTheme.text}`}>
+                LEVEL {String(levelDef.level).padStart(2, '0')} · {activeLevelTheme.name.toUpperCase()}
               </span>
               <span aria-hidden="true">·</span>
               <span>{levelDef.skillTag}</span>
@@ -431,7 +442,7 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
               key={idx}
               className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed flex items-start gap-2.5"
             >
-              <span className="font-mono font-bold text-blue-700 dark:text-blue-400 shrink-0">
+              <span className={`font-mono font-bold ${activeLevelTheme.text} shrink-0`}>
                 0{idx + 1}
               </span>
               <span>{step}</span>
@@ -444,6 +455,7 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
             Key Principle: {levelDef.highlightRule}
           </div>
         )}
+        </div>
       </div>
 
       {/* LEVEL 1: One Picture, 50 Perspectives */}

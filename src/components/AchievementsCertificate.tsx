@@ -498,9 +498,14 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
   return (
     <div className="space-y-10">
       {/* Header + Rank Summary */}
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      <div className="rounded-2xl border border-amber-200/80 dark:border-amber-900/50 bg-white dark:bg-slate-900 overflow-hidden">
+        <div
+          className="h-1.5 w-full bg-gradient-to-r from-amber-500 via-orange-500 to-blue-600"
+          aria-hidden="true"
+        />
+        <div className="p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="space-y-2">
-          <div className="text-xs font-mono font-semibold text-blue-700 dark:text-blue-400">
+          <div className="text-xs font-mono font-bold text-amber-700 dark:text-amber-400">
             ACHIEVEMENTS, BADGES &amp; OFFICIAL CREDENTIAL
           </div>
           <h1 className="font-display text-3xl font-bold text-slate-950 dark:text-white">
@@ -518,22 +523,23 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
         <div className="flex flex-wrap items-center gap-6 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 dark:border-slate-800 pt-4 lg:pt-0 lg:pl-6">
           <div>
             <div className="text-xs text-slate-500 dark:text-slate-400">Total XP</div>
-            <div className="font-mono text-2xl font-bold text-blue-700 dark:text-blue-400 tabular-nums">
+            <div className="font-mono text-2xl font-bold text-amber-700 dark:text-amber-400 tabular-nums">
               {progress.xp}
             </div>
           </div>
           <div>
             <div className="text-xs text-slate-500 dark:text-slate-400">Levels</div>
-            <div className="font-mono text-2xl font-bold text-slate-950 dark:text-white tabular-nums">
+            <div className="font-mono text-2xl font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
               {completedCount}/10
             </div>
           </div>
           <div>
             <div className="text-xs text-slate-500 dark:text-slate-400">Badges</div>
-            <div className="font-mono text-2xl font-bold text-slate-950 dark:text-white tabular-nums">
+            <div className="font-mono text-2xl font-bold text-blue-700 dark:text-blue-400 tabular-nums">
               {progress.unlockedBadges.length}/{BADGES.length}
             </div>
           </div>
+        </div>
         </div>
       </div>
 

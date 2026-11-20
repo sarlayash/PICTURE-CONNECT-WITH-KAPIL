@@ -31,6 +31,8 @@ import {
   resetCareerCategoryTest,
   submitCareerMcqAnswer,
 } from '../services/careerSkillsFirestoreService';
+import { getCareerTheme } from '../data/themeColors';
+import { SmartImage } from './SmartImage';
 
 interface CareerSkillsStudioProps {
   user: User;
@@ -562,11 +564,12 @@ export const CareerSkillsStudio: React.FC<CareerSkillsStudioProps> = ({
           </div>
         </div>
 
-        {/* Category Navigation Tabs */}
+        {/* Category Color-Coded Navigation Tabs */}
         <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
           {CAREER_SKILL_CATEGORIES.map((cat) => {
             const st = catStats[cat.id];
             const active = activeTab === cat.id;
+            const cTheme = getCareerTheme(cat.id);
             return (
               <button
                 key={cat.id}
@@ -575,10 +578,10 @@ export const CareerSkillsStudio: React.FC<CareerSkillsStudioProps> = ({
                   setActiveTab(cat.id);
                   setResetConfirmCat(null);
                 }}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                className={`px-4 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                   active
-                    ? 'bg-blue-700 text-white'
-                    : 'bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
+                    ? `${cTheme.activeButton} shadow-sm`
+                    : `${cTheme.softBorder} ${cTheme.softSurface} text-slate-800 dark:text-slate-200 ${cTheme.ringHover}`
                 }`}
               >
                 {cat.number} {cat.shortTitle} ({st.correct}/{st.total})
@@ -588,10 +591,10 @@ export const CareerSkillsStudio: React.FC<CareerSkillsStudioProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('credentials')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+            className={`px-4 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'credentials'
-                ? 'bg-blue-700 text-white'
-                : 'bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
+                ? 'bg-amber-600 border-amber-600 text-white shadow-sm'
+                : 'border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/30 text-amber-900 dark:text-amber-300 hover:border-amber-500'
             }`}
           >
             04. Badges &amp; PNG Certificate ({careerProgress.unlockedCareerBadges.length}/6)
@@ -622,22 +625,31 @@ export const CareerSkillsStudio: React.FC<CareerSkillsStudioProps> = ({
       )}
 
       {/* ACTIVE CATEGORY VIEW (Indianism / Interview Skills / GD Skills) */}
-      {activeCategoryDef && activeTab !== 'credentials' && (
+      {activeCategoryDef && activeTab !== 'credentials' && (() => {
+        const activeCatTheme = getCareerTheme(activeTab);
+        return (
         <div className="space-y-6">
           {/* Category Visual Feature Split */}
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+          <div className={`rounded-2xl border ${activeCatTheme.softBorder} bg-white dark:bg-slate-900 overflow-hidden`}>
+            <div
+              className={`h-1.5 w-full bg-gradient-to-r ${activeCatTheme.topBar}`}
+              aria-hidden="true"
+            />
+            <div className="p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
             <div className="lg:col-span-5 aspect-[16/9] lg:aspect-auto lg:min-h-[220px] overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-900">
-              <img
+              <SmartImage
                 src={activeCategoryDef.image}
                 alt={activeCategoryDef.imageAlt}
-                referrerPolicy="no-referrer"
+                fallbackTitle={activeCategoryDef.title}
+                fallbackSubtitle={activeCategoryDef.subtitle}
+                priority
                 className="w-full h-full object-cover"
               />
             </div>
 
             <div className="lg:col-span-7 flex flex-col justify-between space-y-4">
               <div className="space-y-2">
-                <div className="text-xs font-mono font-bold text-blue-700 dark:text-blue-400">
+                <div className={`text-xs font-mono font-bold ${activeCatTheme.text}`}>
                   CATEGORY {activeCategoryDef.number} · {activeCategoryDef.subtitle}
                 </div>
                 <h2 className="font-display text-2xl font-bold text-slate-950 dark:text-white">
@@ -714,6 +726,7 @@ export const CareerSkillsStudio: React.FC<CareerSkillsStudioProps> = ({
                     ))}
                 </div>
               </div>
+            </div>
             </div>
           </div>
 
@@ -915,7 +928,8 @@ export const CareerSkillsStudio: React.FC<CareerSkillsStudioProps> = ({
             </div>
           )}
         </div>
-      )}
+        );
+      })()}
 
       {/* TAB 4: BADGES & PNG CERTIFICATE */}
       {activeTab === 'credentials' && (

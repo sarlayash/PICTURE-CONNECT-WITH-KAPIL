@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Award, Lock, LogOut, Moon, ShieldCheck, Sun } from 'lucide-react';
 import { evaluateFinalPrerequisites } from './data/finalAssessmentData';
+import { getNavSectionTheme } from './data/themeColors';
 import { BADGES, getLearnerRank, WORKSHOP_META } from './data/workshopData';
 import {
   auth,
@@ -328,10 +329,16 @@ function PictureConnectWorkspace() {
     { id: 'final', label: 'Final 1000 XP', locked: isFinalLocked },
   ];
 
+  const activeSectionTheme = getNavSectionTheme(view);
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      {/* Strict 3-Zone Top Bar Contract */}
+      {/* Strict 3-Zone Top Bar Contract with Active Section Color Hairline */}
       <header className="no-print sticky top-0 z-30 bg-white/95 dark:bg-slate-950/95 backdrop-blur border-b border-slate-200 dark:border-slate-800">
+        <div
+          className={`h-0.5 w-full bg-gradient-to-r ${activeSectionTheme.topBar} transition-all duration-300`}
+          aria-hidden="true"
+        />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3 lg:gap-4">
           <button
             type="button"
@@ -347,6 +354,7 @@ function PictureConnectWorkspace() {
           >
             {navItems.map((item) => {
               const active = view === item.id;
+              const itemTheme = getNavSectionTheme(item.id);
               return (
                 <button
                   key={item.id}
@@ -354,7 +362,7 @@ function PictureConnectWorkspace() {
                   onClick={() => handleNavigateView(item.id)}
                   className={`inline-flex items-center gap-1.5 py-1 border-b-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                     active
-                      ? 'border-blue-700 text-slate-950 dark:border-blue-400 dark:text-white font-semibold'
+                      ? `${itemTheme.activeTab} font-semibold`
                       : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
                   }`}
                 >
@@ -369,9 +377,9 @@ function PictureConnectWorkspace() {
             <button
               type="button"
               onClick={() => handleNavigateView('achievements')}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 tabular-nums"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-700 via-indigo-700 to-violet-700 hover:from-blue-800 hover:to-violet-800 text-white text-xs font-semibold transition-all whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 tabular-nums shadow-sm"
             >
-              <Award className="w-4 h-4" />
+              <Award className="w-4 h-4 text-amber-300" />
               <span>Certificate · {progress.xp} XP</span>
             </button>
           </div>
@@ -380,6 +388,7 @@ function PictureConnectWorkspace() {
         <div className="md:hidden border-t border-slate-100 dark:border-slate-900 px-3 py-1.5 flex items-center gap-1 overflow-x-auto">
           {navItems.map((item) => {
             const active = view === item.id;
+            const itemTheme = getNavSectionTheme(item.id);
             return (
               <button
                 key={item.id}
@@ -387,7 +396,7 @@ function PictureConnectWorkspace() {
                 onClick={() => handleNavigateView(item.id)}
                 className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer ${
                   active
-                    ? 'bg-blue-700 text-white'
+                    ? itemTheme.activeButton
                     : 'text-slate-600 dark:text-slate-400'
                 }`}
               >

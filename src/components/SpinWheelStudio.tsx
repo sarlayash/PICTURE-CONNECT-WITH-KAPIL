@@ -8,6 +8,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { WHEEL_DECKS, WheelSegment } from '../data/workshopData';
+import { getWheelDeckTheme } from '../data/themeColors';
 import { ConnectionPostDoc, LearnerProgressDoc } from '../services/firestoreService';
 import { StageTimer } from './StageTimer';
 import { VisualArtwork } from './VisualArtwork';
@@ -168,10 +169,11 @@ export const SpinWheelStudio: React.FC<SpinWheelStudioProps> = ({
         </div>
       </div>
 
-      {/* 3 Wheel Deck Tabs */}
+      {/* 3 Color-Coded Wheel Deck Tabs */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {WHEEL_DECKS.map((item) => {
           const active = item.id === deckId;
+          const dTheme = getWheelDeckTheme(item.id);
           const deckDoneCount = item.segments.filter((seg) =>
             progress.completedWheelPrompts.includes(seg.id)
           ).length;
@@ -181,28 +183,34 @@ export const SpinWheelStudio: React.FC<SpinWheelStudioProps> = ({
               type="button"
               disabled={isSpinning}
               onClick={() => handleSelectDeck(item.id)}
-              className={`text-left rounded-xl border p-4 transition-colors cursor-pointer disabled:opacity-60 ${
+              className={`text-left rounded-xl border overflow-hidden transition-all cursor-pointer disabled:opacity-60 ${
                 active
-                  ? 'border-blue-600 dark:border-blue-500 bg-blue-50/70 dark:bg-blue-950/30'
-                  : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
+                  ? `${dTheme.softBorder} ${dTheme.softSurface} shadow-sm`
+                  : `border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 ${dTheme.ringHover}`
               }`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="font-display text-sm font-bold text-slate-950 dark:text-white">
-                  {item.name}
+              <div
+                className={`h-1 w-full bg-gradient-to-r ${dTheme.topBar}`}
+                aria-hidden="true"
+              />
+              <div className="p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className={`font-display text-sm font-bold ${active ? dTheme.text : 'text-slate-950 dark:text-white'}`}>
+                    {item.name}
+                  </div>
+                  <span
+                    className={`font-mono text-[11px] font-bold tabular-nums shrink-0 ${
+                      deckDoneCount > 0
+                        ? 'text-emerald-700 dark:text-emerald-400'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    {deckDoneCount}/{item.segments.length} Done
+                  </span>
                 </div>
-                <span
-                  className={`font-mono text-[11px] font-bold tabular-nums shrink-0 ${
-                    deckDoneCount > 0
-                      ? 'text-emerald-700 dark:text-emerald-400'
-                      : 'text-slate-400'
-                  }`}
-                >
-                  {deckDoneCount}/{item.segments.length} Done
-                </span>
-              </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                {item.subtitle}
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  {item.subtitle}
+                </div>
               </div>
             </button>
           );

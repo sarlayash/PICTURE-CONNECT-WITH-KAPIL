@@ -1,4 +1,4 @@
-import { PHOTO_ASSETS, PhotoAssetKey } from './imageAssets';
+import { LANDING_SHOWCASE_IMAGES, PHOTO_ASSETS, PhotoAssetKey } from './imageAssets';
 import shoppingStudioHero from '../assets/images/shopping_negotiation_studio_1795156085818.jpg';
 import indianismHero from '../assets/images/indianism_global_english_1795156086055.jpg';
 import interviewHero from '../assets/images/interview_skills_panel_1795156085569.jpg';
@@ -383,8 +383,8 @@ export const ACADEMY_CATEGORIES: AcademyCategory[] = [
     description:
       'Analyze Customer Delight video case films, pass the 90-minute 1000 XP Final Capstone, and download PNG Certificates & Placement LOR PDFs.',
     highlights: '2 Video Films · 1000 XP Final · LOR PDF',
-    image: PHOTO_ASSETS.mountain_peak.src,
-    imageAlt: PHOTO_ASSETS.mountain_peak.alt,
+    image: LANDING_SHOWCASE_IMAGES.capstoneArena.src,
+    imageAlt: LANDING_SHOWCASE_IMAGES.capstoneArena.alt,
     targetView: 'final',
   },
 ];

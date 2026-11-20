@@ -35,6 +35,7 @@ import {
 import { LearnerProgressDoc } from '../services/firestoreService';
 import { AppView } from './OverviewStudio';
 import { FinalCredentialsPanel } from './FinalCredentialsPanel';
+import { SmartImage } from './SmartImage';
 
 interface FinalAssessmentStudioProps {
   user: User;
@@ -99,7 +100,6 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
   const [retryingSecondAttempt, setRetryingSecondAttempt] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   const [showRationales, setShowRationales] = useState(false);
-  const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
 
   const autoSubmittedRef = useRef(false);
   const hydratedOwnerRef = useRef<string>('');
@@ -938,27 +938,14 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
             {/* Case Visual & Quantitative Dossier */}
             <div className="lg:col-span-5 space-y-4">
               <div className="aspect-[16/9] w-full rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950">
-                {brokenImages[activeCaseStudy.id] ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-gradient-to-br from-slate-800 to-slate-950 text-white">
-                    <Sparkles className="w-8 h-8 text-amber-400 mb-2" />
-                    <div className="font-display font-bold text-sm">
-                      {activeCaseStudy.title}
-                    </div>
-                  </div>
-                ) : (
-                  <img
-                    src={activeCaseStudy.imageSrc}
-                    alt={activeCaseStudy.imageAlt}
-                    referrerPolicy="no-referrer"
-                    onError={() =>
-                      setBrokenImages((prev) => ({
-                        ...prev,
-                        [activeCaseStudy.id]: true,
-                      }))
-                    }
-                    className="w-full h-full object-cover"
-                  />
-                )}
+                <SmartImage
+                  src={activeCaseStudy.imageSrc}
+                  alt={activeCaseStudy.imageAlt}
+                  fallbackTitle={activeCaseStudy.title}
+                  fallbackSubtitle={activeCaseStudy.trackBlend}
+                  priority
+                  className="w-full h-full object-cover"
+                />
               </div>
 
               <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 space-y-2.5">

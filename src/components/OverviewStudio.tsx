@@ -25,11 +25,18 @@ import {
   ConnectionPostDoc,
   LearnerProgressDoc,
 } from '../services/firestoreService';
+import { FounderNoteSection } from './FounderNoteSection';
 import { LiveClock } from './LiveClock';
+import { SmartImage } from './SmartImage';
 import { VisualArtwork } from './VisualArtwork';
 import { VideoChallengesSection } from './VideoChallengesSection';
 
 import { CareerCategoryId } from '../data/careerSkillsData';
+import {
+  getCategoryTheme,
+  getLevelTheme,
+  getTrackTheme,
+} from '../data/themeColors';
 import {
   MASTER_TRACKS,
   MasterPillarId,
@@ -389,6 +396,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
                 ? 'Capstone Ready · 90 Min'
                 : `${finalPrereqLabel} Prereqs · Video Films`;
 
+            const theme = getCategoryTheme(cat.id);
             return (
               <button
                 key={cat.id}
@@ -401,28 +409,32 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
                     cat.masterPillar
                   )
                 }
-                className="text-left rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-600 dark:hover:border-blue-500 overflow-hidden flex flex-col justify-between transition-colors cursor-pointer group"
+                className={`text-left rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 ${theme.ringHover} overflow-hidden flex flex-col justify-between transition-all duration-200 cursor-pointer group hover:shadow-md`}
               >
                 <div>
+                  <div
+                    className={`h-1 w-full bg-gradient-to-r ${theme.topBar}`}
+                    aria-hidden="true"
+                  />
                   <div className="aspect-[16/9] w-full overflow-hidden border-b border-slate-100 dark:border-slate-800 bg-slate-100 dark:bg-slate-950">
-                    <img
+                    <SmartImage
                       src={cat.image}
                       alt={cat.imageAlt}
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
+                      fallbackTitle={cat.title}
+                      fallbackSubtitle={cat.subtitle}
                       className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
                     />
                   </div>
                   <div className="p-5 space-y-2">
                     <div className="flex items-center justify-between gap-2 text-xs font-mono">
-                      <span className="font-bold text-blue-700 dark:text-blue-400">
+                      <span className={`font-bold ${theme.text}`}>
                         {cat.number}
                       </span>
                       <span className="text-slate-500 dark:text-slate-400 tabular-nums">
                         {liveStatus}
                       </span>
                     </div>
-                    <h3 className="font-display text-lg font-bold text-slate-950 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">
+                    <h3 className="font-display text-lg font-bold text-slate-950 dark:text-white transition-colors">
                       {cat.title}
                     </h3>
                     <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
@@ -431,7 +443,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
                   </div>
                 </div>
 
-                <div className="mx-5 mb-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-blue-700 dark:text-blue-400">
+                <div className={`mx-5 mb-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-semibold ${theme.text}`}>
                   <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 font-normal">
                     {cat.highlights}
                   </span>
@@ -480,24 +492,28 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/15">
-          {MASTER_TRACKS.map((track) => (
-            <button
-              key={track.id}
-              type="button"
-              onClick={() =>
-                onNavigateView(
-                  'universe',
-                  undefined,
-                  undefined,
-                  track.pillarId,
-                  track.id
-                )
-              }
-              className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-mono font-semibold text-slate-100 transition-colors cursor-pointer whitespace-nowrap"
-            >
-              {track.number} {track.shortTitle}
-            </button>
-          ))}
+          {MASTER_TRACKS.map((track) => {
+            const tTheme = getTrackTheme(track.id);
+            return (
+              <button
+                key={track.id}
+                type="button"
+                onClick={() =>
+                  onNavigateView(
+                    'universe',
+                    undefined,
+                    undefined,
+                    track.pillarId,
+                    track.id
+                  )
+                }
+                className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-mono font-semibold text-slate-100 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <span className={tTheme.textDarkLanding}>{track.number}</span>{' '}
+                {track.shortTitle}
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -686,35 +702,42 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
           {LEVELS.map((lvl) => {
             const done = progress.completedLevels.includes(lvl.level);
+            const lvlTheme = getLevelTheme(lvl.level);
             return (
               <button
                 key={lvl.level}
                 type="button"
                 onClick={() => onNavigateView('levels', lvl.level)}
-                className={`text-left rounded-xl border p-4 transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
+                className={`text-left rounded-xl border overflow-hidden transition-all cursor-pointer flex flex-col justify-between ${
                   done
                     ? 'border-emerald-300 dark:border-emerald-800/70 bg-emerald-50/50 dark:bg-emerald-950/20 hover:border-emerald-500'
-                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-500 dark:hover:border-blue-500'
+                    : `${lvlTheme.softBorder} ${lvlTheme.softSurface} ${lvlTheme.ringHover}`
                 }`}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-xs font-bold text-slate-500 dark:text-slate-400">
-                    LEVEL {String(lvl.level).padStart(2, '0')}
-                  </span>
-                  {done ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  ) : (
-                    <span className="font-mono text-[11px] font-semibold text-blue-700 dark:text-blue-400 tabular-nums">
-                      +{lvl.xpReward} XP
+                <div
+                  className={`h-1 w-full bg-gradient-to-r ${lvlTheme.topBar}`}
+                  aria-hidden="true"
+                />
+                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`font-mono text-xs font-bold ${lvlTheme.text}`}>
+                      LEVEL {String(lvl.level).padStart(2, '0')}
                     </span>
-                  )}
-                </div>
-                <div>
-                  <div className="font-display font-semibold text-sm text-slate-950 dark:text-white leading-snug">
-                    {lvl.title}
+                    {done ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    ) : (
+                      <span className={`font-mono text-[11px] font-semibold ${lvlTheme.text} tabular-nums`}>
+                        +{lvl.xpReward} XP
+                      </span>
+                    )}
                   </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    {lvl.skillTag}
+                  <div>
+                    <div className="font-display font-semibold text-sm text-slate-950 dark:text-white leading-snug">
+                      {lvl.title}
+                    </div>
+                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                      {lvl.skillTag}
+                    </div>
                   </div>
                 </div>
               </button>
@@ -722,6 +745,9 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
           })}
         </div>
       </section>
+
+      {/* Founder's Note from Employability Universe Architect — Kapil */}
+      <FounderNoteSection variant="portal" />
 
       {/* Central Concept Explorer + Shared Learner Wall */}
       <section className="space-y-6">

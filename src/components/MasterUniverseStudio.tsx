@@ -34,6 +34,8 @@ import {
   resetMasterTrackTest,
   submitMasterMcqAnswer,
 } from '../services/masterUniverseFirestoreService';
+import { getPillarTheme, getTrackTheme } from '../data/themeColors';
+import { SmartImage } from './SmartImage';
 
 interface MasterUniverseStudioProps {
   user: User;
@@ -584,13 +586,28 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
     }
   };
 
+  const activeTrackTheme = getTrackTheme(activeTrack);
+  const activePillarTheme =
+    activePillar === 'credentials'
+      ? null
+      : getPillarTheme(activePillar);
+
   return (
     <div className="space-y-8">
       {/* Studio Overview Header */}
-      <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-5">
+      <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+        <div
+          className={`h-1.5 w-full bg-gradient-to-r ${
+            activePillarTheme
+              ? activePillarTheme.topBar
+              : 'from-amber-500 via-yellow-500 to-orange-500'
+          }`}
+          aria-hidden="true"
+        />
+        <div className="p-6 space-y-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1.5 max-w-3xl">
-            <div className="text-xs font-mono font-bold text-blue-700 dark:text-blue-400">
+            <div className="text-xs font-mono font-bold text-violet-700 dark:text-violet-400">
               EMPLOYABILITY UNIVERSE WITH KAPIL · 12 PLACEMENT SUBJECTS · 120 HINTED MCQS
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-slate-950 dark:text-white">
@@ -652,24 +669,25 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
           </div>
         </div>
 
-        {/* Top 4 Pillar Tabs */}
+        {/* Top 4 Color-Coded Pillar Tabs */}
         <div className="flex flex-wrap items-center gap-2 pt-1">
           {MASTER_PILLARS.map((pillar) => {
             const pStat = pillarStats[pillar.id];
             const active = activePillar === pillar.id;
+            const pTheme = getPillarTheme(pillar.id);
             return (
               <button
                 key={pillar.id}
                 type="button"
                 onClick={() => handleSelectPillar(pillar.id)}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
                   active
-                    ? 'bg-slate-950 dark:bg-blue-700 text-white'
-                    : 'border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-300 hover:border-blue-500'
+                    ? `${pTheme.activeButton} shadow-sm`
+                    : `${pTheme.softBorder} ${pTheme.softSurface} text-slate-800 dark:text-slate-200 ${pTheme.ringHover}`
                 }`}
               >
                 <span>{pillar.shortTitle}</span>
-                <span className="font-mono text-[11px] opacity-80 tabular-nums">
+                <span className="font-mono text-[11px] opacity-85 tabular-nums">
                   ({pStat.correct}/{pStat.total})
                 </span>
               </button>
@@ -681,13 +699,14 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
             onClick={() => handleSelectPillar('credentials')}
             className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
               activePillar === 'credentials'
-                ? 'bg-amber-600 text-white'
+                ? 'bg-amber-600 text-white shadow-sm'
                 : 'border border-amber-300 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/30 text-amber-900 dark:text-amber-300 hover:border-amber-500'
             }`}
           >
             <Award className="w-3.5 h-3.5" />
             <span>Badges ({masterProgress.unlockedMasterBadges.length}/8) &amp; PNG Certificate</span>
           </button>
+        </div>
         </div>
       </section>
 
@@ -716,12 +735,13 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
       {/* Active Pillar Workspace */}
       {activePillar !== 'credentials' && (
         <div className="space-y-6">
-          {/* 4-Track Selector Bar Inside Pillar */}
+          {/* 4-Track Color-Coded Selector Bar Inside Pillar */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {currentPillarDef.trackIds.map((tid) => {
               const tDef = MASTER_TRACKS.find((t) => t.id === tid)!;
               const tStat = trackStats[tid];
               const selected = activeTrack === tid;
+              const tTheme = getTrackTheme(tid);
               return (
                 <button
                   key={tid}
@@ -730,56 +750,69 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
                     setActiveTrack(tid);
                     setRetakeConfirm(false);
                   }}
-                  className={`text-left p-4 rounded-xl border transition-all cursor-pointer space-y-2 ${
+                  className={`text-left rounded-xl border overflow-hidden transition-all cursor-pointer ${
                     selected
-                      ? 'border-blue-600 dark:border-blue-500 bg-blue-50/70 dark:bg-blue-950/30 ring-1 ring-blue-600/20'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-400'
+                      ? `${tTheme.softBorder} ${tTheme.softSurface} ring-1 ring-inset ring-slate-400/20 shadow-sm`
+                      : `border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 ${tTheme.ringHover}`
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2 text-[11px] font-mono">
-                    <span className="font-bold text-blue-700 dark:text-blue-400">
-                      {tDef.number}
-                    </span>
-                    <span
-                      className={`tabular-nums font-semibold ${
-                        tStat.completed
-                          ? 'text-emerald-700 dark:text-emerald-400'
-                          : 'text-slate-500 dark:text-slate-400'
-                      }`}
-                    >
-                      {tStat.correct}/{tStat.total} Correct
-                    </span>
-                  </div>
-                  <div className="font-display font-bold text-sm text-slate-950 dark:text-white">
-                    {tDef.shortTitle}
-                  </div>
-                  <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-blue-600 dark:bg-blue-500 transition-all"
-                      style={{
-                        width: `${Math.round((tStat.answered / tStat.total) * 100)}%`,
-                      }}
-                    />
+                  <div
+                    className={`h-1 w-full bg-gradient-to-r ${tTheme.topBar}`}
+                    aria-hidden="true"
+                  />
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-2 text-[11px] font-mono">
+                      <span className={`font-bold ${tTheme.text}`}>
+                        {tDef.number}
+                      </span>
+                      <span
+                        className={`tabular-nums font-semibold ${
+                          tStat.completed
+                            ? 'text-emerald-700 dark:text-emerald-400'
+                            : 'text-slate-500 dark:text-slate-400'
+                        }`}
+                      >
+                        {tStat.correct}/{tStat.total} Correct
+                      </span>
+                    </div>
+                    <div className="font-display font-bold text-sm text-slate-950 dark:text-white">
+                      {tDef.shortTitle}
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${tTheme.progressBar} transition-all`}
+                        style={{
+                          width: `${Math.round((tStat.answered / tStat.total) * 100)}%`,
+                        }}
+                      />
+                    </div>
                   </div>
                 </button>
               );
             })}
           </div>
 
-          {/* Track Hero Card with Editorial Image + Mode Switcher */}
-          <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden grid grid-cols-1 lg:grid-cols-12">
+          {/* Track Hero Card with Editorial SmartImage + Color-Coded Mode Switcher */}
+          <section className={`rounded-2xl border ${activeTrackTheme.softBorder} bg-white dark:bg-slate-900 overflow-hidden`}>
+            <div
+              className={`h-1.5 w-full bg-gradient-to-r ${activeTrackTheme.topBar}`}
+              aria-hidden="true"
+            />
+            <div className="grid grid-cols-1 lg:grid-cols-12">
             <div className="lg:col-span-5 aspect-[16/10] lg:aspect-auto bg-slate-100 dark:bg-slate-950 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800">
-              <img
+              <SmartImage
                 src={currentTrackDef.image}
                 alt={currentTrackDef.imageAlt}
-                referrerPolicy="no-referrer"
+                fallbackTitle={currentTrackDef.title}
+                fallbackSubtitle={currentTrackDef.subtitle}
+                priority
                 className="w-full h-full object-cover"
               />
             </div>
 
             <div className="lg:col-span-7 p-6 flex flex-col justify-between space-y-5">
               <div className="space-y-2">
-                <div className="text-xs font-mono font-bold text-blue-700 dark:text-blue-400">
+                <div className={`text-xs font-mono font-bold ${activeTrackTheme.text}`}>
                   {currentPillarDef.number} · {currentTrackDef.number} {currentTrackDef.subtitle}
                 </div>
                 <h2 className="font-display text-2xl font-bold text-slate-950 dark:text-white">
@@ -800,7 +833,7 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
                     onClick={() => setInnerMode('mcq')}
                     className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                       innerMode === 'mcq'
-                        ? 'bg-blue-700 text-white'
+                        ? activeTrackTheme.activeButton
                         : 'border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
@@ -814,7 +847,7 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
                     onClick={() => setInnerMode('study')}
                     className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                       innerMode === 'study'
-                        ? 'bg-blue-700 text-white'
+                        ? activeTrackTheme.activeButton
                         : 'border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
@@ -858,6 +891,7 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
                   </div>
                 )}
               </div>
+            </div>
             </div>
           </section>
 

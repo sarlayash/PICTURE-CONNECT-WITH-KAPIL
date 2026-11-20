@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Activity,
   Award,
@@ -300,6 +300,18 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
   onSelectClue,
 }) => {
   const [imgError, setImgError] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    setImgError(false);
+    const el = imgRef.current;
+    if (el && el.complete && el.naturalWidth > 0) {
+      setImgLoaded(true);
+    } else {
+      setImgLoaded(false);
+    }
+  }, [id, photoKey]);
 
   // Interactive Workplace Audit Photo (Level 6)
   if (id === 'workplace_detective' && !imgError) {
@@ -309,11 +321,17 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
         className={`relative select-none overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-950 ${className}`}
       >
         <img
+          ref={imgRef}
           src={asset.src}
           alt={asset.alt}
+          decoding="async"
+          fetchPriority="high"
           referrerPolicy="no-referrer"
+          onLoad={() => setImgLoaded(true)}
           onError={() => setImgError(true)}
-          className="w-full h-full object-cover block"
+          className={`w-full h-full object-cover block transition-opacity duration-300 ${
+            imgLoaded ? 'opacity-100' : 'opacity-0'
+          }`}
         />
         <div
           className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/35 via-transparent to-slate-950/15"
@@ -351,11 +369,17 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
         className={`relative select-none overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-950 ${className}`}
       >
         <img
+          ref={imgRef}
           src={asset.src}
           alt={asset.alt}
+          decoding="async"
+          fetchPriority="high"
           referrerPolicy="no-referrer"
+          onLoad={() => setImgLoaded(true)}
           onError={() => setImgError(true)}
-          className="w-full h-full object-cover block"
+          className={`w-full h-full object-cover block transition-opacity duration-300 ${
+            imgLoaded ? 'opacity-100' : 'opacity-0'
+          }`}
         />
         <div
           className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent"
@@ -386,7 +410,7 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
     );
   }
 
-  // High-resolution generated photography for every ArtworkId
+  // High-resolution optimized photography for every ArtworkId
   const resolvedPhotoKey = photoKey ?? DIRECT_PHOTO_MAP[id];
   if (resolvedPhotoKey && !imgError) {
     const asset = PHOTO_ASSETS[resolvedPhotoKey];
@@ -395,11 +419,16 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
         className={`group relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-950 ${className}`}
       >
         <img
+          ref={imgRef}
           src={asset.src}
           alt={asset.alt}
+          decoding="async"
           referrerPolicy="no-referrer"
+          onLoad={() => setImgLoaded(true)}
           onError={() => setImgError(true)}
-          className="w-full h-full object-cover block transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+          className={`w-full h-full object-cover block transition-all duration-500 ease-out group-hover:scale-[1.03] ${
+            imgLoaded ? 'opacity-100' : 'opacity-0'
+          }`}
         />
         <div
           className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-slate-950/85 via-slate-950/35 to-transparent flex items-end px-4 pb-2.5"

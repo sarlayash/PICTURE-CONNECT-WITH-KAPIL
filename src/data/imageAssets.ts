@@ -29,6 +29,33 @@ import missingPiece from '../assets/images/missing_piece_1795022791290.jpg';
 import mountainSummit from '../assets/images/mountain_summit_1795022792721.jpg';
 import espressoRitual from '../assets/images/espresso_ritual_1795022829777.jpg';
 import lighthouseBeacon from '../assets/images/lighthouse_beacon_1795022716330.jpg';
+import heroEmployabilityUniverse from '../assets/images/hero_employability_universe_1795177268574.jpg';
+import founderKapilStudio from '../assets/images/founder_kapil_studio_1795177267817.jpg';
+import universeCredentialsShowcase from '../assets/images/universe_credentials_showcase_1795177268921.jpg';
+import capstoneSummitArena from '../assets/images/capstone_summit_arena_1795177270608.jpg';
+
+export const LANDING_SHOWCASE_IMAGES = {
+  heroUniverse: {
+    src: heroEmployabilityUniverse,
+    alt: 'Employability Universe With Kapil modern leadership and coding academy atrium overlooking twilight skyline',
+    caption: 'EMPLOYABILITY UNIVERSE With Kapil · Global Placement Atrium',
+  },
+  founderStudio: {
+    src: founderKapilStudio,
+    alt: 'Executive mentor study desk with open leather strategy journal, fountain pen, and brass compass for Employability Universe Architect Kapil',
+    caption: 'Founder’s Desk · Employability Universe Architect — Kapil',
+  },
+  credentialsShowcase: {
+    src: universeCredentialsShowcase,
+    alt: 'Embossed navy-and-gold executive certificates, sapphire achievement medallions, and leather placement portfolio on dark slate',
+    caption: 'Verified PNG Badges · 6 Certificates · Placement LOR PDF',
+  },
+  capstoneArena: {
+    src: capstoneSummitArena,
+    alt: 'Executive placement boardroom and summit hall overlooking twilight metropolis for the 1000 XP Final Capstone Assessment',
+    caption: 'Final Capstone Summit · 90-Minute 1000 XP Evaluation Arena',
+  },
+} as const;
 
 export const PHOTO_ASSETS = {
   crossroads: {

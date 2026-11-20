@@ -420,10 +420,10 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
           <button
             type="button"
             onClick={() => setStudioTab('challenges')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               studioTab === 'challenges'
-                ? 'bg-indigo-700 text-white'
-                : 'bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                ? 'bg-rose-600 border-rose-600 text-white shadow-sm'
+                : 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900 text-rose-900 dark:text-rose-200 hover:border-rose-500'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
@@ -433,10 +433,10 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
           <button
             type="button"
             onClick={() => setStudioTab('guide')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               studioTab === 'guide'
-                ? 'bg-indigo-700 text-white'
-                : 'bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                ? 'bg-indigo-700 border-indigo-700 text-white shadow-sm'
+                : 'bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-900 text-indigo-900 dark:text-indigo-200 hover:border-indigo-500'
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
@@ -446,10 +446,10 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
           <button
             type="button"
             onClick={() => setStudioTab('credentials')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               studioTab === 'credentials'
-                ? 'bg-indigo-700 text-white'
-                : 'bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                ? 'bg-amber-600 border-amber-600 text-white shadow-sm'
+                : 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-200 hover:border-amber-500'
             }`}
           >
             <Award className="w-3.5 h-3.5" />

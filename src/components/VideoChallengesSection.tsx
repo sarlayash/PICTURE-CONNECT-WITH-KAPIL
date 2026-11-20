@@ -118,15 +118,25 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
           const toast = toasts[video.id];
           const busy = submittingId === video.id;
 
+          const filmGradient =
+            video.number === '01'
+              ? 'from-sky-500 via-cyan-400 to-blue-600'
+              : 'from-rose-500 via-amber-400 to-orange-500';
+
           return (
             <article
               key={video.id}
-              className={`rounded-2xl border p-5 sm:p-6 flex flex-col justify-between space-y-5 ${
+              className={`rounded-2xl border overflow-hidden flex flex-col justify-between ${
                 isLanding
-                  ? 'border-[#1E335C] bg-[#0B1733]'
+                  ? 'border-[#1E3563] bg-[#0B1733]'
                   : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'
               }`}
             >
+              <div
+                className={`h-1 w-full bg-gradient-to-r ${filmGradient}`}
+                aria-hidden="true"
+              />
+              <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between space-y-5">
               <div className="space-y-4">
                 {/* Clean Unboxed Metadata Strip */}
                 <div
@@ -363,6 +373,7 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
                   )}
                 </div>
               )}
+              </div>
             </article>
           );
         })}
