@@ -83,7 +83,7 @@ function renderAndDownloadBadgePng(
   ctx.textAlign = 'center';
   ctx.fillStyle = palette.glow;
   ctx.font = '700 20px "JetBrains Mono", monospace';
-  ctx.fillText('EMPLOYABILITY SKILLS WITH KAPIL · PICTURE CONNECT BADGE', S / 2, 128);
+  ctx.fillText('EMPLOYABILITY UNIVERSE WITH KAPIL · PICTURE CONNECT BADGE', S / 2, 128);
 
   // Central Collectible Medallion
   const cx = S / 2;
@@ -321,7 +321,7 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
       ctx.fillStyle = '#1D4ED8';
       ctx.font = '700 28px "Plus Jakarta Sans", system-ui, sans-serif';
       ctx.fillText(
-        `${WORKSHOP_META.institution.toUpperCase()}  ·  ${WORKSHOP_META.title}`,
+        'EMPLOYABILITY UNIVERSE WITH KAPIL  ·  PICTURE CONNECT MASTERY',
         W / 2,
         215
       );
@@ -484,7 +484,7 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
       // Export PNG download
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
-      link.download = `Employability-Skills-Picture-Connect-Certificate-Kapil.png`;
+      link.download = `Employability-Universe-Picture-Connect-Certificate-Kapil.png`;
       link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
@@ -672,7 +672,7 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
           <div className="border-2 border-amber-600/70 p-6 sm:p-10 space-y-8 text-center relative">
             <div className="space-y-2">
               <div className="font-mono text-xs font-bold tracking-[0.2em] text-blue-700 uppercase">
-                {WORKSHOP_META.institution} · {WORKSHOP_META.title}
+                EMPLOYABILITY UNIVERSE WITH KAPIL · PICTURE CONNECT MASTERY
               </div>
               <h3 className="font-display text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-950">
                 {isFullMastery

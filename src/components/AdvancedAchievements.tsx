@@ -87,7 +87,7 @@ function renderAndDownloadAdvBadgePng(
   ctx.textAlign = 'center';
   ctx.fillStyle = palette.glow;
   ctx.font = '700 19px "JetBrains Mono", monospace';
-  ctx.fillText('EMPLOYABILITY SKILLS WITH KAPIL · AI PICTURE CONNECT', S / 2, 128);
+  ctx.fillText('EMPLOYABILITY UNIVERSE WITH KAPIL · AI PICTURE CONNECT', S / 2, 128);
 
   // Central Hexagonal Prestige Emblem
   const cx = S / 2;
@@ -337,7 +337,7 @@ export const AdvancedAchievements: React.FC<AdvancedAchievementsProps> = ({
       ctx.fillStyle = '#4338CA';
       ctx.font = '700 22px "JetBrains Mono", monospace';
       ctx.fillText(
-        `BUILDING EMPLOYABILITY SKILLS WITH KAPIL  ·  ${ADVANCED_META.title}`,
+        `EMPLOYABILITY UNIVERSE WITH KAPIL  ·  ${ADVANCED_META.title}`,
         W / 2,
         215
       );
@@ -499,7 +499,7 @@ export const AdvancedAchievements: React.FC<AdvancedAchievementsProps> = ({
 
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
-      link.download = 'AI-Picture-Connect-Advanced-Certificate-Powered-By-Kapil.png';
+      link.download = 'Employability-Universe-AI-Advanced-Certificate-Kapil.png';
       link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
@@ -691,7 +691,7 @@ export const AdvancedAchievements: React.FC<AdvancedAchievementsProps> = ({
           <div className="border-2 border-amber-700/60 p-6 sm:p-10 space-y-8 text-center relative">
             <div className="space-y-2">
               <div className="font-mono text-xs font-bold tracking-[0.2em] text-indigo-700 uppercase">
-                BUILDING EMPLOYABILITY SKILLS WITH KAPIL · {ADVANCED_META.title}
+                EMPLOYABILITY UNIVERSE WITH KAPIL · {ADVANCED_META.title}
               </div>
               <h4 className="font-display text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-950">
                 {isFullMastery

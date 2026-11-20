@@ -118,7 +118,7 @@ function renderCareerBadgePng(
   ctx.textAlign = 'center';
   ctx.fillStyle = palette.glow;
   ctx.font = '700 20px "JetBrains Mono", monospace';
-  ctx.fillText('EMPLOYABILITY SKILLS WITH KAPIL · CAREER MCQ BADGE', S / 2, 128);
+  ctx.fillText('EMPLOYABILITY UNIVERSE WITH KAPIL · CAREER MCQ BADGE', S / 2, 128);
 
   const cx = S / 2;
   const cy = 430;
@@ -386,7 +386,7 @@ export const CareerSkillsStudio: React.FC<CareerSkillsStudioProps> = ({
       ctx.fillStyle = '#1D4ED8';
       ctx.font = '700 24px "JetBrains Mono", monospace';
       ctx.fillText(
-        'BUILDING EMPLOYABILITY SKILLS WITH KAPIL  ·  CAREER & PLACEMENT MCQ ACADEMY',
+        'EMPLOYABILITY UNIVERSE WITH KAPIL  ·  CAREER & PLACEMENT MCQ ACADEMY',
         W / 2,
         210
       );
@@ -493,7 +493,7 @@ export const CareerSkillsStudio: React.FC<CareerSkillsStudioProps> = ({
 
       const safeName = learnerName.replace(/[^a-zA-Z0-9]+/g, '-');
       const link = document.createElement('a');
-      link.download = `Certificate-Career-Skills-${safeName}.png`;
+      link.download = `Employability-Universe-Career-Skills-${safeName}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     } finally {
@@ -1033,7 +1033,7 @@ export const CareerSkillsStudio: React.FC<CareerSkillsStudioProps> = ({
             <div className="rounded-2xl border-4 border-slate-900 dark:border-slate-700 bg-gradient-to-br from-[#FDFCF8] via-white to-blue-50 text-slate-900 p-6 sm:p-10 shadow-xl">
               <div className="border-2 border-amber-600/70 p-6 sm:p-10 space-y-6 text-center">
                 <div className="text-xs font-mono font-bold tracking-[0.2em] text-blue-700">
-                  BUILDING EMPLOYABILITY SKILLS WITH KAPIL · CAREER &amp; PLACEMENT MCQ ACADEMY
+                  EMPLOYABILITY UNIVERSE WITH KAPIL · CAREER &amp; PLACEMENT MCQ ACADEMY
                 </div>
                 <h3 className="font-display text-2xl sm:text-4xl font-extrabold text-slate-950">
                   CERTIFICATE OF PLACEMENT COMMUNICATION

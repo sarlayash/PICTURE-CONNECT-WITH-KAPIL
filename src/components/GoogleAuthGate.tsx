@@ -83,21 +83,21 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-3 border-t border-[#1E335C] text-xs items-center">
               <div>
-                <div className="text-slate-400">Picture Connect</div>
+                <div className="text-slate-400">Visual &amp; Soft Skills</div>
                 <div className="font-mono font-semibold text-white mt-0.5 tabular-nums">
-                  Levels 1–10 + AI
+                  Levels 1–10 + AI + GD
                 </div>
               </div>
               <div>
-                <div className="text-slate-400">Career MCQ Suite</div>
+                <div className="text-slate-400">Aptitude &amp; Grammar</div>
                 <div className="font-mono font-semibold text-white mt-0.5 tabular-nums">
-                  45 Hinted MCQs
+                  4 Tracks · 40 MCQs
                 </div>
               </div>
               <div>
-                <div className="text-slate-400">Shopping &amp; Deals</div>
+                <div className="text-slate-400">Code, Data &amp; Cloud</div>
                 <div className="font-mono font-semibold text-white mt-0.5 tabular-nums">
-                  42 Riddles + Lab
+                  8 Tech Tracks · 80 MCQs
                 </div>
               </div>
               <div className="flex justify-start sm:justify-end">
@@ -135,15 +135,15 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
             <div className="space-y-2.5 text-xs text-slate-300 border-y border-[#1E335C] py-4">
               <div className="flex items-center gap-2.5">
                 <Trophy className="w-4 h-4 text-sky-400 shrink-0" />
-                <span>Picture Connect (Levels 1–10, Spin Wheel &amp; 25 AI Challenges) + Shopping &amp; Negotiation</span>
+                <span>Picture Connect (Levels 1–10, Spin Wheel &amp; 25 AI Briefs) + Shopping, Negotiation, Indianism, Interview &amp; GD</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Indianism, Interview Skills &amp; GD Skills: 28 Playbooks, 45 Graded MCQs &amp; 6 Badges</span>
+                <span>12 Tech &amp; Placement Tracks: Aptitude, Grammar, Parts of Speech/Grammar, C, C++, Java, DSA, Excel, Power BI, DBMS &amp; Cloud</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <Award className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>90-Min 1000 XP Final Capstone, PNG Certificates &amp; Placement LOR PDF</span>
+                <span>120+ Graded Tech MCQs, 90-Min 1000 XP Final Capstone, PNG Badges, Certificates &amp; Placement LOR PDF</span>
               </div>
             </div>
 
@@ -205,14 +205,14 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
             <div>
               <div className="text-xs font-mono font-semibold text-sky-400">
-                CURATED CURRICULUM · 6 EMPLOYABILITY CATEGORIES
+                ONE-STOP MASTER CURRICULUM · 9 EMPLOYABILITY CATEGORIES
               </div>
               <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mt-1">
-                Explore Skill Categories
+                Explore EMPLOYABILITY UNIVERSE Categories
               </h2>
             </div>
             <div className="text-xs text-slate-400 font-mono">
-              Picture Connect · Shopping &amp; Deals · Indianism · Interviews · GD · Capstone
+              Communication · Aptitude &amp; Grammar · C/C++/Java/DSA · Excel/BI/DBMS/Cloud · Capstone
             </div>
           </div>
 

@@ -132,8 +132,8 @@ export const CAREER_STUDY_CARDS: CareerStudyCard[] = [
     id: 'st_ind_02',
     category: 'indianism',
     tag: 'Self-Introduction',
-    beforeOrPrompt: 'Avoid: "Myself Rohan Sharma from Jodhpur."',
-    afterOrFramework: 'Use: "I am Rohan Sharma from Jodhpur" or "My name is Rohan Sharma."',
+    beforeOrPrompt: 'Avoid: "Myself Rohan Sharma from Bengaluru."',
+    afterOrFramework: 'Use: "I am Rohan Sharma from Bengaluru" or "My name is Rohan Sharma."',
     takeaway: 'Never begin a sentence with a reflexive pronoun ("Myself") as the subject—it immediately lowers first-impression polish.',
   },
   {
@@ -442,10 +442,10 @@ export const CAREER_MCQS: CareerMcq[] = [
     question:
       'Which statement accurately describes finishing your degree to an international recruiter?',
     options: [
-      'I passed out from JIET Universe in 2026.',
-      'I passed away from JIET Universe in 2026.',
-      'I graduated from JIET Universe in 2026.',
-      'I got passed out of JIET Universe in 2026.',
+      'I passed out from my university in 2026.',
+      'I passed away from my university in 2026.',
+      'I graduated from my university in 2026.',
+      'I got passed out of my university in 2026.',
     ],
     correctIndex: 2,
     hint: 'In US/UK English, "pass out" means to faint or fall unconscious!',
@@ -620,15 +620,15 @@ export const CAREER_MCQS: CareerMcq[] = [
     question:
       'An interviewer asks where you currently live. Which answer avoids the Indianism "put up"?',
     options: [
-      'I am putting up in Jodhpur since four years.',
+      'I am putting up in Bengaluru since four years.',
       'I stay put up near the university campus.',
-      'I currently live in Jodhpur.',
-      'I am putting up at Jodhpur only.',
+      'I currently live in Bengaluru.',
+      'I am putting up at Bengaluru only.',
     ],
     correctIndex: 2,
     hint: 'In standard English, "put up" means to host someone temporarily or tolerate something ("put up with").',
     explanation:
-      'Use "I currently live in Jodhpur" or "I am based in Jodhpur" for clear, natural communication.',
+      'Use "I currently live in Bengaluru" or "I am based in Bengaluru" for clear, natural communication.',
     xpClean: 30,
     xpWithHint: 20,
   },

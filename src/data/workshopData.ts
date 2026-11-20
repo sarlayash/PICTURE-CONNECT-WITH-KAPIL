@@ -3,6 +3,7 @@ import shoppingStudioHero from '../assets/images/shopping_negotiation_studio_179
 import indianismHero from '../assets/images/indianism_global_english_1795156086055.jpg';
 import interviewHero from '../assets/images/interview_skills_panel_1795156085569.jpg';
 import gdHero from '../assets/images/gd_skills_roundtable_1795156086746.jpg';
+import { MASTER_UNIVERSE_IMAGES, MasterPillarId } from './masterUniverseTypes';
 
 export type ArtworkId =
   | 'bridge'
@@ -226,6 +227,9 @@ export interface AcademyCategory {
     | 'indianism'
     | 'interview-skills'
     | 'gd-skills'
+    | 'aptitude-grammar'
+    | 'coding-dsa'
+    | 'data-cloud'
     | 'and-more';
   number: string;
   title: string;
@@ -234,30 +238,31 @@ export interface AcademyCategory {
   highlights: string;
   image: string;
   imageAlt: string;
-  targetView: 'levels' | 'shopping' | 'career' | 'advanced' | 'final';
+  targetView: 'levels' | 'shopping' | 'career' | 'universe' | 'advanced' | 'final';
   careerTab?: 'indianism' | 'interview' | 'gd';
+  masterPillar?: MasterPillarId;
 }
 
 export const WORKSHOP_META = {
-  title: 'Building Employability Skills With Kapil',
-  shortTitle: 'Employability Skills · Kapil',
+  title: 'EMPLOYABILITY UNIVERSE With Kapil',
+  shortTitle: 'EMPLOYABILITY UNIVERSE',
   subtitle:
-    'Picture Connect · Shopping & Negotiation · Indianism · Interview Skills · GD Skills',
-  institution: 'JIET Universe, Jodhpur',
-  positioning: 'See Beyond. Think Beyond. Connect Beyond.',
+    'Picture Connect · Communication · Aptitude & Grammar · C, C++, Java & DSA · Excel, Power BI, DBMS & Cloud',
+  institution: 'One-Stop Placement & Career Mastery Portal',
+  positioning: 'See Beyond. Think Beyond. Code, Analyze & Lead Beyond.',
   poweredBy: 'Powered By Kapil',
   pillars: [
     'Picture Connect',
     'Shopping & Negotiation',
-    'Indianism',
-    'Interview Skills',
-    'GD Skills',
-    'Capstone & LOR',
+    'Indianism, Interview & GD',
+    'Aptitude & English Grammar',
+    'C, C++, Java & DSA',
+    'Excel, Power BI, DBMS & Cloud',
   ],
   corePhilosophy:
-    'The magic is not in identifying the prompt. It is in explaining the connection, communicating with global precision, and persuading with clarity!',
+    'True placement readiness unites visual clarity, global communication, sharp aptitude & grammar, clean algorithmic code, and modern data-cloud execution.',
   learnerPromise:
-    'Communication and employability go far beyond grammar. Build sharper visual observation, global English clarity, interview presence, GD leadership, and ethical negotiation.',
+    'Your one-stop mastery portal — train across communication, negotiation, interviews, group discussions, aptitude, grammar, C/C++/Java/DSA, Excel, Power BI, DBMS, and Cloud Computing with verified badges and certificates.',
 };
 
 export const ACADEMY_CATEGORIES: AcademyCategory[] = [
@@ -329,8 +334,50 @@ export const ACADEMY_CATEGORIES: AcademyCategory[] = [
     careerTab: 'gd',
   },
   {
-    id: 'and-more',
+    id: 'aptitude-grammar',
     number: '06.',
+    title: 'Aptitude & English Grammar',
+    subtitle: 'Quant · Grammar · Parts of Speech · Syntax',
+    description:
+      'Ace campus placement tests across Quantitative Aptitude, Core English Grammar, Parts of Speech, and Parts of Grammar (Clauses, Phrases & Syntax).',
+    highlights: '4 Tracks · 24 Playbooks · 40 MCQs',
+    image: MASTER_UNIVERSE_IMAGES.aptitudeGrammar,
+    imageAlt:
+      'Editorial study desk with quantitative aptitude notebooks, grammar reference handbook, fountain pen, and precision calculator',
+    targetView: 'universe',
+    masterPillar: 'aptitude_grammar',
+  },
+  {
+    id: 'coding-dsa',
+    number: '07.',
+    title: 'C, C++, Java & DSA',
+    subtitle: 'Pointers · OOP · JVM · Trees, Graphs & DP',
+    description:
+      'Build rock-solid software engineering mastery in C, C++ STL, Java Collections & Concurrency, and Data Structures & Algorithms with 40 hinted MCQs.',
+    highlights: '4 Languages/DSA · 24 Playbooks · 40 MCQs',
+    image: MASTER_UNIVERSE_IMAGES.programmingDsa,
+    imageAlt:
+      'Modern developer desk displaying clean algorithmic code and binary tree diagrams in a sleek navy software engineering studio',
+    targetView: 'universe',
+    masterPillar: 'coding_dsa',
+  },
+  {
+    id: 'data-cloud',
+    number: '08.',
+    title: 'Excel, Power BI, DBMS & Cloud',
+    subtitle: 'XLOOKUP · DAX · SQL & ACID · AWS/Azure/GCP',
+    description:
+      'Master corporate analytics and infrastructure: Excel formulas & PivotTables, Power BI star schemas & DAX, DBMS normalization & SQL, and Cloud architecture.',
+    highlights: '4 Tech Tracks · 24 Playbooks · 40 MCQs',
+    image: MASTER_UNIVERSE_IMAGES.excelPowerBi,
+    imageAlt:
+      'Business intelligence workstation showing clean executive KPI dashboards, financial charts, and cloud database diagrams',
+    targetView: 'universe',
+    masterPillar: 'data_cloud',
+  },
+  {
+    id: 'and-more',
+    number: '09.',
     title: 'Capstone, Video Films & LOR',
     subtitle: 'Video Case Studies · 1000 XP Exam · LOR PDF',
     description:

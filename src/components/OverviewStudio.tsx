@@ -30,6 +30,11 @@ import { VisualArtwork } from './VisualArtwork';
 import { VideoChallengesSection } from './VideoChallengesSection';
 
 import { CareerCategoryId } from '../data/careerSkillsData';
+import {
+  MASTER_TRACKS,
+  MasterPillarId,
+  MasterTrackId,
+} from '../data/masterUniverseTypes';
 
 export type AppView =
   | 'journey'
@@ -37,6 +42,7 @@ export type AppView =
   | 'wheel'
   | 'shopping'
   | 'career'
+  | 'universe'
   | 'advanced'
   | 'final'
   | 'achievements';
@@ -55,6 +61,12 @@ interface OverviewStudioProps {
   indianismScore?: string;
   interviewScore?: string;
   gdScore?: string;
+  masterAnswered?: number;
+  masterCorrect?: number;
+  masterXp?: number;
+  aptitudeGrammarScore?: string;
+  codingDsaScore?: string;
+  dataCloudScore?: string;
   finalStatus?: 'not_started' | 'in_progress' | 'submitted';
   finalXp?: number;
   finalPassed?: boolean;
@@ -64,7 +76,9 @@ interface OverviewStudioProps {
   onNavigateView: (
     view: AppView,
     levelNum?: number,
-    careerTab?: CareerCategoryId
+    careerTab?: CareerCategoryId,
+    masterPillar?: MasterPillarId,
+    masterTrack?: MasterTrackId
   ) => void;
   learnerConnections: {
     id: string;
@@ -95,6 +109,12 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   indianismScore = '0/15 MCQs',
   interviewScore = '0/15 MCQs',
   gdScore = '0/15 MCQs',
+  masterAnswered = 0,
+  masterCorrect = 0,
+  masterXp = 0,
+  aptitudeGrammarScore = '0/40 Correct',
+  codingDsaScore = '0/40 Correct',
+  dataCloudScore = '0/40 Correct',
   finalStatus = 'not_started',
   finalXp = 0,
   finalPassed = false,
@@ -180,11 +200,11 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
 
             <p className="text-base text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
               Welcome, <span className="font-semibold text-slate-900 dark:text-white">{learnerName}</span>.{' '}
-              Master{' '}
+              Your one-stop mastery portal for{' '}
               <span className="font-semibold text-slate-900 dark:text-white">
-                Picture Connect, Shopping &amp; Negotiation, Indianism, Interview Skills &amp; GD Skills
-              </span>
-              , plus AI Challenges, Video Cases &amp; the 1000 XP Final Capstone with Placement LOR.
+                Picture Connect, Shopping &amp; Negotiation, Indianism, Interview &amp; GD, Aptitude &amp; Grammar, C/C++/Java/DSA, Excel, Power BI, DBMS &amp; Cloud Computing
+              </span>{' '}
+              — with verified PNG badges, certificates &amp; Placement LOR PDF.
             </p>
           </div>
 
@@ -326,19 +346,19 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
         </div>
       </section>
 
-      {/* Interactive 6-Category Employability Directory */}
+      {/* Interactive 9-Category Employability Universe Directory */}
       <section className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
           <div>
             <h2 className="font-display text-2xl font-bold text-slate-950 dark:text-white">
-              Skill Categories — Choose Your Track
+              EMPLOYABILITY UNIVERSE — Choose Your Track
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-              Navigate across Picture Connect, Shopping &amp; Negotiation, Indianism, Interview Skills, GD Skills &amp; Capstone.
+              One-stop placement mastery across Communication, Aptitude &amp; Grammar, C/C++/Java/DSA, Excel, Power BI, DBMS, Cloud &amp; Capstone.
             </p>
           </div>
           <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
-            6 Employability Tracks · Live Progress Sync
+            9 Master Categories · Live Progress Sync
           </span>
         </div>
 
@@ -355,6 +375,12 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
                 ? interviewScore
                 : cat.id === 'gd-skills'
                 ? gdScore
+                : cat.id === 'aptitude-grammar'
+                ? aptitudeGrammarScore
+                : cat.id === 'coding-dsa'
+                ? codingDsaScore
+                : cat.id === 'data-cloud'
+                ? dataCloudScore
                 : finalStatus === 'submitted'
                 ? finalPassed
                   ? `Passed · ${finalXp} XP`
@@ -368,7 +394,12 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
                 key={cat.id}
                 type="button"
                 onClick={() =>
-                  onNavigateView(cat.targetView, undefined, cat.careerTab)
+                  onNavigateView(
+                    cat.targetView,
+                    undefined,
+                    cat.careerTab,
+                    cat.masterPillar
+                  )
                 }
                 className="text-left rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-600 dark:hover:border-blue-500 overflow-hidden flex flex-col justify-between transition-colors cursor-pointer group"
               >
@@ -409,6 +440,64 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
               </button>
             );
           })}
+        </div>
+      </section>
+
+      {/* Isolated 12-Track Master Tech, Data, Aptitude & Grammar Universe Launch Strip */}
+      <section className="rounded-2xl border border-blue-300 dark:border-blue-800/80 bg-gradient-to-r from-[#0B1733] via-[#10224A] to-[#172C5E] text-white p-5 sm:p-6 space-y-5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div className="space-y-1.5 max-w-2xl">
+            <div className="text-xs font-mono font-bold text-sky-400">
+              ONE-STOP MASTER HUB · 12 SUBJECT TRACKS · 72 PLAYBOOKS · 120 MCQS · 8 BADGES + PNG CERT
+            </div>
+            <h2 className="font-display text-xl sm:text-2xl font-bold text-white">
+              Aptitude, Grammar, C, C++, Java, DSA, Excel, Power BI, DBMS &amp; Cloud
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              Every core technical &amp; aptitude subject recruiters test — structured in Kapil’s signature Study Playbook + Hinted MCQ + Retake + PNG Badge &amp; Official Certificate format without impacting your existing progress.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4 shrink-0">
+            <div className="text-left sm:text-right font-mono">
+              <div className="text-[11px] text-slate-300">
+                UNIVERSE TECH PROGRESS
+              </div>
+              <div className="text-sm font-bold text-sky-300 tabular-nums">
+                {masterAnswered}/120 MCQs ({masterCorrect} Correct) · {masterXp} XP
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigateView('universe', undefined, undefined, 'aptitude_grammar')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-950 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <Sparkles className="w-4 h-4 text-blue-700" />
+              <span>Open 12-Track Master Studio</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/15">
+          {MASTER_TRACKS.map((track) => (
+            <button
+              key={track.id}
+              type="button"
+              onClick={() =>
+                onNavigateView(
+                  'universe',
+                  undefined,
+                  undefined,
+                  track.pillarId,
+                  track.id
+                )
+              }
+              className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-mono font-semibold text-slate-100 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              {track.number} {track.shortTitle}
+            </button>
+          ))}
         </div>
       </section>
 

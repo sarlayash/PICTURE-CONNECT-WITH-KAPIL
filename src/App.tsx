@@ -49,6 +49,17 @@ import {
   createDefaultCareerSkillsProgress,
   subscribeCareerSkillsProgress,
 } from './services/careerSkillsFirestoreService';
+import {
+  computeMasterPillarStats,
+  computeMasterTrackStats,
+  MasterPillarId,
+  MasterTrackId,
+} from './data/masterUniverseData';
+import {
+  createDefaultMasterProgress,
+  MasterSkillsProgressDoc,
+  subscribeMasterProgress,
+} from './services/masterUniverseFirestoreService';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { GoogleAuthGate } from './components/GoogleAuthGate';
 import { AppView, OverviewStudio } from './components/OverviewStudio';
@@ -58,6 +69,7 @@ import { AchievementsCertificate } from './components/AchievementsCertificate';
 import { AdvancedTrackStudio } from './components/AdvancedTrackStudio';
 import { ShoppingNegotiationStudio } from './components/ShoppingNegotiationStudio';
 import { CareerSkillsStudio } from './components/CareerSkillsStudio';
+import { MasterUniverseStudio } from './components/MasterUniverseStudio';
 import { FinalAssessmentStudio } from './components/FinalAssessmentStudio';
 import { AdminDashboard } from './components/AdminDashboard';
 
@@ -72,6 +84,11 @@ function PictureConnectWorkspace() {
   const [activeLevel, setActiveLevel] = useState<number>(1);
   const [activeCareerTab, setActiveCareerTab] =
     useState<CareerCategoryId>('indianism');
+  const [activeMasterPillar, setActiveMasterPillar] =
+    useState<MasterPillarId>('aptitude_grammar');
+  const [activeMasterTrack, setActiveMasterTrack] = useState<
+    MasterTrackId | undefined
+  >(undefined);
   const [adminOpen, setAdminOpen] = useState(false);
 
   const [connections, setConnections] = useState<ConnectionPostDoc[]>([]);
@@ -93,6 +110,9 @@ function PictureConnectWorkspace() {
   );
   const [careerProgress, setCareerProgress] = useState<CareerSkillsProgressDoc>(() =>
     createDefaultCareerSkillsProgress('pending')
+  );
+  const [masterProgress, setMasterProgress] = useState<MasterSkillsProgressDoc>(() =>
+    createDefaultMasterProgress('pending')
   );
 
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -155,6 +175,13 @@ function PictureConnectWorkspace() {
           nextUser.email || ''
         )
       );
+      setMasterProgress(
+        createDefaultMasterProgress(
+          nextUser.uid,
+          nextUser.displayName || nextUser.email?.split('@')[0] || 'Verified Learner',
+          nextUser.email || ''
+        )
+      );
       setAuthReady(true);
       try {
         await upsertUserAccount(nextUser);
@@ -180,6 +207,7 @@ function PictureConnectWorkspace() {
     const unsubFinal = subscribeFinalAssessment(user, setFinalAssessment);
     const unsubShopping = subscribeShoppingProgress(user, setShoppingProgress);
     const unsubCareer = subscribeCareerSkillsProgress(user, setCareerProgress);
+    const unsubMaster = subscribeMasterProgress(user, setMasterProgress);
 
     return () => {
       unsubConnections();
@@ -190,6 +218,7 @@ function PictureConnectWorkspace() {
       unsubFinal();
       unsubShopping();
       unsubCareer();
+      unsubMaster();
     };
   }, [authReady, user]);
 
@@ -225,13 +254,23 @@ function PictureConnectWorkspace() {
   const handleNavigateView = (
     target: AppView,
     levelNum?: number,
-    careerTab?: CareerCategoryId
+    careerTab?: CareerCategoryId,
+    masterPillar?: MasterPillarId,
+    masterTrack?: MasterTrackId
   ) => {
     if (levelNum) {
       setActiveLevel(levelNum);
     }
     if (careerTab) {
       setActiveCareerTab(careerTab);
+    }
+    if (masterPillar) {
+      setActiveMasterPillar(masterPillar);
+    }
+    if (masterTrack) {
+      setActiveMasterTrack(masterTrack);
+    } else if (masterPillar) {
+      setActiveMasterTrack(undefined);
     }
     setView(target);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -242,6 +281,13 @@ function PictureConnectWorkspace() {
     correctMcqs: careerProgress.correctMcqs,
     hintUsedMcqs: careerProgress.hintUsedMcqs,
   });
+
+  const masterTrackStats = computeMasterTrackStats({
+    answeredMcqs: masterProgress.answeredMcqs,
+    correctMcqs: masterProgress.correctMcqs,
+    hintUsedMcqs: masterProgress.hintUsedMcqs,
+  });
+  const masterPillarStats = computeMasterPillarStats(masterTrackStats);
 
   const conceptConnections = connections
     .filter((c) => c.kind === 'concept')
@@ -274,9 +320,10 @@ function PictureConnectWorkspace() {
   const navItems: { id: AppView; label: string; locked?: boolean }[] = [
     { id: 'journey', label: 'Journey' },
     { id: 'levels', label: 'Levels 1–10' },
-    { id: 'wheel', label: 'Spin Wheel' },
+    { id: 'wheel', label: 'Wheel' },
     { id: 'shopping', label: 'Shop & Deals' },
     { id: 'career', label: 'Career MCQs' },
+    { id: 'universe', label: 'Tech & DSA' },
     { id: 'advanced', label: 'AI Track' },
     { id: 'final', label: 'Final 1000 XP', locked: isFinalLocked },
   ];
@@ -285,18 +332,18 @@ function PictureConnectWorkspace() {
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       {/* Strict 3-Zone Top Bar Contract */}
       <header className="no-print sticky top-0 z-30 bg-white/95 dark:bg-slate-950/95 backdrop-blur border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4 lg:gap-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3 lg:gap-4">
           <button
             type="button"
             onClick={() => handleNavigateView('journey')}
-            className="font-display text-base lg:text-lg font-bold tracking-tight text-slate-950 dark:text-white whitespace-nowrap shrink-0 cursor-pointer"
+            className="font-display text-sm lg:text-base font-bold tracking-tight text-slate-950 dark:text-white whitespace-nowrap shrink-0 cursor-pointer"
           >
             {WORKSHOP_META.shortTitle}
           </button>
 
           <nav
             aria-label="Primary navigation"
-            className="hidden md:flex items-center gap-3.5 lg:gap-5 text-xs lg:text-sm font-medium"
+            className="hidden md:flex items-center gap-3 lg:gap-4 text-xs lg:text-[13px] font-medium"
           >
             {navItems.map((item) => {
               const active = view === item.id;
@@ -410,6 +457,12 @@ function PictureConnectWorkspace() {
             indianismScore={`${careerStats.indianism.correct}/${careerStats.indianism.total} Correct`}
             interviewScore={`${careerStats.interview.correct}/${careerStats.interview.total} Correct`}
             gdScore={`${careerStats.gd.correct}/${careerStats.gd.total} Correct`}
+            masterAnswered={masterProgress.answeredMcqs.length}
+            masterCorrect={masterProgress.correctMcqs.length}
+            masterXp={masterProgress.masterXp}
+            aptitudeGrammarScore={`${masterPillarStats.aptitude_grammar.correct}/40 Correct`}
+            codingDsaScore={`${masterPillarStats.coding_dsa.correct}/40 Correct`}
+            dataCloudScore={`${masterPillarStats.data_cloud.correct}/40 Correct`}
             finalStatus={finalAssessment.status}
             finalXp={finalAssessment.totalXpAwarded}
             finalPassed={finalAssessment.passed}
@@ -505,6 +558,17 @@ function PictureConnectWorkspace() {
             learnerEmail={user.email || ''}
             careerProgress={careerProgress}
             initialTab={activeCareerTab}
+          />
+        )}
+
+        {view === 'universe' && (
+          <MasterUniverseStudio
+            user={user}
+            learnerName={learnerName}
+            learnerEmail={user.email || ''}
+            masterProgress={masterProgress}
+            initialPillar={activeMasterPillar}
+            initialTrack={activeMasterTrack}
           />
         )}
 

@@ -42,6 +42,11 @@ import {
   AdminCareerSkillsSummary,
   subscribeAdminCareerSkillsData,
 } from '../services/careerSkillsFirestoreService';
+import { MASTER_BADGES } from '../data/masterUniverseData';
+import {
+  AdminMasterSkillsSummary,
+  subscribeAdminMasterData,
+} from '../services/masterUniverseFirestoreService';
 import {
   AdminUserRecord,
   subscribeAdminLiveData,
@@ -95,8 +100,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [careerByUid, setCareerByUid] = useState<
     Record<string, AdminCareerSkillsSummary>
   >({});
+  const [masterByUid, setMasterByUid] = useState<
+    Record<string, AdminMasterSkillsSummary>
+  >({});
   const [adminTrackView, setAdminTrackView] = useState<
-    'core' | 'advanced' | 'shopping' | 'career' | 'final'
+    'core' | 'advanced' | 'shopping' | 'career' | 'universe' | 'final'
   >('core');
   const [lastSyncMs, setLastSyncMs] = useState<number>(0);
   const [streamError, setStreamError] = useState<string | null>(null);
@@ -156,6 +164,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setStreamError(errMsg);
       }
     );
+    const unsubMaster = subscribeAdminMasterData(
+      (masterMap) => {
+        setMasterByUid(masterMap);
+      },
+      (errMsg) => {
+        setStreamError(errMsg);
+      }
+    );
 
     return () => {
       unsubCore();
@@ -163,6 +179,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       unsubFinal();
       unsubShop();
       unsubCareer();
+      unsubMaster();
     };
   }, [open, credentialsUnlocked, hasAdminGoogleSession]);
 
@@ -173,6 +190,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const fin = finalByUid[r.uid];
       const shop = shopByUid[r.uid];
       const career = careerByUid[r.uid];
+      const master = masterByUid[r.uid];
       const matchesSearch =
         !q ||
         r.displayName.toLowerCase().includes(q) ||
@@ -182,12 +200,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         (adv?.advCertificateId || '').toLowerCase().includes(q) ||
         (shop?.shopCertificateId || '').toLowerCase().includes(q) ||
         (career?.careerCertificateId || '').toLowerCase().includes(q) ||
+        (master?.masterCertificateId || '').toLowerCase().includes(q) ||
         (fin?.finalCertificateId || '').toLowerCase().includes(q) ||
         (fin?.lorVerificationId || '').toLowerCase().includes(q) ||
         (fin?.targetRole || '').toLowerCase().includes(q) ||
         (fin?.collegeOrOrg || '').toLowerCase().includes(q);
 
       if (!matchesSearch) return false;
+
+      if (adminTrackView === 'universe') {
+        const mcqsDone = master?.answeredMcqs.length ?? 0;
+        const tracksDone = master?.completedTracks.length ?? 0;
+        if (statusFilter === 'mastered') return tracksDone >= 12;
+        if (statusFilter === 'active') return mcqsDone > 0 && tracksDone < 12;
+        if (statusFilter === 'starter') return mcqsDone === 0;
+        return true;
+      }
 
       if (adminTrackView === 'career') {
         const mcqsDone = career?.answeredMcqs.length ?? 0;
@@ -248,6 +276,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (sortBy === 'recent') {
         return b.lastActiveMs - a.lastActiveMs;
       }
+      if (adminTrackView === 'universe') {
+        return (masterByUid[b.uid]?.masterXp ?? 0) - (masterByUid[a.uid]?.masterXp ?? 0) || b.xp - a.xp;
+      }
       if (adminTrackView === 'career') {
         return (careerByUid[b.uid]?.careerXp ?? 0) - (careerByUid[a.uid]?.careerXp ?? 0) || b.xp - a.xp;
       }
@@ -267,7 +298,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
 
     return list;
-  }, [records, advByUid, shopByUid, careerByUid, finalByUid, adminTrackView, searchQuery, statusFilter, sortBy]);
+  }, [records, advByUid, shopByUid, careerByUid, masterByUid, finalByUid, adminTrackView, searchQuery, statusFilter, sortBy]);
 
   if (!open) return null;
 
@@ -339,6 +370,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       'Career Accuracy %',
       'Career Badges (/6)',
       'Career Cert ID',
+      'Universe Tech XP',
+      'Universe Rank',
+      'Universe MCQs (/120)',
+      'Aptitude & Grammar (/40)',
+      'C/C++/Java/DSA (/40)',
+      'Excel/BI/DBMS/Cloud (/40)',
+      'Universe Accuracy %',
+      'Universe Badges (/8)',
+      'Universe Cert ID',
       'Final Exam Status',
       'Final Attempt #',
       'Final Total XP (/1000)',
@@ -366,6 +406,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const fin = finalByUid[r.uid];
       const shop = shopByUid[r.uid];
       const career = careerByUid[r.uid];
+      const master = masterByUid[r.uid];
       return [
         r.displayName,
         r.email,
@@ -401,6 +442,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         `${career?.accuracyPct ?? 0}%`,
         `${career?.unlockedCareerBadges.length ?? 0}/${CAREER_BADGES.length}`,
         career?.careerCertificateId ?? '',
+        master?.masterXp ?? 0,
+        master?.masterRankTitle ?? 'Universe Explorer',
+        `${master?.answeredMcqs.length ?? 0}/120`,
+        `${master?.aptitudeGrammarCorrect ?? 0}/40`,
+        `${master?.codingDsaCorrect ?? 0}/40`,
+        `${master?.dataCloudCorrect ?? 0}/40`,
+        `${master?.accuracyPct ?? 0}%`,
+        `${master?.unlockedMasterBadges.length ?? 0}/${MASTER_BADGES.length}`,
+        master?.masterCertificateId ?? '',
         fin?.status ?? 'not_started',
         fin?.attemptCount ?? 0,
         fin?.totalXpAwarded ?? 0,
@@ -420,6 +470,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             adv?.updatedAtMs ?? 0,
             shop?.updatedAtMs ?? 0,
             career?.updatedAtMs ?? 0,
+            master?.updatedAtMs ?? 0,
             fin?.submittedAtMs ?? 0
           )
         ),
@@ -441,7 +492,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const link = document.createElement('a');
     const dateStamp = new Date().toISOString().slice(0, 10);
     link.href = url;
-    link.download = `Employability-Skills-Admin-Report-${dateStamp}.csv`;
+    link.download = `Employability-Universe-Admin-Report-${dateStamp}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -451,12 +502,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleDownloadJsonReport = () => {
     const payload = {
       generatedAt: new Date().toISOString(),
+      portal: 'EMPLOYABILITY UNIVERSE With Kapil',
       totalLearners: filteredRecords.length,
       learners: filteredRecords.map((r) => ({
         ...r,
         advancedTrack: advByUid[r.uid] ?? null,
         shoppingNegotiation: shopByUid[r.uid] ?? null,
         careerSkillsMcqs: careerByUid[r.uid] ?? null,
+        masterUniverseSkills: masterByUid[r.uid] ?? null,
         finalAssessment: finalByUid[r.uid] ?? null,
       })),
     };
@@ -467,7 +520,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const link = document.createElement('a');
     const dateStamp = new Date().toISOString().slice(0, 10);
     link.href = url;
-    link.download = `Employability-Skills-Firestore-Export-${dateStamp}.json`;
+    link.download = `Employability-Universe-Firestore-Export-${dateStamp}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -516,7 +569,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
             <div>
               <h2 className="font-display text-lg font-bold text-slate-950 dark:text-white">
-                Admin Command Center · Building Employability Skills With Kapil
+                Admin Command Center · EMPLOYABILITY UNIVERSE With Kapil
               </h2>
               <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
                 {credentialsUnlocked && hasAdminGoogleSession
@@ -712,6 +765,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </button>
                   <button
                     type="button"
+                    onClick={() => setAdminTrackView('universe')}
+                    className={`px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                      adminTrackView === 'universe'
+                        ? 'bg-violet-700 text-white'
+                        : 'bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    Tech, Data &amp; Aptitude (12 Tracks · 120 MCQs)
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setAdminTrackView('final')}
                     className={`px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
                       adminTrackView === 'final'
@@ -724,8 +788,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
                 <div className="text-xs font-mono text-slate-500 dark:text-slate-400">
                   {finalSubmittedCount} Final ({finalPassedCount} Passed) ·{' '}
-                  {Object.values(careerByUid).filter((c) => c.completedCategories.length >= 3).length} Career Certified ·{' '}
-                  {Object.values(shopByUid).filter((s) => s.completedModule).length} Shop Certified
+                  {Object.values(masterByUid).filter((m) => m.completedTracks.length >= 12).length} Tech 12/12 ·{' '}
+                  {Object.values(careerByUid).filter((c) => c.completedCategories.length >= 3).length} Career 3/3
                 </div>
               </div>
 
@@ -799,6 +863,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         ? 'Shopping Certified Only'
                         : adminTrackView === 'career'
                         ? 'All 3 Career Tests Completed'
+                        : adminTrackView === 'universe'
+                        ? 'All 12 Tech/Aptitude Tracks Done'
                         : adminTrackView === 'final'
                         ? 'Final Passed (>=600 XP)'
                         : '10/10 Mastery Only'}
@@ -811,6 +877,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <option value="starter">
                       {adminTrackView === 'final'
                         ? 'Prerequisites Locked'
+                        : adminTrackView === 'universe'
+                        ? '0 Universe Tech MCQs Answered'
                         : adminTrackView === 'career'
                         ? '0 Career MCQs Answered'
                         : adminTrackView === 'shopping'
@@ -895,6 +963,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <th className="py-3 px-3">Accuracy</th>
                           <th className="py-3 px-3">Badges &amp; Cert ID</th>
                         </>
+                      ) : adminTrackView === 'universe' ? (
+                        <>
+                          <th className="py-3 px-3">Universe Rank</th>
+                          <th className="py-3 px-3">Universe XP</th>
+                          <th className="py-3 px-3">MCQs (/120)</th>
+                          <th className="py-3 px-3">Apt+Grm / Code / Data</th>
+                          <th className="py-3 px-3">Accuracy</th>
+                          <th className="py-3 px-3">Badges &amp; Cert ID</th>
+                        </>
                       ) : (
                         <>
                           <th className="py-3 px-3">Exam Status</th>
@@ -933,6 +1010,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         const career = careerByUid[learner.uid];
                         const careerPct = Math.round(
                           ((career?.answeredMcqs.length ?? 0) / 45) * 100
+                        );
+                        const master = masterByUid[learner.uid];
+                        const masterPct = Math.round(
+                          ((master?.answeredMcqs.length ?? 0) / 120) * 100
                         );
                         const fin = finalByUid[learner.uid];
                         return (
@@ -1072,6 +1153,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                       : `${career?.completedCategories.length ?? 0}/3 Cats`}
                                   </td>
                                 </>
+                              ) : adminTrackView === 'universe' ? (
+                                <>
+                                  <td className="py-3 px-3 font-medium text-slate-700 dark:text-slate-300">
+                                    {master?.masterRankTitle ?? 'Universe Explorer'}
+                                  </td>
+                                  <td className="py-3 px-3 font-mono font-bold text-violet-700 dark:text-violet-400 tabular-nums">
+                                    {master?.masterXp ?? 0}
+                                  </td>
+                                  <td className="py-3 px-3 min-w-[130px]">
+                                    <div className="flex items-center justify-between font-mono text-[11px] mb-1 tabular-nums">
+                                      <span>{master?.answeredMcqs.length ?? 0}/120</span>
+                                      <span className="text-slate-400">{masterPct}%</span>
+                                    </div>
+                                    <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                                      <div
+                                        className="h-full rounded-full bg-violet-600 dark:bg-violet-500"
+                                        style={{ width: `${masterPct}%` }}
+                                      />
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3 font-mono tabular-nums text-slate-700 dark:text-slate-300">
+                                    {master?.aptitudeGrammarCorrect ?? 0} / {master?.codingDsaCorrect ?? 0} / {master?.dataCloudCorrect ?? 0}
+                                  </td>
+                                  <td className="py-3 px-3 font-mono font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                                    {master?.accuracyPct ?? 0}%
+                                  </td>
+                                  <td className="py-3 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-400">
+                                    {master?.unlockedMasterBadges.length ?? 0}/{MASTER_BADGES.length} ·{' '}
+                                    {(master?.completedTracks.length ?? 0) >= 12
+                                      ? master?.masterCertificateId
+                                      : `${master?.completedTracks.length ?? 0}/12 Tracks`}
+                                  </td>
+                                </>
                               ) : (
                                 <>
                                   <td className="py-3 px-3 font-mono font-semibold">
@@ -1129,6 +1243,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 {formatTimestamp(
                                   adminTrackView === 'final'
                                     ? fin?.submittedAtMs || fin?.startedAtMs || learner.lastActiveMs
+                                    : adminTrackView === 'universe'
+                                    ? master?.updatedAtMs || learner.lastActiveMs
                                     : adminTrackView === 'career'
                                     ? career?.updatedAtMs || learner.lastActiveMs
                                     : adminTrackView === 'shopping'
@@ -1346,6 +1462,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <div className="text-[11px] text-slate-500">GD Skills (Group Discussion)</div>
                           <div className="font-bold text-slate-950 dark:text-white mt-0.5 tabular-nums">
                             {careerByUid[inspectedUser.uid].gdCorrect}/15 Correct
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {masterByUid[inspectedUser.uid] && (
+                    <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                      <div className="text-xs font-semibold text-violet-700 dark:text-violet-400">
+                        EMPLOYABILITY UNIVERSE · Tech, Data &amp; Aptitude (12 Tracks) ·{' '}
+                        {masterByUid[inspectedUser.uid].masterXp} XP ·{' '}
+                        {masterByUid[inspectedUser.uid].correctMcqs.length}/{masterByUid[inspectedUser.uid].answeredMcqs.length} ({masterByUid[inspectedUser.uid].accuracyPct}%) ·{' '}
+                        {masterByUid[inspectedUser.uid].unlockedMasterBadges.length}/{MASTER_BADGES.length} Badges ·{' '}
+                        Cert {masterByUid[inspectedUser.uid].masterCertificateId}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                        <div className="p-2.5 rounded-xl border border-violet-200 dark:border-violet-900/60 bg-white dark:bg-slate-900 font-mono">
+                          <div className="text-[11px] text-slate-500">Aptitude &amp; Grammar (4 Tracks)</div>
+                          <div className="font-bold text-slate-950 dark:text-white mt-0.5 tabular-nums">
+                            {masterByUid[inspectedUser.uid].aptitudeGrammarCorrect}/40 Correct
+                          </div>
+                        </div>
+                        <div className="p-2.5 rounded-xl border border-violet-200 dark:border-violet-900/60 bg-white dark:bg-slate-900 font-mono">
+                          <div className="text-[11px] text-slate-500">C, C++, Java &amp; DSA (4 Tracks)</div>
+                          <div className="font-bold text-slate-950 dark:text-white mt-0.5 tabular-nums">
+                            {masterByUid[inspectedUser.uid].codingDsaCorrect}/40 Correct
+                          </div>
+                        </div>
+                        <div className="p-2.5 rounded-xl border border-violet-200 dark:border-violet-900/60 bg-white dark:bg-slate-900 font-mono">
+                          <div className="text-[11px] text-slate-500">Excel, Power BI, DBMS &amp; Cloud</div>
+                          <div className="font-bold text-slate-950 dark:text-white mt-0.5 tabular-nums">
+                            {masterByUid[inspectedUser.uid].dataCloudCorrect}/40 Correct
                           </div>
                         </div>
                       </div>

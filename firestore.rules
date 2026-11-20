@@ -251,6 +251,43 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidMasterSkillsProgress(data, userId) {
+      return data.keys().hasAll([
+          'ownerId', 'authorName', 'authorEmail', 'masterXp', 'studiedPlaybooks',
+          'answeredMcqs', 'correctMcqs', 'hintUsedMcqs', 'mcqChoices',
+          'completedTracks', 'unlockedMasterBadges', 'masterCertificateId', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'authorName', 'authorEmail', 'masterXp', 'studiedPlaybooks',
+          'answeredMcqs', 'correctMcqs', 'hintUsedMcqs', 'mcqChoices',
+          'completedTracks', 'unlockedMasterBadges', 'masterCertificateId', 'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId == userId && isValidId(data.ownerId)
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100
+        && data.authorEmail is string && data.authorEmail.size() <= 160
+        && data.masterXp is number && data.masterXp >= 0 && data.masterXp <= 50000
+        && data.studiedPlaybooks is list && data.studiedPlaybooks.size() <= 80
+        && (data.studiedPlaybooks.size() == 0 || (data.studiedPlaybooks[0] is string && data.studiedPlaybooks[0].size() <= 40))
+        && data.answeredMcqs is list && data.answeredMcqs.size() <= 120
+        && (data.answeredMcqs.size() == 0 || (data.answeredMcqs[0] is string && data.answeredMcqs[0].size() <= 20))
+        && data.correctMcqs is list && data.correctMcqs.size() <= 120
+        && (data.correctMcqs.size() == 0 || (data.correctMcqs[0] is string && data.correctMcqs[0].size() <= 20))
+        && data.hintUsedMcqs is list && data.hintUsedMcqs.size() <= 120
+        && (data.hintUsedMcqs.size() == 0 || (data.hintUsedMcqs[0] is string && data.hintUsedMcqs[0].size() <= 20))
+        && data.mcqChoices is list && data.mcqChoices.size() <= 120
+        && (data.mcqChoices.size() == 0 || (data.mcqChoices[0] is number && data.mcqChoices[0] >= -1 && data.mcqChoices[0] <= 3))
+        && data.completedTracks is list && data.completedTracks.size() <= 12
+        && (data.completedTracks.size() == 0 || data.completedTracks[0] in [
+          'aptitude', 'grammar', 'parts_of_speech', 'parts_of_grammar',
+          'c_lang', 'cpp_lang', 'java_lang', 'dsa',
+          'excel', 'power_bi', 'dbms', 'cloud'
+        ])
+        && data.unlockedMasterBadges is list && data.unlockedMasterBadges.size() <= 12
+        && (data.unlockedMasterBadges.size() == 0 || (data.unlockedMasterBadges[0] is string && data.unlockedMasterBadges[0].size() <= 60))
+        && data.masterCertificateId is string && data.masterCertificateId.size() >= 4 && data.masterCertificateId.size() <= 64
+        && data.updatedAt is timestamp;
+    }
+
     function isValidFinalAssessment(data, userId) {
       return data.keys().hasAll([
           'ownerId', 'authorName', 'authorEmail', 'targetRole', 'collegeOrOrg',
@@ -559,6 +596,26 @@ service cloud.firestore {
           'authorName', 'authorEmail', 'careerXp', 'studiedTopics',
           'answeredMcqs', 'correctMcqs', 'hintUsedMcqs', 'mcqChoices',
           'completedCategories', 'unlockedCareerBadges', 'careerCertificateId', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /masterSkillsProgress/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isGenuineGoogleUser() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidMasterSkillsProgress(incoming(), userId)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isValidMasterSkillsProgress(incoming(), userId)
+        && (isOwner(userId) || isAdmin())
+        && incoming().ownerId == existing().ownerId
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'authorName', 'authorEmail', 'masterXp', 'studiedPlaybooks',
+          'answeredMcqs', 'correctMcqs', 'hintUsedMcqs', 'mcqChoices',
+          'completedTracks', 'unlockedMasterBadges', 'masterCertificateId', 'updatedAt'
         ]);
       allow delete: if false;
     }

@@ -198,7 +198,7 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
                 >
                   <iframe
                     src={`https://www.youtube.com/embed/${video.youtubeId}?rel=0&modestbranding=1`}
-                    title={`${video.title} — Building Employability Skills Video Case Study`}
+                    title={`${video.title} — EMPLOYABILITY UNIVERSE With Kapil Video Case Study`}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     referrerPolicy="strict-origin-when-cross-origin"
                     allowFullScreen

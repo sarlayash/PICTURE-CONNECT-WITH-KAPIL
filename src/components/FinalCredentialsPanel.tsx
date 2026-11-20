@@ -120,7 +120,7 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       ctx.fillStyle = '#1D4ED8';
       ctx.font = '700 24px "JetBrains Mono", monospace';
       ctx.fillText(
-        'BUILDING EMPLOYABILITY SKILLS WITH KAPIL  ·  1000 XP FINAL CAPSTONE',
+        'EMPLOYABILITY UNIVERSE WITH KAPIL  ·  1000 XP FINAL CAPSTONE',
         W / 2,
         210
       );
@@ -299,7 +299,7 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download =
-        'Building-Employability-Skills-With-Kapil-Capstone-Certificate.png';
+        'Employability-Universe-With-Kapil-Capstone-Certificate.png';
       link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
@@ -342,12 +342,12 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       docPdf.setFont('helvetica', 'bold');
       docPdf.setFontSize(13.5);
       docPdf.setTextColor(15, 23, 42);
-      docPdf.text('BUILDING EMPLOYABILITY SKILLS WITH KAPIL', margin, y);
+      docPdf.text('EMPLOYABILITY UNIVERSE WITH KAPIL', margin, y);
 
       docPdf.setFont('helvetica', 'bold');
       docPdf.setFontSize(8.5);
       docPdf.setTextColor(29, 78, 216);
-      docPdf.text('POWERED BY KAPIL · EMPLOYABILITY & PLACEMENT ACADEMY', pageW - margin, y, {
+      docPdf.text('POWERED BY KAPIL · ONE-STOP PLACEMENT PORTAL', pageW - margin, y, {
         align: 'right',
       });
 
@@ -516,7 +516,7 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       });
 
       const safeName = learnerName.replace(/[^a-zA-Z0-9]+/g, '-');
-      docPdf.save(`Placement-LOR-${safeName}-Powered-By-Kapil.pdf`);
+      docPdf.save(`Employability-Universe-LOR-${safeName}-Kapil.pdf`);
       setStatusNote('Personalized Placement LOR (PDF) downloaded!');
     } finally {
       setDownloadingLorPdf(false);
@@ -656,7 +656,7 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
         <div className="border-2 border-amber-600/70 p-6 sm:p-10 space-y-7 text-center">
           <div className="space-y-2">
             <div className="font-mono text-xs font-bold tracking-[0.2em] text-blue-700 uppercase">
-              BUILDING EMPLOYABILITY SKILLS WITH KAPIL · 1000 XP FINAL CAPSTONE
+              EMPLOYABILITY UNIVERSE WITH KAPIL · 1000 XP FINAL CAPSTONE
             </div>
             <h4 className="font-display text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-950">
               FINAL CAPSTONE CERTIFICATE OF MERIT
