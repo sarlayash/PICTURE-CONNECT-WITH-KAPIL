@@ -218,6 +218,39 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidCareerSkillsProgress(data, userId) {
+      return data.keys().hasAll([
+          'ownerId', 'authorName', 'authorEmail', 'careerXp', 'studiedTopics',
+          'answeredMcqs', 'correctMcqs', 'hintUsedMcqs', 'mcqChoices',
+          'completedCategories', 'unlockedCareerBadges', 'careerCertificateId', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'authorName', 'authorEmail', 'careerXp', 'studiedTopics',
+          'answeredMcqs', 'correctMcqs', 'hintUsedMcqs', 'mcqChoices',
+          'completedCategories', 'unlockedCareerBadges', 'careerCertificateId', 'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId == userId && isValidId(data.ownerId)
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100
+        && data.authorEmail is string && data.authorEmail.size() <= 160
+        && data.careerXp is number && data.careerXp >= 0 && data.careerXp <= 25000
+        && data.studiedTopics is list && data.studiedTopics.size() <= 35
+        && (data.studiedTopics.size() == 0 || (data.studiedTopics[0] is string && data.studiedTopics[0].size() <= 40))
+        && data.answeredMcqs is list && data.answeredMcqs.size() <= 45
+        && (data.answeredMcqs.size() == 0 || (data.answeredMcqs[0] is string && data.answeredMcqs[0].size() <= 20))
+        && data.correctMcqs is list && data.correctMcqs.size() <= 45
+        && (data.correctMcqs.size() == 0 || (data.correctMcqs[0] is string && data.correctMcqs[0].size() <= 20))
+        && data.hintUsedMcqs is list && data.hintUsedMcqs.size() <= 45
+        && (data.hintUsedMcqs.size() == 0 || (data.hintUsedMcqs[0] is string && data.hintUsedMcqs[0].size() <= 20))
+        && data.mcqChoices is list && data.mcqChoices.size() <= 45
+        && (data.mcqChoices.size() == 0 || (data.mcqChoices[0] is number && data.mcqChoices[0] >= -1 && data.mcqChoices[0] <= 3))
+        && data.completedCategories is list && data.completedCategories.size() <= 3
+        && (data.completedCategories.size() == 0 || data.completedCategories[0] in ['indianism', 'interview', 'gd'])
+        && data.unlockedCareerBadges is list && data.unlockedCareerBadges.size() <= 12
+        && (data.unlockedCareerBadges.size() == 0 || (data.unlockedCareerBadges[0] is string && data.unlockedCareerBadges[0].size() <= 60))
+        && data.careerCertificateId is string && data.careerCertificateId.size() >= 4 && data.careerCertificateId.size() <= 64
+        && data.updatedAt is timestamp;
+    }
+
     function isValidFinalAssessment(data, userId) {
       return data.keys().hasAll([
           'ownerId', 'authorName', 'authorEmail', 'targetRole', 'collegeOrOrg',
@@ -506,6 +539,26 @@ service cloud.firestore {
           'answeredMcqs', 'correctMcqs', 'hintUsedMcqs', 'mcqChoices',
           'roleplayDraft', 'roleplayScore', 'roleplayFeedback',
           'unlockedShopBadges', 'shopCertificateId', 'completedModule', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /careerSkillsProgress/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isGenuineGoogleUser() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidCareerSkillsProgress(incoming(), userId)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isValidCareerSkillsProgress(incoming(), userId)
+        && (isOwner(userId) || isAdmin())
+        && incoming().ownerId == existing().ownerId
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'authorName', 'authorEmail', 'careerXp', 'studiedTopics',
+          'answeredMcqs', 'correctMcqs', 'hintUsedMcqs', 'mcqChoices',
+          'completedCategories', 'unlockedCareerBadges', 'careerCertificateId', 'updatedAt'
         ]);
       allow delete: if false;
     }

@@ -40,6 +40,15 @@ import {
   ShoppingProgressDoc,
   subscribeShoppingProgress,
 } from './services/shoppingFirestoreService';
+import {
+  CareerCategoryId,
+  computeCareerCategoryStats,
+} from './data/careerSkillsData';
+import {
+  CareerSkillsProgressDoc,
+  createDefaultCareerSkillsProgress,
+  subscribeCareerSkillsProgress,
+} from './services/careerSkillsFirestoreService';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { GoogleAuthGate } from './components/GoogleAuthGate';
 import { AppView, OverviewStudio } from './components/OverviewStudio';
@@ -48,6 +57,7 @@ import { SpinWheelStudio } from './components/SpinWheelStudio';
 import { AchievementsCertificate } from './components/AchievementsCertificate';
 import { AdvancedTrackStudio } from './components/AdvancedTrackStudio';
 import { ShoppingNegotiationStudio } from './components/ShoppingNegotiationStudio';
+import { CareerSkillsStudio } from './components/CareerSkillsStudio';
 import { FinalAssessmentStudio } from './components/FinalAssessmentStudio';
 import { AdminDashboard } from './components/AdminDashboard';
 
@@ -60,6 +70,8 @@ function PictureConnectWorkspace() {
 
   const [view, setView] = useState<AppView>('journey');
   const [activeLevel, setActiveLevel] = useState<number>(1);
+  const [activeCareerTab, setActiveCareerTab] =
+    useState<CareerCategoryId>('indianism');
   const [adminOpen, setAdminOpen] = useState(false);
 
   const [connections, setConnections] = useState<ConnectionPostDoc[]>([]);
@@ -78,6 +90,9 @@ function PictureConnectWorkspace() {
   );
   const [shoppingProgress, setShoppingProgress] = useState<ShoppingProgressDoc>(() =>
     createDefaultShoppingProgress('pending')
+  );
+  const [careerProgress, setCareerProgress] = useState<CareerSkillsProgressDoc>(() =>
+    createDefaultCareerSkillsProgress('pending')
   );
 
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -133,6 +148,13 @@ function PictureConnectWorkspace() {
           nextUser.email || ''
         )
       );
+      setCareerProgress(
+        createDefaultCareerSkillsProgress(
+          nextUser.uid,
+          nextUser.displayName || nextUser.email?.split('@')[0] || 'Verified Learner',
+          nextUser.email || ''
+        )
+      );
       setAuthReady(true);
       try {
         await upsertUserAccount(nextUser);
@@ -157,6 +179,7 @@ function PictureConnectWorkspace() {
     );
     const unsubFinal = subscribeFinalAssessment(user, setFinalAssessment);
     const unsubShopping = subscribeShoppingProgress(user, setShoppingProgress);
+    const unsubCareer = subscribeCareerSkillsProgress(user, setCareerProgress);
 
     return () => {
       unsubConnections();
@@ -166,6 +189,7 @@ function PictureConnectWorkspace() {
       unsubAdvSubmissions();
       unsubFinal();
       unsubShopping();
+      unsubCareer();
     };
   }, [authReady, user]);
 
@@ -198,13 +222,26 @@ function PictureConnectWorkspace() {
   const learnerName = user.displayName || user.email?.split('@')[0] || 'Verified Learner';
   const rank = getLearnerRank(progress.xp);
 
-  const handleNavigateView = (target: AppView, levelNum?: number) => {
+  const handleNavigateView = (
+    target: AppView,
+    levelNum?: number,
+    careerTab?: CareerCategoryId
+  ) => {
     if (levelNum) {
       setActiveLevel(levelNum);
+    }
+    if (careerTab) {
+      setActiveCareerTab(careerTab);
     }
     setView(target);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const careerStats = computeCareerCategoryStats({
+    answeredMcqs: careerProgress.answeredMcqs,
+    correctMcqs: careerProgress.correctMcqs,
+    hintUsedMcqs: careerProgress.hintUsedMcqs,
+  });
 
   const conceptConnections = connections
     .filter((c) => c.kind === 'concept')
@@ -238,8 +275,9 @@ function PictureConnectWorkspace() {
     { id: 'journey', label: 'Journey' },
     { id: 'levels', label: 'Levels 1–10' },
     { id: 'wheel', label: 'Spin Wheel' },
-    { id: 'shopping', label: 'Shop & Negotiate' },
-    { id: 'advanced', label: 'AI Advanced' },
+    { id: 'shopping', label: 'Shop & Deals' },
+    { id: 'career', label: 'Career MCQs' },
+    { id: 'advanced', label: 'AI Track' },
     { id: 'final', label: 'Final 1000 XP', locked: isFinalLocked },
   ];
 
@@ -247,18 +285,18 @@ function PictureConnectWorkspace() {
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       {/* Strict 3-Zone Top Bar Contract */}
       <header className="no-print sticky top-0 z-30 bg-white/95 dark:bg-slate-950/95 backdrop-blur border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4 lg:gap-6">
           <button
             type="button"
             onClick={() => handleNavigateView('journey')}
-            className="font-display text-lg font-bold tracking-tight text-slate-950 dark:text-white whitespace-nowrap shrink-0 cursor-pointer"
+            className="font-display text-base lg:text-lg font-bold tracking-tight text-slate-950 dark:text-white whitespace-nowrap shrink-0 cursor-pointer"
           >
             {WORKSHOP_META.shortTitle}
           </button>
 
           <nav
             aria-label="Primary navigation"
-            className="hidden md:flex items-center gap-6 text-sm font-medium"
+            className="hidden md:flex items-center gap-3.5 lg:gap-5 text-xs lg:text-sm font-medium"
           >
             {navItems.map((item) => {
               const active = view === item.id;
@@ -366,6 +404,12 @@ function PictureConnectWorkspace() {
             shopCompletedMcqs={shoppingProgress.answeredMcqs.length}
             shopXp={shoppingProgress.shopXp}
             shopRoleplayScore={shoppingProgress.roleplayScore}
+            careerAnswered={careerProgress.answeredMcqs.length}
+            careerCorrect={careerProgress.correctMcqs.length}
+            careerXp={careerProgress.careerXp}
+            indianismScore={`${careerStats.indianism.correct}/${careerStats.indianism.total} Correct`}
+            interviewScore={`${careerStats.interview.correct}/${careerStats.interview.total} Correct`}
+            gdScore={`${careerStats.gd.correct}/${careerStats.gd.total} Correct`}
             finalStatus={finalAssessment.status}
             finalXp={finalAssessment.totalXpAwarded}
             finalPassed={finalAssessment.passed}
@@ -451,6 +495,16 @@ function PictureConnectWorkspace() {
             learnerName={learnerName}
             learnerEmail={user.email || ''}
             shoppingProgress={shoppingProgress}
+          />
+        )}
+
+        {view === 'career' && (
+          <CareerSkillsStudio
+            user={user}
+            learnerName={learnerName}
+            learnerEmail={user.email || ''}
+            careerProgress={careerProgress}
+            initialTab={activeCareerTab}
           />
         )}
 

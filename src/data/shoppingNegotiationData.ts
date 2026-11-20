@@ -1,3 +1,5 @@
+import shoppingStudioHero from '../assets/images/shopping_negotiation_studio_1795156085818.jpg';
+
 export interface SolvedShoppingRiddle {
   id: string;
   qNumbers: string;
@@ -60,20 +62,11 @@ export interface RoleplayEvaluation {
 
 export const SHOPPING_MODULE_META = {
   title: 'Shopping & Negotiation Skills',
-  subtitle: 'FACE Konfi-07 Role Play · Persuasion, Logic & Precision Lab',
+  subtitle: 'Deductive Role Play · Persuasion, Logic & Precision Lab',
   poweredBy: 'POWERED BY KAPIL',
+  heroImage: shoppingStudioHero,
   description:
-    'Master deductive shopping-list decoding from the official FACE Konfi-07 Role Play sheets alongside commercial & campus negotiation skills—featuring 38 solved examples, 20 hint-assisted MCQs, an interactive Negotiation Role-Play Lab, 6 downloadable PNG badges, XP ranks, and an official PNG Certificate.',
-  worksheetPages: [
-    {
-      label: 'Konfi-07 Sheet 1 (Questions 1–21)',
-      src: '/assets/aistudio/WhatsApp_Image_2026-11-20_at_9.44.50_AM_32110800.jpeg',
-    },
-    {
-      label: 'Konfi-07 Sheet 2 (Questions 22–42)',
-      src: '/assets/aistudio/WhatsApp_Image_2026-11-20_at_9.44.51_AM_25a34b0b.jpeg',
-    },
-  ],
+    'Master deductive shopping-list decoding alongside commercial & campus negotiation skills—featuring 38 solved examples, 20 hint-assisted MCQs, an interactive Negotiation Role-Play Lab, 6 downloadable PNG badges, XP ranks, and an official PNG Certificate.',
   skillPillars: [
     'Courteousness',
     'Logical Thinking',

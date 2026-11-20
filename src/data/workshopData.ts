@@ -1,4 +1,8 @@
-import { PhotoAssetKey } from './imageAssets';
+import { PHOTO_ASSETS, PhotoAssetKey } from './imageAssets';
+import shoppingStudioHero from '../assets/images/shopping_negotiation_studio_1795156085818.jpg';
+import indianismHero from '../assets/images/indianism_global_english_1795156086055.jpg';
+import interviewHero from '../assets/images/interview_skills_panel_1795156085569.jpg';
+import gdHero from '../assets/images/gd_skills_roundtable_1795156086746.jpg';
 
 export type ArtworkId =
   | 'bridge'
@@ -216,32 +220,44 @@ export const VIDEO_CASE_STUDIES: VideoCaseStudy[] = [
 ];
 
 export interface AcademyCategory {
-  id: 'picture-connect' | 'shopping-skills' | 'negotiation-skills' | 'and-more';
+  id:
+    | 'picture-connect'
+    | 'shopping-negotiation'
+    | 'indianism'
+    | 'interview-skills'
+    | 'gd-skills'
+    | 'and-more';
   number: string;
   title: string;
   subtitle: string;
   description: string;
   highlights: string;
-  targetView: 'levels' | 'shopping' | 'advanced' | 'final';
+  image: string;
+  imageAlt: string;
+  targetView: 'levels' | 'shopping' | 'career' | 'advanced' | 'final';
+  careerTab?: 'indianism' | 'interview' | 'gd';
 }
 
 export const WORKSHOP_META = {
   title: 'Building Employability Skills With Kapil',
   shortTitle: 'Employability Skills · Kapil',
-  subtitle: 'Picture Connect · Shopping Skills · Negotiation Skills & More',
+  subtitle:
+    'Picture Connect · Shopping & Negotiation · Indianism · Interview Skills · GD Skills',
   institution: 'JIET Universe, Jodhpur',
   positioning: 'See Beyond. Think Beyond. Connect Beyond.',
   poweredBy: 'Powered By Kapil',
   pillars: [
     'Picture Connect',
-    'Shopping Skills',
-    'Negotiation Skills',
-    'Placement & More',
+    'Shopping & Negotiation',
+    'Indianism',
+    'Interview Skills',
+    'GD Skills',
+    'Capstone & LOR',
   ],
   corePhilosophy:
-    'The magic is not in identifying the prompt. It is in explaining the connection, reasoning with logic, and persuading with clarity!',
+    'The magic is not in identifying the prompt. It is in explaining the connection, communicating with global precision, and persuading with clarity!',
   learnerPromise:
-    'Communication and employability go far beyond grammar. Build sharper visual observation, deductive logic, ethical negotiation, and executive storytelling.',
+    'Communication and employability go far beyond grammar. Build sharper visual observation, global English clarity, interview presence, GD leadership, and ethical negotiation.',
 };
 
 export const ACADEMY_CATEGORIES: AcademyCategory[] = [
@@ -252,37 +268,76 @@ export const ACADEMY_CATEGORIES: AcademyCategory[] = [
     subtitle: 'Visual Intelligence · Levels 1–10 & AI Studio',
     description:
       '10 progressive visual thinking levels, 18 Spinning Wheel speaking prompts, and the 25-brief AI Prompt-to-Presentation Advanced Track.',
-    highlights: 'Levels 1–10 · Spin Wheel · AI Advanced',
+    highlights: 'Levels 1–10 · Spin Wheel · AI Track',
+    image: PHOTO_ASSETS.crossroads.src,
+    imageAlt: PHOTO_ASSETS.crossroads.alt,
     targetView: 'levels',
   },
   {
-    id: 'shopping-skills',
+    id: 'shopping-negotiation',
     number: '02.',
-    title: 'Shopping Skills',
-    subtitle: 'FACE Konfi-07 Deductive List Role Play',
+    title: 'Shopping & Negotiation Skills',
+    subtitle: 'Konfi-07 Deduction · Persuasion · Deal Lab',
     description:
-      'Decode all 42 Konfi-07 shopping riddles and visual rebus puzzles, verify 38 solved examples, and sharpen deduction with 10 hint-assisted MCQs.',
-    highlights: '42 Konfi-07 Riddles · 10 Hinted MCQs',
+      'Solve 42 deductive shopping riddles, master 6 negotiation case frameworks, take 20 hint-assisted MCQs, and score your deal script in the Role-Play Lab.',
+    highlights: '42 Riddles · 20 MCQs · Role-Play Lab',
+    image: shoppingStudioHero,
+    imageAlt:
+      'Two business professionals discussing a structured negotiation deal and value breakdown across a modern conference table',
     targetView: 'shopping',
   },
   {
-    id: 'negotiation-skills',
+    id: 'indianism',
     number: '03.',
-    title: 'Negotiation Skills',
-    subtitle: 'Courteousness · Logic · Persuasion · Precision',
+    title: 'Indianism & Global English',
+    subtitle: 'Workplace Clarity · 12 Playbooks · 15 MCQs',
     description:
-      'Master the 5 pillars of workplace persuasion across 6 solved negotiation cases, 10 strategy MCQs, and the interactive Role-Play Bundle Lab.',
-    highlights: '6 Solved Cases · 10 MCQs · Role-Play Lab',
-    targetView: 'shopping',
+      'Replace common Indian English habits ("revert back", "do the needful", "prepone", "pass out") with crisp, natural international business English.',
+    highlights: '12 Playbooks · 15 Hinted MCQs · Badge',
+    image: indianismHero,
+    imageAlt:
+      'Modern corporate desk with business communication notebook, fountain pen, laptop, and glass wall overlooking a global skyline',
+    targetView: 'career',
+    careerTab: 'indianism',
+  },
+  {
+    id: 'interview-skills',
+    number: '04.',
+    title: 'Interview Skills',
+    subtitle: 'STAR Method · Salary · Executive Presence',
+    description:
+      'Master Tell Me About Yourself, behavioral STAR storytelling, weakness framing, salary negotiation, and high-impact closing questions with a 15-MCQ test.',
+    highlights: '8 Frameworks · 15 Hinted MCQs · Badge',
+    image: interviewHero,
+    imageAlt:
+      'Confident young candidate presenting calmly to a corporate hiring panel inside a sunlit glass-walled interview room',
+    targetView: 'career',
+    careerTab: 'interview',
+  },
+  {
+    id: 'gd-skills',
+    number: '05.',
+    title: 'GD Skills (Group Discussion)',
+    subtitle: 'PESTLE Framing · Consensus · Moderation',
+    description:
+      'Learn how to open a GD with structure, handle dominant speakers gracefully, pivot off-track debates using PREP/PESTLE, and summarize neutrally.',
+    highlights: '8 Playbooks · 15 Hinted MCQs · Badge',
+    image: gdHero,
+    imageAlt:
+      'Six young professionals engaged in a structured corporate group discussion around a walnut conference table',
+    targetView: 'career',
+    careerTab: 'gd',
   },
   {
     id: 'and-more',
-    number: '04.',
-    title: 'And More: Capstone, Video Films & LOR',
-    subtitle: 'Video Challenges · 1000 XP Exam · Placement LOR',
+    number: '06.',
+    title: 'Capstone, Video Films & LOR',
+    subtitle: 'Video Case Studies · 1000 XP Exam · LOR PDF',
     description:
       'Analyze Customer Delight video case films, pass the 90-minute 1000 XP Final Capstone, and download PNG Certificates & Placement LOR PDFs.',
     highlights: '2 Video Films · 1000 XP Final · LOR PDF',
+    image: PHOTO_ASSETS.mountain_peak.src,
+    imageAlt: PHOTO_ASSETS.mountain_peak.alt,
     targetView: 'final',
   },
 ];

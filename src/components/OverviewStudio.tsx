@@ -29,11 +29,14 @@ import { LiveClock } from './LiveClock';
 import { VisualArtwork } from './VisualArtwork';
 import { VideoChallengesSection } from './VideoChallengesSection';
 
+import { CareerCategoryId } from '../data/careerSkillsData';
+
 export type AppView =
   | 'journey'
   | 'levels'
   | 'wheel'
   | 'shopping'
+  | 'career'
   | 'advanced'
   | 'final'
   | 'achievements';
@@ -46,13 +49,23 @@ interface OverviewStudioProps {
   shopCompletedMcqs?: number;
   shopXp?: number;
   shopRoleplayScore?: number;
+  careerAnswered?: number;
+  careerCorrect?: number;
+  careerXp?: number;
+  indianismScore?: string;
+  interviewScore?: string;
+  gdScore?: string;
   finalStatus?: 'not_started' | 'in_progress' | 'submitted';
   finalXp?: number;
   finalPassed?: boolean;
   finalAttemptCount?: number;
   finalEligible?: boolean;
   finalPrereqLabel?: string;
-  onNavigateView: (view: AppView, levelNum?: number) => void;
+  onNavigateView: (
+    view: AppView,
+    levelNum?: number,
+    careerTab?: CareerCategoryId
+  ) => void;
   learnerConnections: {
     id: string;
     picture: string;
@@ -76,6 +89,12 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   shopCompletedMcqs = 0,
   shopXp = 0,
   shopRoleplayScore = 0,
+  careerAnswered = 0,
+  careerCorrect = 0,
+  careerXp = 0,
+  indianismScore = '0/15 MCQs',
+  interviewScore = '0/15 MCQs',
+  gdScore = '0/15 MCQs',
   finalStatus = 'not_started',
   finalXp = 0,
   finalPassed = false,
@@ -163,9 +182,9 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
               Welcome, <span className="font-semibold text-slate-900 dark:text-white">{learnerName}</span>.{' '}
               Master{' '}
               <span className="font-semibold text-slate-900 dark:text-white">
-                Picture Connect, Shopping Skills, Negotiation Skills
+                Picture Connect, Shopping &amp; Negotiation, Indianism, Interview Skills &amp; GD Skills
               </span>
-              , AI Prompt Challenges, Video Cases &amp; the 1000 XP Final Capstone with Placement LOR.
+              , plus AI Challenges, Video Cases &amp; the 1000 XP Final Capstone with Placement LOR.
             </p>
           </div>
 
@@ -307,7 +326,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
         </div>
       </section>
 
-      {/* Interactive 4-Category Employability Directory */}
+      {/* Interactive 6-Category Employability Directory */}
       <section className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
           <div>
@@ -315,23 +334,27 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
               Skill Categories — Choose Your Track
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-              Navigate across Picture Connect, Shopping Skills, Negotiation Skills, Video Cases &amp; Final Capstone.
+              Navigate across Picture Connect, Shopping &amp; Negotiation, Indianism, Interview Skills, GD Skills &amp; Capstone.
             </p>
           </div>
           <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
-            {WORKSHOP_META.pillars.join(' · ')}
+            6 Employability Tracks · Live Progress Sync
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {ACADEMY_CATEGORIES.map((cat) => {
             const liveStatus =
               cat.id === 'picture-connect'
                 ? `${completedCount}/10 Levels · ${advCompletedCount}/25 AI`
-                : cat.id === 'shopping-skills'
-                ? `${shopCompletedMcqs}/20 MCQs · 42 Riddles`
-                : cat.id === 'negotiation-skills'
-                ? `Lab ${shopRoleplayScore}/100 · ${shopXp} XP`
+                : cat.id === 'shopping-negotiation'
+                ? `${shopCompletedMcqs}/20 MCQs · Lab ${shopRoleplayScore}/100`
+                : cat.id === 'indianism'
+                ? indianismScore
+                : cat.id === 'interview-skills'
+                ? interviewScore
+                : cat.id === 'gd-skills'
+                ? gdScore
                 : finalStatus === 'submitted'
                 ? finalPassed
                   ? `Passed · ${finalXp} XP`
@@ -345,30 +368,39 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
                 key={cat.id}
                 type="button"
                 onClick={() =>
-                  cat.id === 'and-more' && !finalEligible && finalStatus === 'not_started'
-                    ? onNavigateView('final')
-                    : onNavigateView(cat.targetView)
+                  onNavigateView(cat.targetView, undefined, cat.careerTab)
                 }
-                className="text-left rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-600 dark:hover:border-blue-500 p-5 flex flex-col justify-between space-y-4 transition-colors cursor-pointer group"
+                className="text-left rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-600 dark:hover:border-blue-500 overflow-hidden flex flex-col justify-between transition-colors cursor-pointer group"
               >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2 text-xs font-mono">
-                    <span className="font-bold text-blue-700 dark:text-blue-400">
-                      {cat.number}
-                    </span>
-                    <span className="text-slate-500 dark:text-slate-400 tabular-nums">
-                      {liveStatus}
-                    </span>
+                <div>
+                  <div className="aspect-[16/9] w-full overflow-hidden border-b border-slate-100 dark:border-slate-800 bg-slate-100 dark:bg-slate-950">
+                    <img
+                      src={cat.image}
+                      alt={cat.imageAlt}
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+                    />
                   </div>
-                  <h3 className="font-display text-lg font-bold text-slate-950 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">
-                    {cat.title}
-                  </h3>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {cat.description}
-                  </p>
+                  <div className="p-5 space-y-2">
+                    <div className="flex items-center justify-between gap-2 text-xs font-mono">
+                      <span className="font-bold text-blue-700 dark:text-blue-400">
+                        {cat.number}
+                      </span>
+                      <span className="text-slate-500 dark:text-slate-400 tabular-nums">
+                        {liveStatus}
+                      </span>
+                    </div>
+                    <h3 className="font-display text-lg font-bold text-slate-950 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">
+                      {cat.title}
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                      {cat.description}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-blue-700 dark:text-blue-400">
+                <div className="mx-5 mb-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-blue-700 dark:text-blue-400">
                   <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 font-normal">
                     {cat.highlights}
                   </span>
@@ -377,6 +409,41 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
               </button>
             );
           })}
+        </div>
+      </section>
+
+      {/* Isolated Career & Placement MCQ Academy (Indianism · Interview Skills · GD Skills) */}
+      <section className="rounded-2xl border border-sky-200 dark:border-sky-900/70 bg-gradient-to-r from-[#F4F9FF] via-white to-violet-50/60 dark:from-slate-900 dark:via-slate-950 dark:to-sky-950/30 p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+        <div className="space-y-1.5 max-w-2xl">
+          <div className="text-xs font-mono font-bold text-sky-700 dark:text-sky-400">
+            NEW MCQ ACADEMY · 45 GRADED MCQS + 28 PLAYBOOKS + 6 BADGES + PNG CERT
+          </div>
+          <h2 className="font-display text-xl sm:text-2xl font-bold text-slate-950 dark:text-white">
+            Indianism, Interview Skills &amp; GD Skills Studio
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+            Eliminate Indianisms with global business English, ace behavioral STAR interviews &amp; salary rounds, and lead structured Group Discussions across 3 interactive MCQ tests with hints, explanations, retakes &amp; downloadable PNG credentials.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 shrink-0">
+          <div className="text-left sm:text-right font-mono">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+              CAREER MCQ PROGRESS
+            </div>
+            <div className="text-sm font-bold text-sky-700 dark:text-sky-400 tabular-nums">
+              {careerAnswered}/45 MCQs ({careerCorrect} Correct) · {careerXp} XP
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigateView('career', undefined, 'indianism')}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-700 hover:bg-sky-800 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Open Career MCQ Studio</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
         </div>
       </section>
 

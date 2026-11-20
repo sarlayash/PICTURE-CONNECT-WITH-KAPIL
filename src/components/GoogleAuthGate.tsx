@@ -89,15 +89,15 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                 </div>
               </div>
               <div>
-                <div className="text-slate-400">Shopping &amp; Deals</div>
+                <div className="text-slate-400">Career MCQ Suite</div>
                 <div className="font-mono font-semibold text-white mt-0.5 tabular-nums">
-                  42 Riddles + Lab
+                  45 Hinted MCQs
                 </div>
               </div>
               <div>
-                <div className="text-slate-400">Credentials</div>
-                <div className="font-mono font-semibold text-white mt-0.5">
-                  XP · Badges · LOR
+                <div className="text-slate-400">Shopping &amp; Deals</div>
+                <div className="font-mono font-semibold text-white mt-0.5 tabular-nums">
+                  42 Riddles + Lab
                 </div>
               </div>
               <div className="flex justify-start sm:justify-end">
@@ -135,11 +135,11 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
             <div className="space-y-2.5 text-xs text-slate-300 border-y border-[#1E335C] py-4">
               <div className="flex items-center gap-2.5">
                 <Trophy className="w-4 h-4 text-sky-400 shrink-0" />
-                <span>Picture Connect: Levels 1–10, Spin Wheel &amp; 25 AI Advanced challenges</span>
+                <span>Picture Connect (Levels 1–10, Spin Wheel &amp; 25 AI Challenges) + Shopping &amp; Negotiation</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Shopping &amp; Negotiation Skills: 42 Konfi-07 riddles, 20 MCQs &amp; Role-Play Lab</span>
+                <span>Indianism, Interview Skills &amp; GD Skills: 28 Playbooks, 45 Graded MCQs &amp; 6 Badges</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <Award className="w-4 h-4 text-amber-400 shrink-0" />
@@ -205,18 +205,18 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
             <div>
               <div className="text-xs font-mono font-semibold text-sky-400">
-                CURATED CURRICULUM · 4 CORE CATEGORIES
+                CURATED CURRICULUM · 6 EMPLOYABILITY CATEGORIES
               </div>
               <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mt-1">
                 Explore Skill Categories
               </h2>
             </div>
             <div className="text-xs text-slate-400 font-mono">
-              Picture Connect · Shopping Skills · Negotiation Skills · Capstone &amp; More
+              Picture Connect · Shopping &amp; Deals · Indianism · Interviews · GD · Capstone
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {ACADEMY_CATEGORIES.map((cat) => {
               const selected = cat.id === activeCategory.id;
               return (
@@ -224,27 +224,38 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                   key={cat.id}
                   type="button"
                   onClick={() => setSelectedCatId(cat.id)}
-                  className={`text-left rounded-2xl border p-5 flex flex-col justify-between space-y-4 transition-colors cursor-pointer ${
+                  className={`text-left rounded-2xl border overflow-hidden flex flex-col justify-between transition-colors cursor-pointer group ${
                     selected
                       ? 'border-sky-400/80 bg-[#0F2046] ring-1 ring-sky-400/30'
                       : 'border-[#1E335C] bg-[#0B1733] hover:border-sky-500/50 hover:bg-[#0D1C3D]'
                   }`}
                 >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2 text-xs font-mono text-slate-400">
-                      <span className="font-semibold text-sky-400">
-                        {cat.number}
-                      </span>
-                      <span>{cat.subtitle.split('·')[0].trim()}</span>
+                  <div>
+                    <div className="aspect-[16/9] w-full overflow-hidden border-b border-[#1E335C] bg-[#071127]">
+                      <img
+                        src={cat.image}
+                        alt={cat.imageAlt}
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+                      />
                     </div>
-                    <h3 className="font-display text-lg font-bold text-white">
-                      {cat.title}
-                    </h3>
-                    <p className="text-xs text-slate-300 leading-relaxed">
-                      {cat.description}
-                    </p>
+                    <div className="p-5 space-y-2">
+                      <div className="flex items-center justify-between gap-2 text-xs font-mono text-slate-400">
+                        <span className="font-semibold text-sky-400">
+                          {cat.number}
+                        </span>
+                        <span className="truncate">{cat.subtitle.split('·')[0].trim()}</span>
+                      </div>
+                      <h3 className="font-display text-lg font-bold text-white">
+                        {cat.title}
+                      </h3>
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                        {cat.description}
+                      </p>
+                    </div>
                   </div>
-                  <div className="pt-3 border-t border-[#1E335C] text-[11px] font-mono text-slate-400">
+                  <div className="mx-5 mb-4 pt-3 border-t border-[#1E335C] text-[11px] font-mono text-slate-400">
                     {cat.highlights}
                   </div>
                 </button>

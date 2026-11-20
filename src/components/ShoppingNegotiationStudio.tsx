@@ -5,7 +5,6 @@ import {
   BookOpen,
   CheckCircle2,
   Download,
-  Eye,
   HelpCircle,
   Lightbulb,
   Lock,
@@ -209,7 +208,6 @@ export const ShoppingNegotiationStudio: React.FC<ShoppingNegotiationStudioProps>
   const [exampleKind, setExampleKind] = useState<'all' | 'riddles' | 'cases'>('all');
   const [riddleCategory, setRiddleCategory] = useState<string>('All');
   const [searchTerm, setSearchTerm] = useState('');
-  const [showSheets, setShowSheets] = useState(false);
 
   const [mcqFilter, setMcqFilter] = useState<'all' | 'riddle' | 'negotiation'>('all');
   const [visibleHints, setVisibleHints] = useState<Record<string, boolean>>({});
@@ -534,41 +532,51 @@ export const ShoppingNegotiationStudio: React.FC<ShoppingNegotiationStudioProps>
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4 sm:min-w-[280px] space-y-2 shrink-0">
-            <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-slate-500 dark:text-slate-400">MODULE RANK</span>
-              <span className="font-bold text-blue-700 dark:text-blue-400">{rank.title}</span>
-            </div>
-            <div className="grid grid-cols-3 gap-3 pt-1">
-              <div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400">Shop XP</div>
-                <div className="font-mono text-lg font-bold text-slate-950 dark:text-white tabular-nums">
-                  {shoppingProgress.shopXp}
-                </div>
-              </div>
-              <div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400">MCQs</div>
-                <div className="font-mono text-lg font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
-                  {answeredCount}/20
-                </div>
-              </div>
-              <div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400">Badges</div>
-                <div className="font-mono text-lg font-bold text-amber-700 dark:text-amber-400 tabular-nums">
-                  {shoppingProgress.unlockedShopBadges.length}/{SHOPPING_BADGES.length}
-                </div>
-              </div>
-            </div>
-            <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden mt-1">
-              <div
-                className="h-full rounded-full bg-blue-700 dark:bg-blue-500 transition-all"
-                style={{
-                  width: `${Math.min(
-                    100,
-                    Math.round((shoppingProgress.shopXp / 1000) * 100)
-                  )}%`,
-                }}
+          <div className="space-y-3 sm:min-w-[290px] lg:max-w-[340px] shrink-0">
+            <div className="aspect-[16/9] w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950">
+              <img
+                src={SHOPPING_MODULE_META.heroImage}
+                alt="Shopping and Negotiation Skills executive session"
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover"
               />
+            </div>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <span className="text-slate-500 dark:text-slate-400">MODULE RANK</span>
+                <span className="font-bold text-blue-700 dark:text-blue-400">{rank.title}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-3 pt-1">
+                <div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Shop XP</div>
+                  <div className="font-mono text-lg font-bold text-slate-950 dark:text-white tabular-nums">
+                    {shoppingProgress.shopXp}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">MCQs</div>
+                  <div className="font-mono text-lg font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                    {answeredCount}/20
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Badges</div>
+                  <div className="font-mono text-lg font-bold text-amber-700 dark:text-amber-400 tabular-nums">
+                    {shoppingProgress.unlockedShopBadges.length}/{SHOPPING_BADGES.length}
+                  </div>
+                </div>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden mt-1">
+                <div
+                  className="h-full rounded-full bg-blue-700 dark:bg-blue-500 transition-all"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.round((shoppingProgress.shopXp / 1000) * 100)
+                    )}%`,
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -625,51 +633,9 @@ export const ShoppingNegotiationStudio: React.FC<ShoppingNegotiationStudioProps>
         </div>
       )}
 
-      {/* TAB 1: SOLVED EXAMPLES & ORIGINAL WORKSHEETS */}
+      {/* TAB 1: SOLVED EXAMPLES & NEGOTIATION CASES */}
       {activeTab === 'examples' && (
         <div className="space-y-6">
-          {/* Original FACE Konfi-07 Worksheet Viewer */}
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h2 className="font-display text-lg font-bold text-slate-950 dark:text-white">
-                  Original FACE Konfi-07 Shopping Role Play Sheets (Q1–Q42)
-                </h2>
-                <p className="text-xs text-slate-600 dark:text-slate-400">
-                  Reference the authentic Focus Academy for Career Enhancement worksheets alongside every solved item below.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowSheets((v) => !v)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer shrink-0"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>{showSheets ? 'Hide Source Sheets' : 'View Original Worksheet Photos'}</span>
-              </button>
-            </div>
-
-            {showSheets && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                {SHOPPING_MODULE_META.worksheetPages.map((page) => (
-                  <div
-                    key={page.label}
-                    className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 space-y-2"
-                  >
-                    <div className="text-xs font-mono font-semibold text-slate-700 dark:text-slate-300">
-                      {page.label}
-                    </div>
-                    <img
-                      src={page.src}
-                      alt={page.label}
-                      className="w-full max-h-[520px] object-contain rounded-lg bg-white"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Search & Filters */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
