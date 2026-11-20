@@ -13,6 +13,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import {
+  ACADEMY_CATEGORIES,
   BADGES,
   CENTRAL_CONCEPT_PAIRS,
   getLearnerRank,
@@ -145,7 +146,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
               <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
                 <span>{WORKSHOP_META.institution}</span>
                 <span aria-hidden="true">·</span>
-                <span>{WORKSHOP_META.subtitle}</span>
+                <span>{WORKSHOP_META.positioning}</span>
                 <span aria-hidden="true">·</span>
                 <span className="font-semibold text-blue-700 dark:text-blue-400">
                   {WORKSHOP_META.poweredBy}
@@ -154,13 +155,17 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
               <LiveClock />
             </div>
 
-            <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight text-slate-950 dark:text-white leading-[1.06]">
-              See Beyond. Think Beyond. Connect Beyond.
+            <h1 className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-slate-950 dark:text-white leading-[1.08] [text-wrap:balance]">
+              {WORKSHOP_META.title}
             </h1>
 
             <p className="text-base text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
               Welcome, <span className="font-semibold text-slate-900 dark:text-white">{learnerName}</span>.{' '}
-              {WORKSHOP_META.corePhilosophy} Master all 10 interactive visual levels, spin the creative wheel, collect XP & badges, and download your personal PNG certificate.
+              Master{' '}
+              <span className="font-semibold text-slate-900 dark:text-white">
+                Picture Connect, Shopping Skills, Negotiation Skills
+              </span>
+              , AI Prompt Challenges, Video Cases &amp; the 1000 XP Final Capstone with Placement LOR.
             </p>
           </div>
 
@@ -299,6 +304,79 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
           <div className="font-mono tabular-nums text-sm sm:text-base font-bold text-blue-700 dark:text-blue-400 mt-2">
             {progress.certificateId}
           </div>
+        </div>
+      </section>
+
+      {/* Interactive 4-Category Employability Directory */}
+      <section className="space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+          <div>
+            <h2 className="font-display text-2xl font-bold text-slate-950 dark:text-white">
+              Skill Categories — Choose Your Track
+            </h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+              Navigate across Picture Connect, Shopping Skills, Negotiation Skills, Video Cases &amp; Final Capstone.
+            </p>
+          </div>
+          <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
+            {WORKSHOP_META.pillars.join(' · ')}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {ACADEMY_CATEGORIES.map((cat) => {
+            const liveStatus =
+              cat.id === 'picture-connect'
+                ? `${completedCount}/10 Levels · ${advCompletedCount}/25 AI`
+                : cat.id === 'shopping-skills'
+                ? `${shopCompletedMcqs}/20 MCQs · 42 Riddles`
+                : cat.id === 'negotiation-skills'
+                ? `Lab ${shopRoleplayScore}/100 · ${shopXp} XP`
+                : finalStatus === 'submitted'
+                ? finalPassed
+                  ? `Passed · ${finalXp} XP`
+                  : `Attempt ${finalAttemptCount}/2 (${finalXp} XP)`
+                : finalEligible
+                ? 'Capstone Ready · 90 Min'
+                : `${finalPrereqLabel} Prereqs · Video Films`;
+
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() =>
+                  cat.id === 'and-more' && !finalEligible && finalStatus === 'not_started'
+                    ? onNavigateView('final')
+                    : onNavigateView(cat.targetView)
+                }
+                className="text-left rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-600 dark:hover:border-blue-500 p-5 flex flex-col justify-between space-y-4 transition-colors cursor-pointer group"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2 text-xs font-mono">
+                    <span className="font-bold text-blue-700 dark:text-blue-400">
+                      {cat.number}
+                    </span>
+                    <span className="text-slate-500 dark:text-slate-400 tabular-nums">
+                      {liveStatus}
+                    </span>
+                  </div>
+                  <h3 className="font-display text-lg font-bold text-slate-950 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">
+                    {cat.title}
+                  </h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    {cat.description}
+                  </p>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-blue-700 dark:text-blue-400">
+                  <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 font-normal">
+                    {cat.highlights}
+                  </span>
+                  <ArrowRight className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
+                </div>
+              </button>
+            );
+          })}
         </div>
       </section>
 

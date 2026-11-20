@@ -399,9 +399,9 @@ export const ShoppingNegotiationStudio: React.FC<ShoppingNegotiationStudioProps>
 
       ctx.textAlign = 'center';
       ctx.fillStyle = '#1D4ED8';
-      ctx.font = '700 28px "JetBrains Mono", monospace';
+      ctx.font = '700 24px "JetBrains Mono", monospace';
       ctx.fillText(
-        'PICTURE CONNECT WITH KAPIL  ·  FACE KONFI-07 ROLE PLAY TRACK',
+        'BUILDING EMPLOYABILITY SKILLS WITH KAPIL  ·  SHOPPING & NEGOTIATION',
         W / 2,
         215
       );
@@ -1221,7 +1221,7 @@ export const ShoppingNegotiationStudio: React.FC<ShoppingNegotiationStudioProps>
               <div className="rounded-2xl border-4 border-slate-900 dark:border-slate-700 bg-gradient-to-br from-[#FDFBF7] via-white to-blue-50 text-slate-900 p-6 sm:p-10 shadow-xl">
                 <div className="border-2 border-amber-600/70 p-6 sm:p-10 space-y-6 text-center">
                   <div className="text-xs font-mono font-bold tracking-[0.2em] text-blue-700">
-                    PICTURE CONNECT WITH KAPIL · FACE KONFI-07 ROLE PLAY TRACK
+                    BUILDING EMPLOYABILITY SKILLS WITH KAPIL · SHOPPING &amp; NEGOTIATION
                   </div>
                   <h4 className="font-display text-2xl sm:text-4xl font-extrabold text-slate-950">
                     CERTIFICATE OF NEGOTIATION MASTERY

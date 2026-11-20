@@ -215,24 +215,77 @@ export const VIDEO_CASE_STUDIES: VideoCaseStudy[] = [
   },
 ];
 
+export interface AcademyCategory {
+  id: 'picture-connect' | 'shopping-skills' | 'negotiation-skills' | 'and-more';
+  number: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  highlights: string;
+  targetView: 'levels' | 'shopping' | 'advanced' | 'final';
+}
+
 export const WORKSHOP_META = {
-  title: 'PICTURE CONNECT WITH KAPIL',
-  shortTitle: 'Picture Connect',
-  subtitle: 'Experiential Visual Thinking Academy',
+  title: 'Building Employability Skills With Kapil',
+  shortTitle: 'Employability Skills · Kapil',
+  subtitle: 'Picture Connect · Shopping Skills · Negotiation Skills & More',
   institution: 'JIET Universe, Jodhpur',
   positioning: 'See Beyond. Think Beyond. Connect Beyond.',
   poweredBy: 'Powered By Kapil',
   pillars: [
-    'Visual Intelligence',
-    'Creative Thinking',
-    'Communication',
-    'Employability',
+    'Picture Connect',
+    'Shopping Skills',
+    'Negotiation Skills',
+    'Placement & More',
   ],
   corePhilosophy:
-    'The magic is not in identifying the picture. It is in explaining the connection!',
+    'The magic is not in identifying the prompt. It is in explaining the connection, reasoning with logic, and persuading with clarity!',
   learnerPromise:
-    'Communication is not merely about English proficiency. It is about your ability to observe clearly, organise thoughts rapidly, and express ideas with confidence.',
+    'Communication and employability go far beyond grammar. Build sharper visual observation, deductive logic, ethical negotiation, and executive storytelling.',
 };
+
+export const ACADEMY_CATEGORIES: AcademyCategory[] = [
+  {
+    id: 'picture-connect',
+    number: '01.',
+    title: 'Picture Connect',
+    subtitle: 'Visual Intelligence · Levels 1–10 & AI Studio',
+    description:
+      '10 progressive visual thinking levels, 18 Spinning Wheel speaking prompts, and the 25-brief AI Prompt-to-Presentation Advanced Track.',
+    highlights: 'Levels 1–10 · Spin Wheel · AI Advanced',
+    targetView: 'levels',
+  },
+  {
+    id: 'shopping-skills',
+    number: '02.',
+    title: 'Shopping Skills',
+    subtitle: 'FACE Konfi-07 Deductive List Role Play',
+    description:
+      'Decode all 42 Konfi-07 shopping riddles and visual rebus puzzles, verify 38 solved examples, and sharpen deduction with 10 hint-assisted MCQs.',
+    highlights: '42 Konfi-07 Riddles · 10 Hinted MCQs',
+    targetView: 'shopping',
+  },
+  {
+    id: 'negotiation-skills',
+    number: '03.',
+    title: 'Negotiation Skills',
+    subtitle: 'Courteousness · Logic · Persuasion · Precision',
+    description:
+      'Master the 5 pillars of workplace persuasion across 6 solved negotiation cases, 10 strategy MCQs, and the interactive Role-Play Bundle Lab.',
+    highlights: '6 Solved Cases · 10 MCQs · Role-Play Lab',
+    targetView: 'shopping',
+  },
+  {
+    id: 'and-more',
+    number: '04.',
+    title: 'And More: Capstone, Video Films & LOR',
+    subtitle: 'Video Challenges · 1000 XP Exam · Placement LOR',
+    description:
+      'Analyze Customer Delight video case films, pass the 90-minute 1000 XP Final Capstone, and download PNG Certificates & Placement LOR PDFs.',
+    highlights: '2 Video Films · 1000 XP Final · LOR PDF',
+    targetView: 'final',
+  },
+];
 
 export function getLearnerRank(xp: number): {
   title: string;

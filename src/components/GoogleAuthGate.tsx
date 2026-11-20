@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Award, Lock, Play, ShieldCheck, Sparkles, Trophy } from 'lucide-react';
+import { ArrowRight, Award, Lock, Play, ShieldCheck, Sparkles, Trophy } from 'lucide-react';
 import { signInWithGoogleOnly } from '../firebase';
-import { WORKSHOP_META } from '../data/workshopData';
+import { ACADEMY_CATEGORIES, WORKSHOP_META } from '../data/workshopData';
 import { LiveClock } from './LiveClock';
 import { VisualArtwork } from './VisualArtwork';
 import { VideoChallengesSection } from './VideoChallengesSection';
@@ -17,6 +17,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
 }) => {
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [selectedCatId, setSelectedCatId] = useState<string>(ACADEMY_CATEGORIES[0].id);
 
   const handleGoogleLogin = async () => {
     setSubmitting(true);
@@ -45,6 +46,8 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
   };
 
   const displayError = localError || authError;
+  const activeCategory =
+    ACADEMY_CATEGORIES.find((c) => c.id === selectedCatId) ?? ACADEMY_CATEGORIES[0];
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-6 sm:py-10 px-4 sm:px-8">
@@ -63,9 +66,12 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                 </div>
                 <LiveClock compact />
               </div>
-              <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-slate-950 dark:text-white leading-tight">
+              <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-slate-950 dark:text-white leading-tight [text-wrap:balance]">
                 {WORKSHOP_META.title}
               </h1>
+              <p className="text-xs sm:text-sm font-semibold text-blue-700 dark:text-blue-400">
+                {WORKSHOP_META.subtitle}
+              </p>
               <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
                 {WORKSHOP_META.positioning} — {WORKSHOP_META.corePhilosophy}
               </p>
@@ -77,21 +83,21 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs items-center">
               <div>
-                <div className="text-slate-500 dark:text-slate-400">Skill Path</div>
+                <div className="text-slate-500 dark:text-slate-400">Picture Connect</div>
                 <div className="font-mono font-semibold text-slate-900 dark:text-white mt-0.5 tabular-nums">
-                  Levels 1 – 10
+                  Levels 1–10 + AI
                 </div>
               </div>
               <div>
-                <div className="text-slate-500 dark:text-slate-400">Practice Wheel</div>
+                <div className="text-slate-500 dark:text-slate-400">Shopping &amp; Deals</div>
                 <div className="font-mono font-semibold text-slate-900 dark:text-white mt-0.5 tabular-nums">
-                  18 Spin Prompts
+                  42 Riddles + Lab
                 </div>
               </div>
               <div>
                 <div className="text-slate-500 dark:text-slate-400">Credentials</div>
                 <div className="font-mono font-semibold text-slate-900 dark:text-white mt-0.5">
-                  XP · Badges · PNG
+                  XP · Badges · LOR
                 </div>
               </div>
               <div className="flex justify-start sm:justify-end">
@@ -118,7 +124,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                 Sign in with Google
               </h2>
               <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                Your Google display name powers your personal XP ledger, downloadable PNG badges, and verifiable certificate{' '}
+                Your Google display name powers your personal XP ledger across every category, downloadable PNG badges, and verifiable certificates{' '}
                 <span className="font-semibold text-slate-900 dark:text-white">
                   Powered By Kapil
                 </span>
@@ -129,15 +135,15 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
             <div className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300 border-y border-slate-100 dark:border-slate-800 py-4">
               <div className="flex items-center gap-2.5">
                 <Trophy className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                <span>Complete Levels 1–10 solo challenges to earn up to 1,510+ XP</span>
+                <span>Picture Connect: Levels 1–10, Spin Wheel &amp; 25 AI Advanced challenges</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span>Watch video case challenges &amp; spin 3 interactive wheels</span>
+                <span>Shopping &amp; Negotiation Skills: 42 Konfi-07 riddles, 20 MCQs &amp; Role-Play Lab</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <Award className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                <span>Unlock 8 mastery badges and export PNG badges &amp; certificate</span>
+                <span>90-Min 1000 XP Final Capstone, PNG Certificates &amp; Placement LOR PDF</span>
               </div>
             </div>
 
@@ -180,7 +186,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-3 text-xs text-slate-500 dark:text-slate-400">
               <div className="space-y-1">
                 <div>Strictly genuine Google sign-ups only — no guests or passwords.</div>
-                <div>Your XP, completed levels, and certificate credentials sync automatically.</div>
+                <div>Your XP, completed tracks, and certificate credentials sync automatically.</div>
               </div>
               <button
                 type="button"
@@ -193,6 +199,91 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Academy Skill Categories Directory */}
+        <section className="space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+            <div>
+              <div className="text-xs font-mono font-semibold text-blue-700 dark:text-blue-400">
+                CURATED CURRICULUM · 4 CORE CATEGORIES
+              </div>
+              <h2 className="font-display text-2xl sm:text-3xl font-bold text-slate-950 dark:text-white mt-1">
+                Explore Skill Categories
+              </h2>
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+              Picture Connect · Shopping Skills · Negotiation Skills · Capstone &amp; More
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {ACADEMY_CATEGORIES.map((cat) => {
+              const selected = cat.id === activeCategory.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setSelectedCatId(cat.id)}
+                  className={`text-left rounded-2xl border p-5 flex flex-col justify-between space-y-4 transition-colors cursor-pointer ${
+                    selected
+                      ? 'border-blue-600 dark:border-blue-500 bg-white dark:bg-slate-900 ring-1 ring-blue-600/20'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
+                  }`}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2 text-xs font-mono text-slate-500 dark:text-slate-400">
+                      <span className="font-semibold text-blue-700 dark:text-blue-400">
+                        {cat.number}
+                      </span>
+                      <span>{cat.subtitle.split('·')[0].trim()}</span>
+                    </div>
+                    <h3 className="font-display text-lg font-bold text-slate-950 dark:text-white">
+                      {cat.title}
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                      {cat.description}
+                    </p>
+                  </div>
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                    {cat.highlights}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                {activeCategory.number} {activeCategory.title} — {activeCategory.subtitle}
+              </div>
+              <div className="text-xs text-slate-600 dark:text-slate-400">
+                Sign in with Google to save XP, badges, and certificates across all categories, or preview our 2 Video Case Studies below.
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
+              {activeCategory.id === 'and-more' && (
+                <button
+                  type="button"
+                  onClick={scrollToVideos}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  <Play className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>Preview Video Films</span>
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={handleGoogleLogin}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60"
+              >
+                <span>Enter {activeCategory.title}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </section>
 
         {/* Landing Video Case Studies & Challenges (Watch Directly Inside Portal) */}
         <VideoChallengesSection

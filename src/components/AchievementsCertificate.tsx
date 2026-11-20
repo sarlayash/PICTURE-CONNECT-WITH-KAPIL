@@ -82,8 +82,8 @@ function renderAndDownloadBadgePng(
   // Header metadata
   ctx.textAlign = 'center';
   ctx.fillStyle = palette.glow;
-  ctx.font = '700 22px "JetBrains Mono", monospace';
-  ctx.fillText('PICTURE CONNECT WITH KAPIL · VERIFIED BADGE', S / 2, 128);
+  ctx.font = '700 20px "JetBrains Mono", monospace';
+  ctx.fillText('EMPLOYABILITY SKILLS WITH KAPIL · PICTURE CONNECT BADGE', S / 2, 128);
 
   // Central Collectible Medallion
   const cx = S / 2;
@@ -484,7 +484,7 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
       // Export PNG download
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
-      link.download = `Picture-Connect-Certificate-Powered-By-Kapil.png`;
+      link.download = `Employability-Skills-Picture-Connect-Certificate-Kapil.png`;
       link.href = dataUrl;
       document.body.appendChild(link);
       link.click();

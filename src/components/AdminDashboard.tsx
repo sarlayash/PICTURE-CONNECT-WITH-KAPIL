@@ -464,7 +464,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
             <div>
               <h2 className="font-display text-lg font-bold text-slate-950 dark:text-white">
-                Admin Command Center · Picture Connect with Kapil
+                Admin Command Center · Building Employability Skills With Kapil
               </h2>
               <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
                 {credentialsUnlocked && hasAdminGoogleSession

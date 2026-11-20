@@ -86,8 +86,8 @@ function renderAndDownloadAdvBadgePng(
   // Header tag
   ctx.textAlign = 'center';
   ctx.fillStyle = palette.glow;
-  ctx.font = '700 21px "JetBrains Mono", monospace';
-  ctx.fillText('AI-POWERED PICTURE CONNECT · ADVANCED BADGE', S / 2, 128);
+  ctx.font = '700 19px "JetBrains Mono", monospace';
+  ctx.fillText('EMPLOYABILITY SKILLS WITH KAPIL · AI PICTURE CONNECT', S / 2, 128);
 
   // Central Hexagonal Prestige Emblem
   const cx = S / 2;
@@ -335,9 +335,9 @@ export const AdvancedAchievements: React.FC<AdvancedAchievementsProps> = ({
       // Header
       ctx.textAlign = 'center';
       ctx.fillStyle = '#4338CA';
-      ctx.font = '700 26px "JetBrains Mono", monospace';
+      ctx.font = '700 22px "JetBrains Mono", monospace';
       ctx.fillText(
-        `${ADVANCED_META.title}  ·  ADVANCED TRACK`,
+        `BUILDING EMPLOYABILITY SKILLS WITH KAPIL  ·  ${ADVANCED_META.title}`,
         W / 2,
         215
       );
@@ -691,7 +691,7 @@ export const AdvancedAchievements: React.FC<AdvancedAchievementsProps> = ({
           <div className="border-2 border-amber-700/60 p-6 sm:p-10 space-y-8 text-center relative">
             <div className="space-y-2">
               <div className="font-mono text-xs font-bold tracking-[0.2em] text-indigo-700 uppercase">
-                {ADVANCED_META.title} · ADVANCED TRACK
+                BUILDING EMPLOYABILITY SKILLS WITH KAPIL · {ADVANCED_META.title}
               </div>
               <h4 className="font-display text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-950">
                 {isFullMastery

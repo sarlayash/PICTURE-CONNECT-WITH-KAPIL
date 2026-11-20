@@ -118,9 +118,9 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       // Header
       ctx.textAlign = 'center';
       ctx.fillStyle = '#1D4ED8';
-      ctx.font = '700 26px "JetBrains Mono", monospace';
+      ctx.font = '700 24px "JetBrains Mono", monospace';
       ctx.fillText(
-        'PICTURE CONNECT WITH KAPIL  ·  1000 XP FINAL CAPSTONE ASSESSMENT',
+        'BUILDING EMPLOYABILITY SKILLS WITH KAPIL  ·  1000 XP FINAL CAPSTONE',
         W / 2,
         210
       );
@@ -299,7 +299,7 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download =
-        'Picture-Connect-Final-Capstone-Certificate-Powered-By-Kapil.png';
+        'Building-Employability-Skills-With-Kapil-Capstone-Certificate.png';
       link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
@@ -340,14 +340,14 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       // Letterhead Header
       let y = 26;
       docPdf.setFont('helvetica', 'bold');
-      docPdf.setFontSize(15);
+      docPdf.setFontSize(13.5);
       docPdf.setTextColor(15, 23, 42);
-      docPdf.text('PICTURE CONNECT WITH KAPIL', margin, y);
+      docPdf.text('BUILDING EMPLOYABILITY SKILLS WITH KAPIL', margin, y);
 
       docPdf.setFont('helvetica', 'bold');
-      docPdf.setFontSize(9.5);
+      docPdf.setFontSize(8.5);
       docPdf.setTextColor(29, 78, 216);
-      docPdf.text('POWERED BY KAPIL · PLACEMENT EMPLOYABILITY ACADEMY', pageW - margin, y, {
+      docPdf.text('POWERED BY KAPIL · EMPLOYABILITY & PLACEMENT ACADEMY', pageW - margin, y, {
         align: 'right',
       });
 
@@ -656,7 +656,7 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
         <div className="border-2 border-amber-600/70 p-6 sm:p-10 space-y-7 text-center">
           <div className="space-y-2">
             <div className="font-mono text-xs font-bold tracking-[0.2em] text-blue-700 uppercase">
-              PICTURE CONNECT WITH KAPIL · 1000 XP FINAL CAPSTONE ASSESSMENT
+              BUILDING EMPLOYABILITY SKILLS WITH KAPIL · 1000 XP FINAL CAPSTONE
             </div>
             <h4 className="font-display text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-950">
               FINAL CAPSTONE CERTIFICATE OF MERIT
