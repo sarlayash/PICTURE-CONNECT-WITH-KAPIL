@@ -35,7 +35,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isGenuineGoogleUser()
-        && request.auth.token.email == 'kapilnarula27july@gmail.com';
+        && request.auth.token.email.lower() == 'kapilnarula27july@gmail.com';
     }
 
     // 3. Entity Validation Blueprints
@@ -392,7 +392,7 @@ service cloud.firestore {
       allow create: if isValidId(userId)
         && isOwner(userId)
         && isValidUserAccount(incoming(), userId)
-        && incoming().email == request.auth.token.email
+        && incoming().email.lower() == request.auth.token.email.lower()
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
       allow update: if isValidId(userId)
@@ -526,7 +526,7 @@ service cloud.firestore {
         && incoming().status == 'in_progress'
         && 'attemptCount' in incoming()
         && incoming().attemptCount == 1
-        && incoming().authorEmail == request.auth.token.email
+        && incoming().authorEmail.lower() == request.auth.token.email.lower()
         && incoming().updatedAt == request.time
         && exists(/databases/$(database)/documents/learnerProgress/$(userId))
         && get(/databases/$(database)/documents/learnerProgress/$(userId)).data.completedLevels.size() == 10
@@ -664,7 +664,7 @@ service cloud.firestore {
         && isGenuineGoogleUser()
         && isValidSectionFeedback(incoming())
         && incoming().authorId == request.auth.uid
-        && incoming().authorEmail == request.auth.token.email
+        && incoming().authorEmail.lower() == request.auth.token.email.lower()
         && incoming().status == 'new'
         && incoming().adminNote == ''
         && incoming().createdAt == request.time

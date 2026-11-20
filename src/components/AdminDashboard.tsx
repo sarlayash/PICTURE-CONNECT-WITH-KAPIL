@@ -337,6 +337,71 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return list;
   }, [records, advByUid, shopByUid, careerByUid, masterByUid, finalByUid, adminTrackView, searchQuery, statusFilter, sortBy]);
 
+  const filteredFeedback = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return feedbackItems.filter((item) => {
+      if (fbSectionFilter !== 'all' && item.sectionId !== fbSectionFilter) {
+        return false;
+      }
+      if (fbStatusFilter !== 'all' && item.status !== fbStatusFilter) {
+        return false;
+      }
+      if (fbRatingFilter === '5' && item.rating !== 5) return false;
+      if (fbRatingFilter === 'low' && item.rating > 3) return false;
+      if (!q) return true;
+      return (
+        item.authorName.toLowerCase().includes(q) ||
+        item.authorEmail.toLowerCase().includes(q) ||
+        item.sectionLabel.toLowerCase().includes(q) ||
+        item.subTopic.toLowerCase().includes(q) ||
+        item.highlights.toLowerCase().includes(q) ||
+        item.improvement.toLowerCase().includes(q)
+      );
+    });
+  }, [
+    feedbackItems,
+    fbSectionFilter,
+    fbStatusFilter,
+    fbRatingFilter,
+    searchQuery,
+  ]);
+
+  const feedbackAvgRating = useMemo(() => {
+    if (feedbackItems.length === 0) return 0;
+    const sum = feedbackItems.reduce((acc, f) => acc + f.rating, 0);
+    return Number((sum / feedbackItems.length).toFixed(2));
+  }, [feedbackItems]);
+
+  const feedbackWowPct = useMemo(() => {
+    if (feedbackItems.length === 0) return 0;
+    const fiveStar = feedbackItems.filter((f) => f.rating === 5).length;
+    return Math.round((fiveStar / feedbackItems.length) * 100);
+  }, [feedbackItems]);
+
+  const feedbackOpenCount = useMemo(
+    () => feedbackItems.filter((f) => f.status === 'new').length,
+    [feedbackItems]
+  );
+
+  const feedbackBySectionStats = useMemo(() => {
+    const sections = Object.keys(FEEDBACK_SECTION_LABELS) as FeedbackSectionId[];
+    return sections.map((secId) => {
+      const list = feedbackItems.filter((f) => f.sectionId === secId);
+      const avg =
+        list.length > 0
+          ? Number(
+              (list.reduce((s, x) => s + x.rating, 0) / list.length).toFixed(1)
+            )
+          : 0;
+      return {
+        sectionId: secId,
+        label: FEEDBACK_SECTION_LABELS[secId],
+        count: list.length,
+        avg,
+      };
+    });
+  }, [feedbackItems]);
+
   if (!open) return null;
 
   const handleCredentialLogin = (e: React.FormEvent) => {
@@ -551,6 +616,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         masterUniverseSkills: masterByUid[r.uid] ?? null,
         finalAssessment: finalByUid[r.uid] ?? null,
       })),
+      feedbackReports: filteredFeedback,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: 'application/json',
@@ -581,71 +647,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setResetBusy(false);
     }
   };
-
-  const filteredFeedback = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return feedbackItems.filter((item) => {
-      if (fbSectionFilter !== 'all' && item.sectionId !== fbSectionFilter) {
-        return false;
-      }
-      if (fbStatusFilter !== 'all' && item.status !== fbStatusFilter) {
-        return false;
-      }
-      if (fbRatingFilter === '5' && item.rating !== 5) return false;
-      if (fbRatingFilter === 'low' && item.rating > 3) return false;
-      if (!q) return true;
-      return (
-        item.authorName.toLowerCase().includes(q) ||
-        item.authorEmail.toLowerCase().includes(q) ||
-        item.sectionLabel.toLowerCase().includes(q) ||
-        item.subTopic.toLowerCase().includes(q) ||
-        item.highlights.toLowerCase().includes(q) ||
-        item.improvement.toLowerCase().includes(q)
-      );
-    });
-  }, [
-    feedbackItems,
-    fbSectionFilter,
-    fbStatusFilter,
-    fbRatingFilter,
-    searchQuery,
-  ]);
-
-  const feedbackAvgRating = useMemo(() => {
-    if (feedbackItems.length === 0) return 0;
-    const sum = feedbackItems.reduce((acc, f) => acc + f.rating, 0);
-    return Number((sum / feedbackItems.length).toFixed(2));
-  }, [feedbackItems]);
-
-  const feedbackWowPct = useMemo(() => {
-    if (feedbackItems.length === 0) return 0;
-    const fiveStar = feedbackItems.filter((f) => f.rating === 5).length;
-    return Math.round((fiveStar / feedbackItems.length) * 100);
-  }, [feedbackItems]);
-
-  const feedbackOpenCount = useMemo(
-    () => feedbackItems.filter((f) => f.status === 'new').length,
-    [feedbackItems]
-  );
-
-  const feedbackBySectionStats = useMemo(() => {
-    const sections = Object.keys(FEEDBACK_SECTION_LABELS) as FeedbackSectionId[];
-    return sections.map((secId) => {
-      const list = feedbackItems.filter((f) => f.sectionId === secId);
-      const avg =
-        list.length > 0
-          ? Number(
-              (list.reduce((s, x) => s + x.rating, 0) / list.length).toFixed(1)
-            )
-          : 0;
-      return {
-        sectionId: secId,
-        label: FEEDBACK_SECTION_LABELS[secId],
-        count: list.length,
-        avg,
-      };
-    });
-  }, [feedbackItems]);
 
   const handleUpdateFeedbackStatus = async (
     item: SectionFeedbackDoc,
@@ -762,6 +763,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   setUserIdInput('');
                   setPasswordInput('');
                   setInspectedUser(null);
+                  setStreamError(null);
                 }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >

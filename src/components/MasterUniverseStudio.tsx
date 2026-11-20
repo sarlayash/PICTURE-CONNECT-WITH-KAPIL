@@ -253,6 +253,7 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
         setActivePillar(found.pillarId);
         setActiveTrack(found.id);
         setRetakeConfirm(false);
+        setProblemTierFilter('ALL');
         return;
       }
     }
@@ -265,6 +266,7 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
         }
       }
       setRetakeConfirm(false);
+      setProblemTierFilter('ALL');
     }
   }, [initialPillar, initialTrack]);
 
@@ -377,12 +379,33 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
       "MENTOR KAPIL'S PLACEMENT TIPS:",
       ...trackLiveNotes.mentorKapilTips.map((tip, i) => `${i + 1}. ${tip}`),
     ].join('\n');
+    let copied = false;
     try {
-      await navigator.clipboard.writeText(text);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      }
+    } catch {
+      copied = false;
+    }
+    if (!copied) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        copied = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch {
+        copied = false;
+      }
+    }
+    if (copied) {
       setCopiedNotes(true);
       setTimeout(() => setCopiedNotes(false), 2200);
-    } catch {
-      // Clipboard fallback silently ignored in sandboxed iframes
     }
   };
 
@@ -822,6 +845,7 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
                   onClick={() => {
                     setActiveTrack(tid);
                     setRetakeConfirm(false);
+                    setProblemTierFilter('ALL');
                   }}
                   className={`text-left rounded-xl border overflow-hidden transition-all cursor-pointer ${
                     selected
@@ -1178,9 +1202,9 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      const allOpen = filteredProblems.every(
-                        (p) => expandedProblems[p.id]
-                      );
+                      const allOpen =
+                        filteredProblems.length > 0 &&
+                        filteredProblems.every((p) => expandedProblems[p.id]);
                       const next = { ...expandedProblems };
                       filteredProblems.forEach((p) => {
                         next[p.id] = !allOpen;
@@ -1190,7 +1214,8 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                   >
                     <span>
-                      {filteredProblems.every((p) => expandedProblems[p.id])
+                      {filteredProblems.length > 0 &&
+                      filteredProblems.every((p) => expandedProblems[p.id])
                         ? 'Collapse All Solutions'
                         : 'Reveal All Solutions'}
                     </span>

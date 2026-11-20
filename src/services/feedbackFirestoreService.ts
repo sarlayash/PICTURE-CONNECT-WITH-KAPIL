@@ -10,7 +10,7 @@ import {
   doc,
   where,
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 
 export type FeedbackSectionId =
   | 'journey'
@@ -163,13 +163,16 @@ export async function submitSectionFeedback(params: {
   try {
     const docRef = await addDoc(collection(db, 'sectionFeedback'), {
       authorId: user.uid,
-      authorName: clip(
-        user.displayName || user.email?.split('@')[0] || 'Verified Learner',
-        100
-      ),
+      authorName:
+        clip(
+          user.displayName || user.email?.split('@')[0] || 'Verified Learner',
+          100
+        ) || 'Verified Learner',
       authorEmail: clip(user.email || '', 160),
       sectionId,
-      sectionLabel: clip(sectionLabel || FEEDBACK_SECTION_LABELS[sectionId], 80),
+      sectionLabel:
+        clip(sectionLabel || FEEDBACK_SECTION_LABELS[sectionId], 80) ||
+        'Universe Overview',
       subTopic: clip(subTopic, 100),
       category,
       rating: cleanRating,
@@ -190,7 +193,8 @@ export async function submitSectionFeedback(params: {
 export function subscribeMySectionFeedback(
   user: User,
   sectionId: FeedbackSectionId,
-  onData: (items: SectionFeedbackDoc[]) => void
+  onData: (items: SectionFeedbackDoc[]) => void,
+  onError?: (msg: string) => void
 ): () => void {
   const q = query(
     collection(db, 'sectionFeedback'),
@@ -208,7 +212,15 @@ export function subscribeMySectionFeedback(
       onData(items);
     },
     (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'sectionFeedback');
+      if (!auth.currentUser) return;
+      console.error('Feedback stream error:', error);
+      if (onError) {
+        onError(
+          error instanceof Error
+            ? error.message
+            : 'Unable to load your previous feedback right now.'
+        );
+      }
     }
   );
 }

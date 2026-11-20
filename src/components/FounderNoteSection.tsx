@@ -121,7 +121,7 @@ export const FounderNoteSection: React.FC<FounderNoteSectionProps> = ({
                 >
                   EMPLOYABILITY UNIVERSE With Kapil
                 </strong>{' '}
-                was architected as a single, disciplined sanctuary where everything modern recruiters evaluate comes together: observing deeply through Picture Connect, negotiating with poise, communicating in crisp global English, commanding Interviews and Group Discussions, sharpening Aptitude and Grammar, writing rock-solid C, C++, Java &amp; DSA, and making data-backed decisions with Excel, Power BI, DBMS, and Cloud Computing.
+                was architected as a single, disciplined sanctuary where everything modern recruiters evaluate comes together: observing deeply through Picture Connect, negotiating with poise, communicating in crisp global English, commanding Interviews and Group Discussions, sharpening Aptitude, Grammar, Tenses, Punctuation &amp; Idioms, writing rock-solid C, C++, Java, Python &amp; DSA, and making data-backed decisions with Excel, Power BI, DBMS, and Cloud Computing.
               </p>
               <p>
                 Treat every level, playbook, MCQ, and case study here as a live rehearsal for the room you want to lead tomorrow. Show up with curiosity, respect your craft, and never settle for average when excellence is within reach.

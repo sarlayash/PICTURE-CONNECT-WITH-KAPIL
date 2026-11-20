@@ -17,7 +17,7 @@ import {
   MASTER_TRACKS,
   MasterTrackId,
 } from '../data/masterUniverseData';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 
 function clip(value: string, max: number): string {
   return value.trim().slice(0, max);
@@ -148,10 +148,11 @@ async function persistMasterDoc(
   try {
     await setDoc(ref, {
       ownerId: user.uid,
-      authorName: clip(
-        user.displayName || user.email?.split('@')[0] || 'Verified Learner',
-        100
-      ),
+      authorName:
+        clip(
+          user.displayName || user.email?.split('@')[0] || 'Verified Learner',
+          100
+        ) || 'Verified Learner',
       authorEmail: clip(user.email || '', 160),
       masterXp: Math.min(60000, Math.max(0, Math.round(nextState.masterXp))),
       studiedPlaybooks: nextState.studiedPlaybooks.slice(0, 120),
@@ -193,6 +194,7 @@ export function subscribeMasterProgress(
       }
     },
     (error) => {
+      if (!auth.currentUser) return;
       handleFirestoreError(error, OperationType.GET, path);
     }
   );
