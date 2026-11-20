@@ -67,6 +67,8 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
     }
   };
 
+  const isLanding = mode === 'landing';
+
   return (
     <section
       id="video-case-challenges"
@@ -75,20 +77,34 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
     >
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
-          <div className="text-xs font-mono font-semibold text-blue-700 dark:text-blue-400">
+          <div
+            className={`text-xs font-mono font-semibold ${
+              isLanding ? 'text-sky-400' : 'text-blue-700 dark:text-blue-400'
+            }`}
+          >
             WATCH DIRECTLY IN PORTAL · REAL-WORLD FILM CHALLENGES
           </div>
           <h2
             id="video-challenges-heading"
-            className="font-display text-2xl sm:text-3xl font-bold text-slate-950 dark:text-white mt-1"
+            className={`font-display text-2xl sm:text-3xl font-bold mt-1 ${
+              isLanding ? 'text-white' : 'text-slate-950 dark:text-white'
+            }`}
           >
             Video Case Studies &amp; Leadership Challenges
           </h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-3xl">
+          <p
+            className={`text-sm mt-1 max-w-3xl ${
+              isLanding ? 'text-slate-300' : 'text-slate-600 dark:text-slate-400'
+            }`}
+          >
             Watch both curated films directly inside the workspace, observe the human details others overlook, and complete each leadership challenge.
           </p>
         </div>
-        <span className="text-xs font-mono text-slate-500 dark:text-slate-400 shrink-0 tabular-nums">
+        <span
+          className={`text-xs font-mono shrink-0 tabular-nums ${
+            isLanding ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'
+          }`}
+        >
           2 Case Films · +150 Bonus XP
         </span>
       </div>
@@ -105,27 +121,49 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
           return (
             <article
               key={video.id}
-              className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 flex flex-col justify-between space-y-5"
+              className={`rounded-2xl border p-5 sm:p-6 flex flex-col justify-between space-y-5 ${
+                isLanding
+                  ? 'border-[#1E335C] bg-[#0B1733]'
+                  : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'
+              }`}
             >
               <div className="space-y-4">
                 {/* Clean Unboxed Metadata Strip */}
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <div
+                  className={`flex flex-wrap items-center justify-between gap-2 text-xs ${
+                    isLanding ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'
+                  }`}
+                >
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-blue-700 dark:text-blue-400">
+                    <span
+                      className={`font-mono font-bold ${
+                        isLanding ? 'text-sky-400' : 'text-blue-700 dark:text-blue-400'
+                      }`}
+                    >
                       FILM {video.number}
                     </span>
                     <span aria-hidden="true">·</span>
                     <span>{video.category}</span>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                    <span
+                      className={`font-mono font-semibold tabular-nums ${
+                        isLanding
+                          ? 'text-emerald-400'
+                          : 'text-emerald-700 dark:text-emerald-400'
+                      }`}
+                    >
                       {isDone ? 'Completed' : `+${video.xpReward} XP`}
                     </span>
                     <a
                       href={video.youtubeUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors whitespace-nowrap"
+                      className={`inline-flex items-center gap-1 transition-colors whitespace-nowrap ${
+                        isLanding
+                          ? 'text-slate-400 hover:text-white'
+                          : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                      }`}
                     >
                       <span>YouTube</span>
                       <ExternalLink className="w-3 h-3" />
@@ -134,19 +172,33 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
                 </div>
 
                 <div>
-                  <h3 className="font-display text-xl font-bold text-slate-950 dark:text-white">
+                  <h3
+                    className={`font-display text-xl font-bold ${
+                      isLanding ? 'text-white' : 'text-slate-950 dark:text-white'
+                    }`}
+                  >
                     {video.title}
                   </h3>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                  <p
+                    className={`text-xs mt-0.5 ${
+                      isLanding ? 'text-slate-300' : 'text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
                     {video.subtitle}
                   </p>
                 </div>
 
                 {/* Inline Embedded YouTube Player */}
-                <div className="aspect-video w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-950">
+                <div
+                  className={`aspect-video w-full overflow-hidden rounded-xl border bg-slate-950 ${
+                    isLanding
+                      ? 'border-[#1E335C]'
+                      : 'border-slate-200 dark:border-slate-800'
+                  }`}
+                >
                   <iframe
                     src={`https://www.youtube.com/embed/${video.youtubeId}?rel=0&modestbranding=1`}
-                    title={`${video.title} — Picture Connect Video Case Study`}
+                    title={`${video.title} — Building Employability Skills Video Case Study`}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     referrerPolicy="strict-origin-when-cross-origin"
                     allowFullScreen
@@ -155,32 +207,64 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
                 </div>
 
                 {/* Challenge Brief & Guided Questions */}
-                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4 space-y-3">
+                <div
+                  className={`rounded-xl border p-4 space-y-3 ${
+                    isLanding
+                      ? 'border-[#1E335C] bg-[#071127]'
+                      : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950'
+                  }`}
+                >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="font-display text-sm font-bold text-slate-950 dark:text-white">
+                    <div
+                      className={`font-display text-sm font-bold ${
+                        isLanding ? 'text-white' : 'text-slate-950 dark:text-white'
+                      }`}
+                    >
                       {video.challengeTitle}
                     </div>
                     {isDone && (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                     )}
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  <p
+                    className={`text-xs leading-relaxed ${
+                      isLanding ? 'text-slate-300' : 'text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
                     {video.summary}
                   </p>
-                  <div className="space-y-1.5 pt-2 border-t border-slate-200/80 dark:border-slate-800">
+                  <div
+                    className={`space-y-1.5 pt-2 border-t ${
+                      isLanding
+                        ? 'border-[#1E335C]/80'
+                        : 'border-slate-200/80 dark:border-slate-800'
+                    }`}
+                  >
                     {video.reflectionQuestions.map((q, qIdx) => (
                       <div
                         key={qIdx}
-                        className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300 leading-relaxed"
+                        className={`flex items-start gap-2 text-xs leading-relaxed ${
+                          isLanding
+                            ? 'text-slate-200'
+                            : 'text-slate-700 dark:text-slate-300'
+                        }`}
                       >
-                        <span className="font-mono font-bold text-blue-700 dark:text-blue-400 shrink-0">
+                        <span
+                          className={`font-mono font-bold shrink-0 ${
+                            isLanding ? 'text-sky-400' : 'text-blue-700 dark:text-blue-400'
+                          }`}
+                        >
                           0{qIdx + 1}
                         </span>
                         <span>{q}</span>
                       </div>
                     ))}
                   </div>
-                  <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 pt-1">
+                  <div
+                    className={`text-[11px] font-medium pt-1 ${
+                      isLanding ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'
+                    }`}
+                  >
                     Takeaway: {video.employabilityTakeaway}
                   </div>
                 </div>
@@ -189,14 +273,14 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
               {/* Action Footer: Landing Sign-In CTA OR Portal Live Submission */}
               {mode === 'landing' ? (
                 <div className="pt-1 flex flex-wrap items-center justify-between gap-3">
-                  <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                    <Play className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <span className="text-xs text-slate-400 flex items-center gap-1.5">
+                    <Play className="w-3.5 h-3.5 text-sky-400" />
                     <span>Watch above, then submit your challenge inside</span>
                   </span>
                   <button
                     type="button"
                     onClick={onRequestSignIn}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
                   >
                     <Trophy className="w-3.5 h-3.5" />
                     <span>Sign in to Claim +{video.xpReward} XP</span>

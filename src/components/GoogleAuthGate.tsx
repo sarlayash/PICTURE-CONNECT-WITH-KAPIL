@@ -50,53 +50,53 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
     ACADEMY_CATEGORIES.find((c) => c.id === selectedCatId) ?? ACADEMY_CATEGORIES[0];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-6 sm:py-10 px-4 sm:px-8">
+    <div className="min-h-screen bg-[#060E20] bg-[radial-gradient(ellipse_at_top,_rgba(30,64,175,0.28),_transparent_62%)] text-slate-100 py-6 sm:py-10 px-4 sm:px-8">
       <div className="max-w-6xl mx-auto space-y-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
           {/* Left: Editorial Academy Hero */}
-          <div className="lg:col-span-7 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 flex flex-col justify-between space-y-6">
+          <div className="lg:col-span-7 rounded-2xl border border-[#1E335C] bg-[#0B1733] p-6 sm:p-8 flex flex-col justify-between space-y-6">
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-300">
                   <span>{WORKSHOP_META.institution}</span>
-                  <span aria-hidden="true">·</span>
-                  <span className="font-semibold text-blue-700 dark:text-blue-400">
+                  <span aria-hidden="true" className="text-slate-500">·</span>
+                  <span className="font-semibold text-sky-400">
                     {WORKSHOP_META.poweredBy}
                   </span>
                 </div>
-                <LiveClock compact />
+                <LiveClock compact variant="navy" />
               </div>
-              <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-slate-950 dark:text-white leading-tight [text-wrap:balance]">
+              <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white leading-tight [text-wrap:balance]">
                 {WORKSHOP_META.title}
               </h1>
-              <p className="text-xs sm:text-sm font-semibold text-blue-700 dark:text-blue-400">
+              <p className="text-xs sm:text-sm font-semibold text-sky-400 tracking-wide">
                 {WORKSHOP_META.subtitle}
               </p>
-              <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
+              <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
                 {WORKSHOP_META.positioning} — {WORKSHOP_META.corePhilosophy}
               </p>
             </div>
 
-            <div className="aspect-[16/9] w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="aspect-[16/9] w-full overflow-hidden rounded-xl border border-[#1E335C] bg-[#071127]">
               <VisualArtwork id="crossroads" />
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs items-center">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-3 border-t border-[#1E335C] text-xs items-center">
               <div>
-                <div className="text-slate-500 dark:text-slate-400">Picture Connect</div>
-                <div className="font-mono font-semibold text-slate-900 dark:text-white mt-0.5 tabular-nums">
+                <div className="text-slate-400">Picture Connect</div>
+                <div className="font-mono font-semibold text-white mt-0.5 tabular-nums">
                   Levels 1–10 + AI
                 </div>
               </div>
               <div>
-                <div className="text-slate-500 dark:text-slate-400">Shopping &amp; Deals</div>
-                <div className="font-mono font-semibold text-slate-900 dark:text-white mt-0.5 tabular-nums">
+                <div className="text-slate-400">Shopping &amp; Deals</div>
+                <div className="font-mono font-semibold text-white mt-0.5 tabular-nums">
                   42 Riddles + Lab
                 </div>
               </div>
               <div>
-                <div className="text-slate-500 dark:text-slate-400">Credentials</div>
-                <div className="font-mono font-semibold text-slate-900 dark:text-white mt-0.5">
+                <div className="text-slate-400">Credentials</div>
+                <div className="font-mono font-semibold text-white mt-0.5">
                   XP · Badges · LOR
                 </div>
               </div>
@@ -104,7 +104,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                 <button
                   type="button"
                   onClick={scrollToVideos}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50/70 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-xs font-semibold text-blue-700 dark:text-blue-300 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-400/40 bg-sky-500/15 hover:bg-sky-500/25 text-xs font-semibold text-sky-300 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                 >
                   <Play className="w-3.5 h-3.5" />
                   <span>Watch 2 Films</span>
@@ -114,35 +114,35 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
           </div>
 
           {/* Right: Genuine Google-Only Learner Gate */}
-          <div className="lg:col-span-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 flex flex-col justify-center space-y-6">
+          <div className="lg:col-span-5 rounded-2xl border border-[#1E335C] bg-[#0B1733] p-6 sm:p-8 flex flex-col justify-center space-y-6">
             <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 text-xs font-semibold text-blue-700 dark:text-blue-400">
+              <div className="inline-flex items-center gap-2 text-xs font-semibold text-sky-400">
                 <ShieldCheck className="w-4 h-4" />
                 <span>Verified Learner Access Only</span>
               </div>
-              <h2 className="font-display text-2xl font-bold text-slate-950 dark:text-white">
+              <h2 className="font-display text-2xl font-bold text-white">
                 Sign in with Google
               </h2>
-              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              <p className="text-sm text-slate-300 leading-relaxed">
                 Your Google display name powers your personal XP ledger across every category, downloadable PNG badges, and verifiable certificates{' '}
-                <span className="font-semibold text-slate-900 dark:text-white">
+                <span className="font-semibold text-white">
                   Powered By Kapil
                 </span>
                 .
               </p>
             </div>
 
-            <div className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300 border-y border-slate-100 dark:border-slate-800 py-4">
+            <div className="space-y-2.5 text-xs text-slate-300 border-y border-[#1E335C] py-4">
               <div className="flex items-center gap-2.5">
-                <Trophy className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                <Trophy className="w-4 h-4 text-sky-400 shrink-0" />
                 <span>Picture Connect: Levels 1–10, Spin Wheel &amp; 25 AI Advanced challenges</span>
               </div>
               <div className="flex items-center gap-2.5">
-                <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>Shopping &amp; Negotiation Skills: 42 Konfi-07 riddles, 20 MCQs &amp; Role-Play Lab</span>
               </div>
               <div className="flex items-center gap-2.5">
-                <Award className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <Award className="w-4 h-4 text-amber-400 shrink-0" />
                 <span>90-Min 1000 XP Final Capstone, PNG Certificates &amp; Placement LOR PDF</span>
               </div>
             </div>
@@ -150,7 +150,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
             {displayError && (
               <div
                 role="alert"
-                className="p-3.5 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 text-xs text-red-700 dark:text-red-300 leading-relaxed"
+                className="p-3.5 rounded-xl border border-red-500/40 bg-red-950/50 text-xs text-red-200 leading-relaxed"
               >
                 {displayError}
               </div>
@@ -160,7 +160,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
               type="button"
               disabled={submitting}
               onClick={handleGoogleLogin}
-              className="w-full inline-flex items-center justify-center gap-3 px-5 py-3.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-white text-sm font-semibold transition-colors cursor-pointer disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+              className="w-full inline-flex items-center justify-center gap-3 px-5 py-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-950 text-sm font-semibold transition-colors cursor-pointer disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
             >
               <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                 <path
@@ -183,7 +183,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
               <span>{submitting ? 'Verifying Google Account...' : 'Continue with Google'}</span>
             </button>
 
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-3 text-xs text-slate-500 dark:text-slate-400">
+            <div className="pt-3 border-t border-[#1E335C] flex flex-col gap-3 text-xs text-slate-400">
               <div className="space-y-1">
                 <div>Strictly genuine Google sign-ups only — no guests or passwords.</div>
                 <div>Your XP, completed tracks, and certificate credentials sync automatically.</div>
@@ -191,9 +191,9 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
               <button
                 type="button"
                 onClick={onOpenAdmin}
-                className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer transition-colors"
+                className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1E335C] bg-[#071127] hover:bg-[#112247] text-xs font-semibold text-slate-200 cursor-pointer transition-colors"
               >
-                <Lock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <Lock className="w-3.5 h-3.5 text-sky-400" />
                 <span>Admin Dashboard</span>
               </button>
             </div>
@@ -204,14 +204,14 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
         <section className="space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
             <div>
-              <div className="text-xs font-mono font-semibold text-blue-700 dark:text-blue-400">
+              <div className="text-xs font-mono font-semibold text-sky-400">
                 CURATED CURRICULUM · 4 CORE CATEGORIES
               </div>
-              <h2 className="font-display text-2xl sm:text-3xl font-bold text-slate-950 dark:text-white mt-1">
+              <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mt-1">
                 Explore Skill Categories
               </h2>
             </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+            <div className="text-xs text-slate-400 font-mono">
               Picture Connect · Shopping Skills · Negotiation Skills · Capstone &amp; More
             </div>
           </div>
@@ -226,25 +226,25 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                   onClick={() => setSelectedCatId(cat.id)}
                   className={`text-left rounded-2xl border p-5 flex flex-col justify-between space-y-4 transition-colors cursor-pointer ${
                     selected
-                      ? 'border-blue-600 dark:border-blue-500 bg-white dark:bg-slate-900 ring-1 ring-blue-600/20'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
+                      ? 'border-sky-400/80 bg-[#0F2046] ring-1 ring-sky-400/30'
+                      : 'border-[#1E335C] bg-[#0B1733] hover:border-sky-500/50 hover:bg-[#0D1C3D]'
                   }`}
                 >
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2 text-xs font-mono text-slate-500 dark:text-slate-400">
-                      <span className="font-semibold text-blue-700 dark:text-blue-400">
+                    <div className="flex items-center justify-between gap-2 text-xs font-mono text-slate-400">
+                      <span className="font-semibold text-sky-400">
                         {cat.number}
                       </span>
                       <span>{cat.subtitle.split('·')[0].trim()}</span>
                     </div>
-                    <h3 className="font-display text-lg font-bold text-slate-950 dark:text-white">
+                    <h3 className="font-display text-lg font-bold text-white">
                       {cat.title}
                     </h3>
-                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    <p className="text-xs text-slate-300 leading-relaxed">
                       {cat.description}
                     </p>
                   </div>
-                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                  <div className="pt-3 border-t border-[#1E335C] text-[11px] font-mono text-slate-400">
                     {cat.highlights}
                   </div>
                 </button>
@@ -252,12 +252,12 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
             })}
           </div>
 
-          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="rounded-xl border border-[#1E335C] bg-[#0B1733] px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-0.5">
-              <div className="text-sm font-semibold text-slate-950 dark:text-white">
+              <div className="text-sm font-semibold text-white">
                 {activeCategory.number} {activeCategory.title} — {activeCategory.subtitle}
               </div>
-              <div className="text-xs text-slate-600 dark:text-slate-400">
+              <div className="text-xs text-slate-300">
                 Sign in with Google to save XP, badges, and certificates across all categories, or preview our 2 Video Case Studies below.
               </div>
             </div>
@@ -266,9 +266,9 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                 <button
                   type="button"
                   onClick={scrollToVideos}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#1E335C] bg-[#071127] hover:bg-[#112247] text-xs font-semibold text-slate-200 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                 >
-                  <Play className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <Play className="w-3.5 h-3.5 text-sky-400" />
                   <span>Preview Video Films</span>
                 </button>
               )}
@@ -276,7 +276,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                 type="button"
                 disabled={submitting}
                 onClick={handleGoogleLogin}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60"
               >
                 <span>Enter {activeCategory.title}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
