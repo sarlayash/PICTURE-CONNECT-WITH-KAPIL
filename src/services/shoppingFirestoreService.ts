@@ -9,13 +9,14 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import {
+  computeShoppingCategoryStats,
   evaluateNegotiationRoleplay,
   getShoppingRank,
   RoleplayEvaluation,
   SHOPPING_BADGES,
   SHOPPING_MCQS,
 } from '../data/shoppingNegotiationData';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 
 function clip(value: string, max: number): string {
   return value.trim().slice(0, max);
@@ -95,23 +96,23 @@ function mapShoppingDoc(
     authorEmail: String(data.authorEmail || ''),
     shopXp: Number(data.shopXp || 0),
     studiedExamples: Array.isArray(data.studiedExamples)
-      ? data.studiedExamples.map(String).slice(0, 45)
+      ? data.studiedExamples.map(String).slice(0, 80)
       : [],
     answeredMcqs: Array.isArray(data.answeredMcqs)
-      ? data.answeredMcqs.map(String).slice(0, 20)
+      ? data.answeredMcqs.map(String).slice(0, SHOPPING_MCQS.length)
       : [],
     correctMcqs: Array.isArray(data.correctMcqs)
-      ? data.correctMcqs.map(String).slice(0, 20)
+      ? data.correctMcqs.map(String).slice(0, SHOPPING_MCQS.length)
       : [],
     hintUsedMcqs: Array.isArray(data.hintUsedMcqs)
-      ? data.hintUsedMcqs.map(String).slice(0, 20)
+      ? data.hintUsedMcqs.map(String).slice(0, SHOPPING_MCQS.length)
       : [],
     mcqChoices: rawChoices,
     roleplayDraft: String(data.roleplayDraft || ''),
     roleplayScore: Number(data.roleplayScore || 0),
     roleplayFeedback: String(data.roleplayFeedback || ''),
     unlockedShopBadges: Array.isArray(data.unlockedShopBadges)
-      ? data.unlockedShopBadges.map(String).slice(0, 12)
+      ? data.unlockedShopBadges.map(String).slice(0, 15)
       : [],
     shopCertificateId: String(
       data.shopCertificateId || buildShopCertificateId(uid)
@@ -130,25 +131,30 @@ function computeBadges(params: {
   completedModule: boolean;
 }): string[] {
   const hintSet = new Set(params.hintUsedMcqs);
-  const riddleIds = new Set(
-    SHOPPING_MCQS.filter((q) => q.category === 'riddle').map((q) => q.id)
-  );
   const cleanCorrectCount = params.correctMcqs.filter((id) => !hintSet.has(id)).length;
-  const riddleCorrectCount = params.correctMcqs.filter((id) => riddleIds.has(id)).length;
+  const stats = computeShoppingCategoryStats({
+    answeredMcqs: params.answeredMcqs,
+    correctMcqs: params.correctMcqs,
+    studiedExamples: params.studiedExamples,
+  });
 
   return SHOPPING_BADGES.filter((b) =>
     b.checkUnlocked({
       studiedCount: params.studiedExamples.length,
+      buyerCaseStudiedCount: stats.buyerCasesStudied,
       answeredCount: params.answeredMcqs.length,
       correctCount: params.correctMcqs.length,
       cleanCorrectCount,
-      riddleCorrectCount,
+      riddleCorrectCount: stats.byCategory.riddle.correct,
+      buyerTypesCorrectCount: stats.byCategory.buyer_types.correct,
+      domainsCorrectCount: stats.byCategory.domains.correct,
+      dealsTimingCorrectCount: stats.byCategory.deals_timing.correct,
       roleplayScore: params.roleplayScore,
       completedModule: params.completedModule,
     })
   )
     .map((b) => b.id)
-    .slice(0, 12);
+    .slice(0, 15);
 }
 
 async function persistShoppingDoc(
@@ -157,24 +163,24 @@ async function persistShoppingDoc(
 ): Promise<void> {
   const path = `shoppingProgress/${user.uid}`;
   const ref = doc(db, 'shoppingProgress', user.uid);
+  const safeAuthorName =
+    clip(user.displayName || user.email?.split('@')[0] || '', 100) ||
+    'Verified Learner';
   try {
     await setDoc(ref, {
       ownerId: user.uid,
-      authorName: clip(
-        user.displayName || user.email?.split('@')[0] || 'Verified Learner',
-        100
-      ),
+      authorName: safeAuthorName,
       authorEmail: clip(user.email || '', 160),
       shopXp: Math.min(20000, Math.max(0, Math.round(nextState.shopXp))),
-      studiedExamples: nextState.studiedExamples.slice(0, 45),
-      answeredMcqs: nextState.answeredMcqs.slice(0, 20),
-      correctMcqs: nextState.correctMcqs.slice(0, 20),
-      hintUsedMcqs: nextState.hintUsedMcqs.slice(0, 20),
-      mcqChoices: nextState.mcqChoices.slice(0, 20),
+      studiedExamples: nextState.studiedExamples.slice(0, 80),
+      answeredMcqs: nextState.answeredMcqs.slice(0, SHOPPING_MCQS.length),
+      correctMcqs: nextState.correctMcqs.slice(0, SHOPPING_MCQS.length),
+      hintUsedMcqs: nextState.hintUsedMcqs.slice(0, SHOPPING_MCQS.length),
+      mcqChoices: nextState.mcqChoices.slice(0, SHOPPING_MCQS.length),
       roleplayDraft: clip(nextState.roleplayDraft, 1480),
       roleplayScore: Math.min(100, Math.max(0, Math.round(nextState.roleplayScore))),
       roleplayFeedback: clip(nextState.roleplayFeedback, 780),
-      unlockedShopBadges: nextState.unlockedShopBadges.slice(0, 12),
+      unlockedShopBadges: nextState.unlockedShopBadges.slice(0, 15),
       shopCertificateId:
         nextState.shopCertificateId || buildShopCertificateId(user.uid),
       completedModule: Boolean(nextState.completedModule),
@@ -208,6 +214,7 @@ export function subscribeShoppingProgress(
       }
     },
     (error) => {
+      if (!auth.currentUser) return;
       handleFirestoreError(error, OperationType.GET, path);
     }
   );
@@ -224,9 +231,9 @@ export async function markShoppingExampleStudied(params: {
     return { newlyAwardedXp: 0, newlyUnlockedBadges: [] };
   }
 
-  const nextStudied = [...current.studiedExamples, cleanId].slice(0, 45);
-  // Up to 100 XP total for studying solved examples (+10 XP each for first 10)
-  const xpGain = current.studiedExamples.length < 10 ? 10 : 0;
+  const nextStudied = [...current.studiedExamples, cleanId].slice(0, 80);
+  // Up to 250 XP total for studying solved examples (+10 XP each for first 25)
+  const xpGain = current.studiedExamples.length < 25 ? 10 : 0;
   const nextXp = current.shopXp + xpGain;
 
   const nextBadges = computeBadges({
@@ -280,13 +287,13 @@ export async function submitShoppingMcqAnswer(params: {
     };
   }
 
-  const nextAnswered = [...current.answeredMcqs, item.id].slice(0, 20);
+  const nextAnswered = [...current.answeredMcqs, item.id].slice(0, SHOPPING_MCQS.length);
   const nextCorrect = isCorrect
-    ? [...current.correctMcqs, item.id].slice(0, 20)
+    ? [...current.correctMcqs, item.id].slice(0, SHOPPING_MCQS.length)
     : current.correctMcqs;
   const nextHints =
     usedHint && !current.hintUsedMcqs.includes(item.id)
-      ? [...current.hintUsedMcqs, item.id].slice(0, 20)
+      ? [...current.hintUsedMcqs, item.id].slice(0, SHOPPING_MCQS.length)
       : current.hintUsedMcqs;
 
   const nextChoices = [...current.mcqChoices];
@@ -296,7 +303,9 @@ export async function submitShoppingMcqAnswer(params: {
   const xpGain = isCorrect ? (usedHint ? item.xpWithHint : item.xpClean) : 5;
   const nextXp = current.shopXp + xpGain;
   const nextCompleted =
-    nextAnswered.length >= SHOPPING_MCQS.length && current.roleplayScore > 0;
+    current.completedModule ||
+    (nextAnswered.length >= 20 && current.roleplayScore > 0) ||
+    nextAnswered.length >= SHOPPING_MCQS.length;
 
   const nextBadges = computeBadges({
     studiedExamples: current.studiedExamples,
@@ -349,7 +358,9 @@ export async function submitNegotiationRoleplay(params: {
   const bestScore = Math.max(current.roleplayScore, evaluation.totalScore);
   const nextXp = current.shopXp + xpGain;
   const nextCompleted =
-    current.answeredMcqs.length >= SHOPPING_MCQS.length && bestScore > 0;
+    current.completedModule ||
+    (current.answeredMcqs.length >= 20 && bestScore > 0) ||
+    current.answeredMcqs.length >= SHOPPING_MCQS.length;
 
   const nextBadges = computeBadges({
     studiedExamples: current.studiedExamples,

@@ -1,4 +1,30 @@
 import shoppingStudioHero from '../assets/images/shopping_negotiation_studio_1795156085818.jpg';
+import {
+  BUYER_ARCHETYPE_MAP,
+  BUYER_ARCHETYPES,
+  BuyerArchetypeId,
+  BuyerArchetypeProfile,
+  DARK_PATTERN_ALERTS,
+  DEAL_STACKING_MECHANICS,
+  DOMAIN_TIMING_CALENDAR,
+  EXTENDED_SHOPPING_MCQS,
+  MENTOR_KAPIL_BUYER_RULES,
+  SHOPPING_NOTES_CHEAT_SHEET,
+  SOLVED_BUYER_DOMAIN_EXAMPLES,
+  SolvedBuyerDomainExample,
+} from './shoppingSmartBuyerData';
+
+export {
+  BUYER_ARCHETYPE_MAP,
+  BUYER_ARCHETYPES,
+  DARK_PATTERN_ALERTS,
+  DEAL_STACKING_MECHANICS,
+  DOMAIN_TIMING_CALENDAR,
+  MENTOR_KAPIL_BUYER_RULES,
+  SHOPPING_NOTES_CHEAT_SHEET,
+  SOLVED_BUYER_DOMAIN_EXAMPLES,
+};
+export type { BuyerArchetypeId, BuyerArchetypeProfile, SolvedBuyerDomainExample };
 
 export interface SolvedShoppingRiddle {
   id: string;
@@ -20,9 +46,16 @@ export interface SolvedNegotiationCase {
   keyTakeaway: string;
 }
 
+export type ShoppingMcqCategory =
+  | 'riddle'
+  | 'negotiation'
+  | 'buyer_types'
+  | 'domains'
+  | 'deals_timing';
+
 export interface ShoppingMcqItem {
   id: string;
-  category: 'riddle' | 'negotiation';
+  category: ShoppingMcqCategory;
   sourceRef: string;
   question: string;
   options: [string, string, string, string];
@@ -41,10 +74,14 @@ export interface ShoppingBadgeDefinition {
   accent: 'blue' | 'emerald' | 'amber' | 'violet' | 'rose' | 'cyan';
   checkUnlocked: (stats: {
     studiedCount: number;
+    buyerCaseStudiedCount: number;
     answeredCount: number;
     correctCount: number;
     cleanCorrectCount: number;
     riddleCorrectCount: number;
+    buyerTypesCorrectCount: number;
+    domainsCorrectCount: number;
+    dealsTimingCorrectCount: number;
     roleplayScore: number;
     completedModule: boolean;
   }) => boolean;
@@ -62,17 +99,17 @@ export interface RoleplayEvaluation {
 
 export const SHOPPING_MODULE_META = {
   title: 'Shopping & Negotiation Skills',
-  subtitle: 'Deductive Role Play · Persuasion, Logic & Precision Lab',
+  subtitle: 'Smart Buyer Mastery · 6 Customer Types, 25 Real-World Cases & 50-MCQ Quiz',
   poweredBy: 'POWERED BY KAPIL',
   heroImage: shoppingStudioHero,
   description:
-    'Master deductive shopping-list decoding alongside commercial & campus negotiation skills—featuring 38 solved examples, 20 hint-assisted MCQs, an interactive Negotiation Role-Play Lab, 6 downloadable PNG badges, XP ranks, and an official PNG Certificate.',
+    'Master real-world shopping intelligence & commercial negotiation — featuring Live Crisp Notes with 6 visual Buyer Archetypes, When-to-Buy Domain Calendar, Deal-Stacking & Dark-Pattern Red Flags, 25 Real-World Domain Solved Examples + 38 Konfi-07 Riddles/Cases, a 50-MCQ Hinted Quiz, Role-Play Lab, 10 downloadable PNG Badges, and Live-Scored Certificates.',
   skillPillars: [
+    'Buyer Psychology',
+    'Domain Timing & Deals',
     'Courteousness',
-    'Logical Thinking',
-    'Persuasion',
-    'Convincing',
-    'Precision in Communication',
+    'Logical TCO Thinking',
+    'Persuasion & Precision',
   ],
 };
 
@@ -867,6 +904,7 @@ export const SHOPPING_MCQS: ShoppingMcqItem[] = [
     xpClean: 40,
     xpWithHint: 25,
   },
+  ...EXTENDED_SHOPPING_MCQS,
 ];
 
 export const NEGOTIATION_LAB_SCENARIO = {
@@ -1004,29 +1042,113 @@ export function evaluateNegotiationRoleplay(draft: string): RoleplayEvaluation {
 }
 
 export function getShoppingRank(shopXp: number): { title: string; nextXp: number } {
-  if (shopXp >= 900) return { title: 'Master Deal Architect', nextXp: 1200 };
-  if (shopXp >= 700) return { title: 'Persuasion Strategist', nextXp: 900 };
-  if (shopXp >= 450) return { title: 'Tactical Buyer', nextXp: 700 };
+  if (shopXp >= 2000) return { title: 'Grand Smart Buyer & Deal Architect', nextXp: 2450 };
+  if (shopXp >= 1400) return { title: 'Commercial Value Strategist', nextXp: 2000 };
+  if (shopXp >= 900) return { title: 'Master Deal Negotiator', nextXp: 1400 };
+  if (shopXp >= 450) return { title: 'Tactical Smart Buyer', nextXp: 900 };
   if (shopXp >= 200) return { title: 'Konfi-07 Clue Decoder', nextXp: 450 };
   return { title: 'Window Shopper', nextXp: 200 };
+}
+
+export function computeShoppingCategoryStats(params: {
+  answeredMcqs: string[];
+  correctMcqs: string[];
+  studiedExamples: string[];
+}): {
+  byCategory: Record<ShoppingMcqCategory, { answered: number; correct: number; total: number }>;
+  buyerCasesStudied: number;
+  buyerCasesTotal: number;
+  honorsTier: string;
+} {
+  const answeredSet = new Set(params.answeredMcqs);
+  const correctSet = new Set(params.correctMcqs);
+  const studiedSet = new Set(params.studiedExamples);
+
+  const byCategory: Record<ShoppingMcqCategory, { answered: number; correct: number; total: number }> = {
+    riddle: { answered: 0, correct: 0, total: 0 },
+    negotiation: { answered: 0, correct: 0, total: 0 },
+    buyer_types: { answered: 0, correct: 0, total: 0 },
+    domains: { answered: 0, correct: 0, total: 0 },
+    deals_timing: { answered: 0, correct: 0, total: 0 },
+  };
+
+  SHOPPING_MCQS.forEach((q) => {
+    byCategory[q.category].total += 1;
+    if (answeredSet.has(q.id)) byCategory[q.category].answered += 1;
+    if (correctSet.has(q.id)) byCategory[q.category].correct += 1;
+  });
+
+  const buyerCasesStudied = SOLVED_BUYER_DOMAIN_EXAMPLES.filter((ex) =>
+    studiedSet.has(ex.id)
+  ).length;
+
+  const correctCount = params.correctMcqs.length;
+  const answeredCount = params.answeredMcqs.length;
+  const honorsTier =
+    answeredCount >= 50 && correctCount >= 40
+      ? 'Smart Buyer Grand Master (Distinction)'
+      : answeredCount >= 50 && correctCount >= 30
+      ? 'Certified 50-MCQ Commercial Strategist'
+      : correctCount >= 20
+      ? 'Verified Smart Buyer & Negotiator'
+      : 'Developing Deal Strategist';
+
+  return {
+    byCategory,
+    buyerCasesStudied,
+    buyerCasesTotal: SOLVED_BUYER_DOMAIN_EXAMPLES.length,
+    honorsTier,
+  };
 }
 
 export const SHOPPING_BADGES: ShoppingBadgeDefinition[] = [
   {
     id: 'sn_example_explorer',
-    title: 'Konfi-07 Scholar',
-    description: 'Reviewed and marked at least 6 solved Konfi-07 examples or negotiation cases.',
+    title: 'Konfi-07 & Case Scholar',
+    description: 'Reviewed and marked at least 6 solved examples, riddles, or real-world buyer cases.',
     criteriaLabel: 'Study 6+ Solved Examples',
     accent: 'blue',
     checkUnlocked: ({ studiedCount }) => studiedCount >= 6,
   },
   {
+    id: 'sn_case_master_25',
+    title: '25-Domain Buyer Analyst',
+    description: 'Studied at least 15 of the 25 real-world multi-domain buyer & deal solved cases.',
+    criteriaLabel: 'Study 15+/25 Buyer Cases',
+    accent: 'cyan',
+    checkUnlocked: ({ buyerCaseStudiedCount }) => buyerCaseStudiedCount >= 15,
+  },
+  {
     id: 'sn_riddle_decoder',
     title: 'Riddle & Rebus Ace',
     description: 'Correctly decoded at least 8 of 10 Konfi-07 shopping-list riddle MCQs.',
-    criteriaLabel: '8+ Riddle MCQs Correct',
+    criteriaLabel: '8+/10 Riddle MCQs Correct',
     accent: 'violet',
     checkUnlocked: ({ riddleCorrectCount }) => riddleCorrectCount >= 8,
+  },
+  {
+    id: 'sn_buyer_psychologist',
+    title: 'Buyer Psychology Ace',
+    description: 'Scored 8+ of 10 on Types of Customers & Buyer Archetype MCQs.',
+    criteriaLabel: '8+/10 Buyer Type MCQs',
+    accent: 'blue',
+    checkUnlocked: ({ buyerTypesCorrectCount }) => buyerTypesCorrectCount >= 8,
+  },
+  {
+    id: 'sn_domain_strategist',
+    title: 'All-Domain Value Strategist',
+    description: 'Scored 8+ of 10 on Real Products, Services & Multi-Domain TCO MCQs.',
+    criteriaLabel: '8+/10 Domain MCQs',
+    accent: 'emerald',
+    checkUnlocked: ({ domainsCorrectCount }) => domainsCorrectCount >= 8,
+  },
+  {
+    id: 'sn_deal_hunter_pro',
+    title: 'Deals & Timing Grandmaster',
+    description: 'Scored 8+ of 10 on When to Buy, Deal Stacking & Anti-Scam Tips MCQs.',
+    criteriaLabel: '8+/10 Deals & Tips MCQs',
+    accent: 'amber',
+    checkUnlocked: ({ dealsTimingCorrectCount }) => dealsTimingCorrectCount >= 8,
   },
   {
     id: 'sn_sharp_instinct',
@@ -1047,17 +1169,19 @@ export const SHOPPING_BADGES: ShoppingBadgeDefinition[] = [
   {
     id: 'sn_precision_closer',
     title: 'Precision Closer',
-    description: 'Achieved 75%+ overall accuracy across all 20 Shopping & Negotiation MCQs.',
-    criteriaLabel: '15+/20 MCQs Correct',
+    description: 'Achieved 15+ accurate Shopping & Negotiation MCQ solves with strong accuracy.',
+    criteriaLabel: '15+ MCQs Correct (75%+ Acc)',
     accent: 'cyan',
     checkUnlocked: ({ answeredCount, correctCount }) =>
-      answeredCount >= 20 && correctCount >= 15,
+      answeredCount >= 20 &&
+      correctCount >= 15 &&
+      (correctCount / Math.max(1, answeredCount)) >= 0.7,
   },
   {
     id: 'sn_certified_negotiator',
-    title: 'Shopping & Negotiation Master',
-    description: 'Completed all 20 MCQs and submitted the Negotiation Role-Play Lab.',
-    criteriaLabel: 'Complete Full Module',
+    title: 'Shopping & Smart Buyer Master',
+    description: 'Completed the 50-MCQ Quiz Mastery milestone or verified Role-Play + 20+ MCQ Certification.',
+    criteriaLabel: 'Complete Certification Track',
     accent: 'emerald',
     checkUnlocked: ({ completedModule }) => completedModule,
   },

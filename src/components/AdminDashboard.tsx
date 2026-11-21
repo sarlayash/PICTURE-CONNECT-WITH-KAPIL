@@ -39,7 +39,10 @@ import {
   AdminShoppingUserSummary,
   subscribeAdminShoppingData,
 } from '../services/shoppingFirestoreService';
-import { SHOPPING_BADGES } from '../data/shoppingNegotiationData';
+import {
+  SHOPPING_BADGES,
+  SHOPPING_MCQS,
+} from '../data/shoppingNegotiationData';
 import { CAREER_BADGES } from '../data/careerSkillsData';
 import {
   AdminCareerSkillsSummary,
@@ -530,7 +533,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         adv?.advCertificateId ?? '',
         shop?.shopXp ?? 0,
         shop?.shopRankTitle ?? 'Window Shopper',
-        `${shop?.answeredMcqs.length ?? 0}/20`,
+        `${shop?.answeredMcqs.length ?? 0}/${SHOPPING_MCQS.length}`,
         `${shop?.accuracyPct ?? 0}%`,
         shop?.hintUsedMcqs.length ?? 0,
         shop?.roleplayScore ?? 0,
@@ -1491,7 +1494,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         );
                         const shop = shopByUid[learner.uid];
                         const shopPct = Math.round(
-                          ((shop?.answeredMcqs.length ?? 0) / 20) * 100
+                          ((shop?.answeredMcqs.length ?? 0) / SHOPPING_MCQS.length) * 100
                         );
                         const career = careerByUid[learner.uid];
                         const careerPct = Math.round(
@@ -1587,7 +1590,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   </td>
                                   <td className="py-3 px-3 min-w-[130px]">
                                     <div className="flex items-center justify-between font-mono text-[11px] mb-1 tabular-nums">
-                                      <span>{shop?.answeredMcqs.length ?? 0}/20</span>
+                                      <span>{shop?.answeredMcqs.length ?? 0}/{SHOPPING_MCQS.length}</span>
                                       <span className="text-slate-400">{shopPct}%</span>
                                     </div>
                                     <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
@@ -1917,7 +1920,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       {shopByUid[inspectedUser.uid].roleplayDraft && (
                         <div className="p-3 rounded-xl border border-teal-200 dark:border-teal-900/60 bg-white dark:bg-slate-900 text-xs space-y-1">
                           <div className="font-mono font-bold text-slate-900 dark:text-white">
-                            Role-Play Script Submission ({shopByUid[inspectedUser.uid].unlockedShopBadges.length}/6 Badges)
+                            Role-Play Script Submission ({shopByUid[inspectedUser.uid].unlockedShopBadges.length}/{SHOPPING_BADGES.length} Badges)
                           </div>
                           <p className="text-slate-600 dark:text-slate-300">
                             {shopByUid[inspectedUser.uid].roleplayDraft}

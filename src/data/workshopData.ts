@@ -282,10 +282,10 @@ export const ACADEMY_CATEGORIES: AcademyCategory[] = [
     id: 'shopping-negotiation',
     number: '02.',
     title: 'Shopping & Negotiation Skills',
-    subtitle: 'Konfi-07 Deduction · Persuasion · Deal Lab',
+    subtitle: 'Live Notes · 6 Buyer Types · 25 Cases · 50 MCQs',
     description:
-      'Solve 42 deductive shopping riddles, master 6 negotiation case frameworks, take 20 hint-assisted MCQs, and score your deal script in the Role-Play Lab.',
-    highlights: '42 Riddles · 20 MCQs · Role-Play Lab',
+      'Master 6 customer archetypes with visuals, When-to-Buy calendars across every domain, deal-stacking & anti-scam tips, 25 real-world solved buyer cases + 38 Konfi-07 riddles, 50 hinted MCQs, Role-Play Lab & 10 PNG badges.',
+    highlights: 'Live Notes · 25 Cases · 50 MCQs · 10 Badges',
     image: shoppingStudioHero,
     imageAlt:
       'Two business professionals discussing a structured negotiation deal and value breakdown across a modern conference table',

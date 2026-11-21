@@ -33,6 +33,7 @@ import {
   submitFinalAssessment,
 } from '../services/finalAssessmentService';
 import { LearnerProgressDoc } from '../services/firestoreService';
+import { ShoppingProgressDoc } from '../services/shoppingFirestoreService';
 import { AppView } from './OverviewStudio';
 import { FinalCredentialsPanel } from './FinalCredentialsPanel';
 import { SmartImage } from './SmartImage';
@@ -45,6 +46,7 @@ interface FinalAssessmentStudioProps {
   coreProgress: LearnerProgressDoc;
   advProgress: AdvancedProgressDoc;
   advAvgScore: number;
+  shoppingProgress?: ShoppingProgressDoc;
   onNavigateView: (view: AppView, levelNum?: number) => void;
 }
 
@@ -76,6 +78,7 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
   coreProgress,
   advProgress,
   advAvgScore,
+  shoppingProgress,
   onNavigateView,
 }) => {
   const [targetRole, setTargetRole] = useState(finalDoc.targetRole);
@@ -694,6 +697,7 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
           coreProgress={coreProgress}
           advProgress={advProgress}
           advAvgScore={advAvgScore}
+          shoppingProgress={shoppingProgress}
           onStartSecondAttempt={
             canSelfRetryFinalAssessment(finalDoc)
               ? handleStartSecondAttempt

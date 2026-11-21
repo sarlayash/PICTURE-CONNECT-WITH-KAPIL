@@ -11,9 +11,14 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { FINAL_ASSESSMENT_META } from '../data/finalAssessmentData';
+import {
+  SHOPPING_BADGES,
+  SHOPPING_MCQS,
+} from '../data/shoppingNegotiationData';
 import { AdvancedProgressDoc } from '../services/advancedFirestoreService';
 import { FinalAssessmentDoc } from '../services/finalAssessmentService';
 import { LearnerProgressDoc } from '../services/firestoreService';
+import { ShoppingProgressDoc } from '../services/shoppingFirestoreService';
 
 interface FinalCredentialsPanelProps {
   learnerName: string;
@@ -22,6 +27,7 @@ interface FinalCredentialsPanelProps {
   coreProgress: LearnerProgressDoc;
   advProgress: AdvancedProgressDoc;
   advAvgScore: number;
+  shoppingProgress?: ShoppingProgressDoc;
   onStartSecondAttempt?: () => void;
   retryingSecondAttempt?: boolean;
   retryError?: string | null;
@@ -40,6 +46,7 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
   coreProgress,
   advProgress,
   advAvgScore,
+  shoppingProgress,
   onStartSecondAttempt,
   retryingSecondAttempt = false,
   retryError = null,
@@ -48,6 +55,15 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
   const [downloadingLorPdf, setDownloadingLorPdf] = useState(false);
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const shopAnswered = shoppingProgress?.answeredMcqs.length ?? 0;
+  const shopCorrect = shoppingProgress?.correctMcqs.length ?? 0;
+  const shopAccuracy =
+    shopAnswered > 0 ? Math.round((shopCorrect / shopAnswered) * 100) : 0;
+  const shopXp = shoppingProgress?.shopXp ?? 0;
+  const shopRoleplay = shoppingProgress?.roleplayScore ?? 0;
+  const shopBadges = shoppingProgress?.unlockedShopBadges.length ?? 0;
+  const hasShoppingActivity = shopAnswered > 0 || shopXp > 0 || shopRoleplay > 0;
 
   const issueDate = new Date(
     finalDoc.submittedAtMs || Date.now()
@@ -235,6 +251,27 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
         ctx.fillText(m.value, cx, boxY + 124, colW - 36);
       });
 
+      // Live Shopping & Smart Buyer Verified Sub-Ribbon
+      if (hasShoppingActivity) {
+        const subY = 1166;
+        const subH = 82;
+        ctx.fillStyle = '#ECFDF5';
+        ctx.fillRect(boxX, subY, boxW, subH);
+        ctx.strokeStyle = '#A7F3D0';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(boxX, subY, boxW, subH);
+
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#047857';
+        ctx.font = '700 20px "JetBrains Mono", monospace';
+        ctx.fillText(
+          `SHOPPING & SMART BUYER SCORE:  ${shopCorrect}/${SHOPPING_MCQS.length} MCQs (${shopAccuracy}%)  ·  Role-Play ${shopRoleplay}/100  ·  ${shopXp} Shop XP  ·  ${shopBadges}/${SHOPPING_BADGES.length} Badges`,
+          W / 2,
+          subY + 49,
+          boxW - 48
+        );
+      }
+
       // Bottom Signature Strip
       ctx.textAlign = 'left';
       ctx.fillStyle = '#0F172A';
@@ -410,7 +447,11 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       // Personalized LOR Body Paragraphs
       const p1 = `It is my privilege to strongly recommend ${learnerName} (${collegeClean}) for ${targetRoleClean}. ${learnerName} completed our rigorous experiential visual-intelligence curriculum and successfully cleared the timed 90-Minute Proctored Final Assessment (1000 XP Capstone, weighted at 50% higher analytical rigor) with a score of ${finalDoc.totalXpAwarded}/1000 XP (${finalDoc.percentageScore}% — ${finalDoc.gradeTier}), completed in ${formatDuration(finalDoc.timeUsedSeconds)}.`;
 
-      const p2 = `Across the integrated program, ${learnerName} demonstrated verifiable proficiency spanning both the Core Visual Mastery Track (${coreProgress.completedLevels.length}/10 executive levels completed, ${coreProgress.xp} Core XP) and the AI-Powered Advanced Track (${advProgress.completedChallenges.length}/25 real-world visual challenges scored, averaging ${advAvgScore}/100). Unlike theoretical classroom tests, this assessment demands separating observable evidence from unverified assumptions, framing unit-economics and safety trade-offs, and articulating accountable workplace decisions under strict time pressure.`;
+      const shopClause = hasShoppingActivity
+        ? `, and the Shopping, Smart Buyer & Commercial Negotiation module (${shopCorrect}/${SHOPPING_MCQS.length} MCQs at ${shopAccuracy}% accuracy, Role-Play ${shopRoleplay}/100, ${shopXp} Shop XP, ${shopBadges}/${SHOPPING_BADGES.length} Badges)`
+        : '';
+
+      const p2 = `Across the integrated program, ${learnerName} demonstrated verifiable proficiency spanning the Core Visual Mastery Track (${coreProgress.completedLevels.length}/10 executive levels completed, ${coreProgress.xp} Core XP), the AI-Powered Advanced Track (${advProgress.completedChallenges.length}/25 real-world visual challenges scored, averaging ${advAvgScore}/100)${shopClause}. Unlike theoretical classroom tests, this assessment demands separating observable evidence from unverified assumptions, framing unit-economics and safety trade-offs, and articulating accountable workplace decisions under strict time pressure.`;
 
       const p3 = `In the Final Capstone evaluation, ${learnerName} earned ${finalDoc.mcqScore}/400 XP in Rapid Synthesis Diagnostics, ${finalDoc.caseScore}/500 XP across five multi-domain executive case studies (FinTech Payment Outage Governance, EV Thermal Quality vs. Revenue Trade-Off, Human-Centered Healthcare Service Recovery, B2B SaaS Onboarding Alignment, and Technical Interview Portfolio Defense), and ${finalDoc.scareScore}/100 XP in the 60-Second SCARE (See–Connect–Analyse–Respond–Express) Placement Pitch.`;
 
@@ -709,6 +750,17 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
             </div>
           </div>
 
+          {hasShoppingActivity && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-center">
+              <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-800">
+                Verified Shopping, Smart Buyer &amp; Negotiation Score
+              </div>
+              <div className="font-mono text-xs sm:text-sm font-bold text-emerald-950 mt-0.5 tabular-nums">
+                {shopCorrect}/{SHOPPING_MCQS.length} MCQs ({shopAccuracy}%) · Role-Play {shopRoleplay}/100 · {shopXp} Shop XP · {shopBadges}/{SHOPPING_BADGES.length} Badges
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-3">
             <div className="text-center sm:text-left">
               <div className="text-sm font-bold text-slate-900">{issueDate}</div>
@@ -778,11 +830,21 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
             <strong className="font-mono">
               {coreProgress.completedLevels.length}/10 levels · {coreProgress.xp} XP
             </strong>
-            ) and the AI-Powered Advanced Track (
+            ), the AI-Powered Advanced Track (
             <strong className="font-mono">
               {advProgress.completedChallenges.length}/25 challenges · Avg {advAvgScore}/100
             </strong>
-            ), alongside strong execution across five executive case studies ({finalDoc.caseScore}/500 XP) and the SCARE Placement Defense ({finalDoc.scareScore}/100 XP).
+            )
+            {hasShoppingActivity && (
+              <>
+                , and the Shopping &amp; Smart Buyer Negotiation Studio (
+                <strong className="font-mono">
+                  {shopCorrect}/{SHOPPING_MCQS.length} MCQs · Lab {shopRoleplay}/100 · {shopXp} XP
+                </strong>
+                )
+              </>
+            )}
+            , alongside strong execution across five executive case studies ({finalDoc.caseScore}/500 XP) and the SCARE Placement Defense ({finalDoc.scareScore}/100 XP).
           </p>
           <p className="text-xs font-mono text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800">
             Signed: Kapil Narula · Powered By Kapil · Verification ID: {finalDoc.lorVerificationId}

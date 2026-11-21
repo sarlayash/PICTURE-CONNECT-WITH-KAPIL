@@ -476,6 +476,8 @@ function PictureConnectWorkspace() {
             advCompletedCount={advProgress.completedChallenges.length}
             advXp={advProgress.advXp}
             shopCompletedMcqs={shoppingProgress.answeredMcqs.length}
+            shopCorrectMcqs={shoppingProgress.correctMcqs.length}
+            shopBadgesCount={shoppingProgress.unlockedShopBadges.length}
             shopXp={shoppingProgress.shopXp}
             shopRoleplayScore={shoppingProgress.roleplayScore}
             careerAnswered={careerProgress.answeredMcqs.length}
@@ -619,6 +621,7 @@ function PictureConnectWorkspace() {
             coreProgress={progress}
             advProgress={advProgress}
             advAvgScore={advAvgScore}
+            shoppingProgress={shoppingProgress}
             onNavigateView={handleNavigateView}
           />
         )}
@@ -628,6 +631,7 @@ function PictureConnectWorkspace() {
             learnerName={learnerName}
             learnerEmail={user.email || ''}
             progress={progress}
+            shoppingProgress={shoppingProgress}
             onNavigateToLevels={(lvl) => handleNavigateView('levels', lvl)}
           />
         )}

@@ -118,7 +118,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                     {LANDING_SHOWCASE_IMAGES.heroUniverse.caption}
                   </span>
                   <span className="font-mono text-[10px] text-amber-300 font-semibold hidden sm:inline">
-                    9 Categories · 38 Badges · 6 Certificates
+                    9 Categories · 42 Badges · 6 Certificates
                   </span>
                 </div>
               </div>
@@ -173,7 +173,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                 </h2>
                 <p className="text-sm text-slate-300 leading-relaxed">
                   Your Google display name powers your personal XP ledger across
-                  every category, 38 downloadable PNG badges, 6 verifiable PNG
+                  every category, 42 downloadable PNG badges, 6 verifiable PNG
                   certificates, and Placement LOR PDF{' '}
                   <span className="font-semibold text-amber-300">
                     Powered By Kapil
@@ -187,8 +187,8 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                   <Trophy className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
                   <span>
                     Picture Connect (Levels 1–10, 18-Prompt Spin Wheel &amp; 25
-                    AI Briefs) + Shopping, Negotiation, Indianism, Interview
-                    &amp; GD
+                    AI Briefs) + Smart Buyer Shopping (50 MCQs, 25 Cases),
+                    Negotiation, Indianism, Interview &amp; GD
                   </span>
                 </div>
                 <div className="flex items-start gap-2.5">
@@ -203,7 +203,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                 <div className="flex items-start gap-2.5">
                   <Award className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                   <span>
-                    225+ Graded Hinted MCQs, 90-Min 1000 XP Final Capstone, 38
+                    255+ Graded Hinted MCQs, 90-Min 1000 XP Final Capstone, 42
                     PNG Badges, 6 Certificates &amp; Placement LOR PDF
                   </span>
                 </div>
@@ -370,7 +370,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                   {activeCategory.title} — {activeCategory.subtitle}
                 </div>
                 <div className="text-xs text-slate-300">
-                  Sign in with Google to save XP, unlock 38 PNG badges, and
+                  Sign in with Google to save XP, unlock 42 PNG badges, and
                   download 6 official certificates + Placement LOR PDF.
                 </div>
               </div>
@@ -412,7 +412,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                   src={LANDING_SHOWCASE_IMAGES.credentialsShowcase.src}
                   alt={LANDING_SHOWCASE_IMAGES.credentialsShowcase.alt}
                   fallbackTitle="Verified Credentials Vault"
-                  fallbackSubtitle="38 PNG Badges · 6 Certificates · Placement LOR PDF"
+                  fallbackSubtitle="42 PNG Badges · 6 Certificates · Placement LOR PDF"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -422,7 +422,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                   <span>RECRUITER-READY CREDENTIALS · INSTANT DOWNLOAD</span>
                 </div>
                 <h3 className="font-display text-xl font-bold text-white">
-                  38 PNG Badges, 6 Official Certificates &amp; Placement LOR PDF
+                  42 PNG Badges, 6 Official Certificates &amp; Placement LOR PDF
                 </h3>
                 <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
                   Every track awards high-resolution 1200×1200 PNG mastery

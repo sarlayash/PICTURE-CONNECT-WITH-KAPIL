@@ -14,12 +14,18 @@ import {
   LEVELS,
   WORKSHOP_META,
 } from '../data/workshopData';
+import {
+  SHOPPING_BADGES,
+  SHOPPING_MCQS,
+} from '../data/shoppingNegotiationData';
 import { LearnerProgressDoc } from '../services/firestoreService';
+import { ShoppingProgressDoc } from '../services/shoppingFirestoreService';
 
 interface AchievementsCertificateProps {
   learnerName: string;
   learnerEmail: string;
   progress: LearnerProgressDoc;
+  shoppingProgress?: ShoppingProgressDoc;
   onNavigateToLevels: (levelNum?: number) => void;
 }
 
@@ -221,6 +227,7 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
   learnerName,
   learnerEmail,
   progress,
+  shoppingProgress,
   onNavigateToLevels,
 }) => {
   const [downloading, setDownloading] = useState(false);
@@ -232,6 +239,14 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
   const completedCount = progress.completedLevels.length;
   const isFullMastery = completedCount === LEVELS.length;
   const unlockedBadgesList = BADGES.filter((b) => progress.unlockedBadges.includes(b.id));
+  const shopAnswered = shoppingProgress?.answeredMcqs.length ?? 0;
+  const shopCorrect = shoppingProgress?.correctMcqs.length ?? 0;
+  const shopAccuracy =
+    shopAnswered > 0 ? Math.round((shopCorrect / shopAnswered) * 100) : 0;
+  const shopXp = shoppingProgress?.shopXp ?? 0;
+  const shopRoleplay = shoppingProgress?.roleplayScore ?? 0;
+  const shopBadgesCount = shoppingProgress?.unlockedShopBadges.length ?? 0;
+  const hasShoppingActivity = shopAnswered > 0 || shopXp > 0 || shopRoleplay > 0;
   const issueDate = new Date().toLocaleDateString('en-IN', {
     day: '2-digit',
     month: 'long',
@@ -424,6 +439,27 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
         ctx.font = '800 36px "Bricolage Grotesque", sans-serif';
         ctx.fillText(m.value, cx, boxY + 124, colW - 36);
       });
+
+      // Live Shopping & Smart Buyer Verified Score Sub-Strip
+      if (hasShoppingActivity) {
+        const subY = 1184;
+        const subH = 84;
+        ctx.fillStyle = '#ECFDF5';
+        ctx.fillRect(boxX, subY, boxW, subH);
+        ctx.strokeStyle = '#A7F3D0';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(boxX, subY, boxW, subH);
+
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#047857';
+        ctx.font = '700 20px "JetBrains Mono", monospace';
+        ctx.fillText(
+          `SHOPPING & SMART BUYER SCORE:  ${shopCorrect}/${SHOPPING_MCQS.length} MCQs (${shopAccuracy}%)  ·  ${shopXp} Shop XP  ·  Role-Play ${shopRoleplay}/100  ·  ${shopBadgesCount}/${SHOPPING_BADGES.length} Badges`,
+          W / 2,
+          subY + 50,
+          boxW - 48
+        );
+      }
 
       // Signature Left: Date & Certificate ID
       ctx.textAlign = 'left';
@@ -730,6 +766,17 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
                 </div>
               </div>
             </div>
+
+            {hasShoppingActivity && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-center">
+                <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-800">
+                  Shopping &amp; Smart Buyer Verified Score
+                </div>
+                <div className="font-mono text-xs sm:text-sm font-bold text-emerald-950 mt-0.5 tabular-nums">
+                  {shopCorrect}/{SHOPPING_MCQS.length} MCQs ({shopAccuracy}%) · {shopXp} Shop XP · Role-Play {shopRoleplay}/100 · {shopBadgesCount}/{SHOPPING_BADGES.length} Badges
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-4">
               <div className="text-center sm:text-left">

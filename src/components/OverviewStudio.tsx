@@ -60,6 +60,8 @@ interface OverviewStudioProps {
   advCompletedCount?: number;
   advXp?: number;
   shopCompletedMcqs?: number;
+  shopCorrectMcqs?: number;
+  shopBadgesCount?: number;
   shopXp?: number;
   shopRoleplayScore?: number;
   careerAnswered?: number;
@@ -108,6 +110,8 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   advCompletedCount = 0,
   advXp = 0,
   shopCompletedMcqs = 0,
+  shopCorrectMcqs = 0,
+  shopBadgesCount = 0,
   shopXp = 0,
   shopRoleplayScore = 0,
   careerAnswered = 0,
@@ -211,7 +215,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
               <span className="font-semibold text-slate-900 dark:text-white">
                 Picture Connect, Shopping &amp; Negotiation, Indianism, Interview &amp; GD, Aptitude, Grammar, Tenses, Punctuation, Idioms, C/C++/Java/Python/DSA, Excel, Power BI, DBMS &amp; Cloud Computing
               </span>{' '}
-              — with Live Crisp Notes, 160 FAANG/MNC solved problems, 38 PNG badges, certificates &amp; Placement LOR PDF.
+              — with Live Crisp Notes, 160 FAANG/MNC solved problems, 25 Smart Buyer domain cases, 42 PNG badges, certificates &amp; Placement LOR PDF.
             </p>
           </div>
 
@@ -375,7 +379,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
               cat.id === 'picture-connect'
                 ? `${completedCount}/10 Levels · ${advCompletedCount}/25 AI`
                 : cat.id === 'shopping-negotiation'
-                ? `${shopCompletedMcqs}/20 MCQs · Lab ${shopRoleplayScore}/100`
+                ? `${shopCompletedMcqs}/50 MCQs · ${shopBadgesCount}/10 Badges`
                 : cat.id === 'indianism'
                 ? indianismScore
                 : cat.id === 'interview-skills'
@@ -587,27 +591,27 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
         </div>
       </section>
 
-      {/* Isolated Shopping & Negotiation Skills Module (FACE Konfi-07) */}
+      {/* Isolated Shopping, Smart Buyer & Negotiation Skills Module */}
       <section className="rounded-2xl border border-emerald-200 dark:border-emerald-900/70 bg-gradient-to-r from-[#F7FDF9] via-white to-blue-50/70 dark:from-slate-900 dark:via-slate-950 dark:to-emerald-950/20 p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
         <div className="space-y-1.5 max-w-2xl">
           <div className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400">
-            NEW SKILL LEVEL · FACE KONFI-07 SOLVED EXAMPLES + HINTED MCQS + PNG CERT
+            SMART BUYER &amp; NEGOTIATION · LIVE NOTES + 6 BUYER TYPES + 25 DOMAIN CASES + 50 MCQS + 10 BADGES
           </div>
           <h2 className="font-display text-xl sm:text-2xl font-bold text-slate-950 dark:text-white">
             Shopping &amp; Negotiation Skills Studio
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            Master all 42 FACE Konfi-07 shopping riddles (38 solved examples), 20 hint-assisted MCQs, an interactive Negotiation Role-Play Lab (Courteousness, Logic, Persuasion, Convincing, Precision), 6 PNG Badges &amp; PNG Certificate.
+            Master 6 visual Buyer Archetypes, annual When-to-Buy calendars across every domain, 8-layer deal stacking, anti-scam tips, 25 real-world solved buyer cases + 38 Konfi-07 riddles, 50 hint-assisted MCQs, Role-Play Lab, 10 PNG Badges &amp; Live-Scored Certificates.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-4 shrink-0">
           <div className="text-left sm:text-right font-mono">
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              NEGOTIATION PROGRESS
+              SMART BUYER PROGRESS
             </div>
             <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
-              {shopCompletedMcqs}/20 MCQs · Lab {shopRoleplayScore}/100 · {shopXp} XP
+              {shopCompletedMcqs}/50 MCQs ({shopCorrectMcqs} Correct) · Lab {shopRoleplayScore}/100 · {shopXp} XP
             </div>
           </div>
           <button

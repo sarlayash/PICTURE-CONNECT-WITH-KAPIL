@@ -393,7 +393,7 @@
     },
     "ShoppingProgress": {
       "title": "ShoppingProgress",
-      "description": "Isolated Shopping & Negotiation Skills module progress: studied solved examples, 20 MCQs with hint tracking, negotiation roleplay score, XP, badges, and PNG certificate ID.",
+      "description": "Isolated Shopping & Negotiation Skills module progress: Live Notes, 25 real-world buyer/domain cases + 38 Konfi-07 examples (cap 80), 50 MCQs with hint tracking, negotiation roleplay score, XP, 10 PNG badges, and live-scored PNG certificate ID.",
       "type": "object",
       "properties": {
         "ownerId": {
@@ -408,27 +408,27 @@
         "studiedExamples": {
           "type": "array",
           "items": { "type": "string" },
-          "maxItems": 45
+          "maxItems": 80
         },
         "answeredMcqs": {
           "type": "array",
           "items": { "type": "string" },
-          "maxItems": 20
+          "maxItems": 50
         },
         "correctMcqs": {
           "type": "array",
           "items": { "type": "string" },
-          "maxItems": 20
+          "maxItems": 50
         },
         "hintUsedMcqs": {
           "type": "array",
           "items": { "type": "string" },
-          "maxItems": 20
+          "maxItems": 50
         },
         "mcqChoices": {
           "type": "array",
           "items": { "type": "number" },
-          "maxItems": 20
+          "maxItems": 50
         },
         "roleplayDraft": { "type": "string", "maxLength": 1500 },
         "roleplayScore": { "type": "number", "minimum": 0, "maximum": 100 },
@@ -436,7 +436,7 @@
         "unlockedShopBadges": {
           "type": "array",
           "items": { "type": "string" },
-          "maxItems": 12
+          "maxItems": 15
         },
         "shopCertificateId": { "type": "string", "minLength": 4, "maxLength": 64 },
         "completedModule": { "type": "boolean" },
