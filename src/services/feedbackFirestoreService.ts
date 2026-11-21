@@ -240,6 +240,7 @@ export function subscribeAdminFeedback(
       onData(items);
     },
     (err) => {
+      if (!auth.currentUser) return;
       onPermissionError(
         `Feedback Reports stream error: ${
           err instanceof Error ? err.message : String(err)

@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Download,
   Lock,
+  Mail,
   ShieldCheck,
   Sparkles,
   Trophy,
@@ -19,7 +20,13 @@ import {
   SHOPPING_MCQS,
 } from '../data/shoppingNegotiationData';
 import { LearnerProgressDoc } from '../services/firestoreService';
+import { buildCredentialEmailHtml } from '../services/gmailService';
 import { ShoppingProgressDoc } from '../services/shoppingFirestoreService';
+import {
+  buildCoreBadgePngDataUrl,
+  buildCoreCertificateDataUrl,
+} from '../utils/credentialGenerators';
+import { EmailCredentialRequest } from './EmailCredentialModal';
 
 interface AchievementsCertificateProps {
   learnerName: string;
@@ -27,6 +34,7 @@ interface AchievementsCertificateProps {
   progress: LearnerProgressDoc;
   shoppingProgress?: ShoppingProgressDoc;
   onNavigateToLevels: (levelNum?: number) => void;
+  onRequestEmail?: (req: EmailCredentialRequest) => void;
 }
 
 const ACCENT_STYLES: Record<string, string> = {
@@ -229,6 +237,7 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
   progress,
   shoppingProgress,
   onNavigateToLevels,
+  onRequestEmail,
 }) => {
   const [downloading, setDownloading] = useState(false);
   const [downloadingBadgeId, setDownloadingBadgeId] = useState<string | null>(null);
@@ -262,6 +271,86 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
     } finally {
       setDownloadingBadgeId(null);
     }
+  };
+
+  const handleEmailBadgePng = (badge: BadgeDefinition) => {
+    if (!onRequestEmail || !learnerEmail) return;
+    const pngDataUrl = buildCoreBadgePngDataUrl(
+      badge,
+      learnerName,
+      progress.certificateId
+    );
+    const { htmlBody, textFallback } = buildCredentialEmailHtml({
+      learnerName,
+      learnerEmail,
+      credentialKindLabel: 'Official Achievement Badge (PNG Medallion)',
+      credentialTitle: `${badge.title} Badge`,
+      certificateId: progress.certificateId,
+      summaryPoints: [
+        `Badge Criteria: ${badge.criteriaLabel}`,
+        `Total Core XP: ${progress.xp} XP · Levels Completed: ${completedCount}/10`,
+        `Badges Unlocked: ${progress.unlockedBadges.length}/${BADGES.length}`,
+      ],
+    });
+    const safeSlug = badge.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    onRequestEmail({
+      recipientEmail: learnerEmail,
+      recipientName: learnerName,
+      credentialType: 'badge',
+      title: `${badge.title} Badge (PNG)`,
+      subject: `Your Earned Badge: ${badge.title} — EMPLOYABILITY UNIVERSE With Kapil`,
+      htmlBody,
+      textFallback,
+      targetView: 'achievements',
+      attachment: {
+        filename: `Employability-Universe-Badge-${safeSlug}.png`,
+        mimeType: 'image/png',
+        base64OrDataUrl: pngDataUrl,
+      },
+    });
+  };
+
+  const handleEmailCertificatePng = () => {
+    if (!onRequestEmail || !learnerEmail) return;
+    const pngDataUrl = buildCoreCertificateDataUrl(
+      learnerName,
+      learnerEmail,
+      progress,
+      shoppingProgress
+    );
+    const { htmlBody, textFallback } = buildCredentialEmailHtml({
+      learnerName,
+      learnerEmail,
+      credentialKindLabel: 'Official Core Mastery PNG Certificate',
+      credentialTitle: isFullMastery
+        ? 'Certificate of Experiential Mastery'
+        : 'Certificate of Visual Achievement',
+      certificateId: progress.certificateId,
+      summaryPoints: [
+        `Total Core XP: ${progress.xp} XP · Rank: ${rank.title}`,
+        `Levels Completed: ${completedCount}/10 · Badges: ${progress.unlockedBadges.length}/${BADGES.length}`,
+        ...(hasShoppingActivity
+          ? [
+              `Shopping & Smart Buyer Verified Score: ${shopCorrect}/${SHOPPING_MCQS.length} MCQs (${shopAccuracy}%) · Lab ${shopRoleplay}/100`,
+            ]
+          : []),
+      ],
+    });
+    onRequestEmail({
+      recipientEmail: learnerEmail,
+      recipientName: learnerName,
+      credentialType: 'certificate',
+      title: 'Core Mastery Certificate (PNG)',
+      subject: `Your Official Certificate — EMPLOYABILITY UNIVERSE With Kapil`,
+      htmlBody,
+      textFallback,
+      targetView: 'achievements',
+      attachment: {
+        filename: 'Employability-Universe-Picture-Connect-Certificate-Kapil.png',
+        mimeType: 'image/png',
+        base64OrDataUrl: pngDataUrl,
+      },
+    });
   };
 
   const handleDownloadAllEarnedBadges = () => {
@@ -664,15 +753,28 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
                     {badge.criteriaLabel}
                   </div>
                   {unlocked ? (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => handleDownloadBadgePng(badge)}
-                      className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-950 dark:bg-white text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-200 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
-                    >
-                      <Download className="w-3.5 h-3.5 shrink-0" />
-                      <span>{busy ? 'Exporting PNG...' : 'Download PNG'}</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => handleDownloadBadgePng(badge)}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-slate-950 dark:bg-white text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-200 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        <Download className="w-3.5 h-3.5 shrink-0" />
+                        <span>{busy ? 'Exporting...' : 'PNG'}</span>
+                      </button>
+                      {onRequestEmail && learnerEmail && (
+                        <button
+                          type="button"
+                          onClick={() => handleEmailBadgePng(badge)}
+                          title={`Email badge to ${learnerEmail}`}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                        >
+                          <Mail className="w-3.5 h-3.5 shrink-0" />
+                          <span>Email</span>
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                       <Lock className="w-3 h-3 shrink-0" />
@@ -698,15 +800,27 @@ export const AchievementsCertificate: React.FC<AchievementsCertificateProps> = (
             </p>
           </div>
 
-          <button
-            type="button"
-            disabled={downloading}
-            onClick={handleDownloadPng}
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-          >
-            <Download className="w-4 h-4" />
-            <span>{downloading ? 'Generating PNG...' : 'Download Certificate (PNG)'}</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <button
+              type="button"
+              disabled={downloading}
+              onClick={handleDownloadPng}
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            >
+              <Download className="w-4 h-4" />
+              <span>{downloading ? 'Generating PNG...' : 'Download Certificate (PNG)'}</span>
+            </button>
+            {onRequestEmail && learnerEmail && (
+              <button
+                type="button"
+                onClick={handleEmailCertificatePng}
+                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-200 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <Mail className="w-4 h-4" />
+                <span>Email to Sign-Up ID</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Responsive Live Certificate Card Preview */}

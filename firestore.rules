@@ -41,15 +41,56 @@ service cloud.firestore {
     // 3. Entity Validation Blueprints
     function isValidUserAccount(data, userId) {
       return data.keys().hasAll(['uid', 'displayName', 'email', 'providerId', 'role', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['uid', 'displayName', 'email', 'photoURL', 'providerId', 'role', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'uid', 'displayName', 'email', 'photoURL', 'customPhotoDataUrl',
+          'linkedinId', 'githubId', 'mobileNumber', 'college', 'areaOfInterest', 'domain',
+          'pushEnabled', 'reminderFrequency', 'emailRemindersEnabled', 'lastReminderAtMs',
+          'providerId', 'role', 'createdAt', 'updatedAt'
+        ])
         && data.uid is string && data.uid == userId && isValidId(data.uid)
         && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100
         && data.email is string && data.email.size() >= 3 && data.email.size() <= 160
         && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 500))
+        && (!('customPhotoDataUrl' in data) || (data.customPhotoDataUrl is string && data.customPhotoDataUrl.size() <= 140000))
+        && (!('linkedinId' in data) || (data.linkedinId is string && data.linkedinId.size() <= 160))
+        && (!('githubId' in data) || (data.githubId is string && data.githubId.size() <= 160))
+        && (!('mobileNumber' in data) || (data.mobileNumber is string && data.mobileNumber.size() <= 25))
+        && (!('college' in data) || (data.college is string && data.college.size() <= 160))
+        && (!('areaOfInterest' in data) || (data.areaOfInterest is string && data.areaOfInterest.size() <= 200))
+        && (!('domain' in data) || (data.domain is string && data.domain.size() <= 100))
+        && (!('pushEnabled' in data) || data.pushEnabled is bool)
+        && (!('reminderFrequency' in data) || data.reminderFrequency in ['daily', 'every_3_days', 'weekly', 'off'])
+        && (!('emailRemindersEnabled' in data) || data.emailRemindersEnabled is bool)
+        && (!('lastReminderAtMs' in data) || (data.lastReminderAtMs is number && data.lastReminderAtMs >= 0))
         && data.providerId == 'google.com'
         && data.role == 'learner'
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
+    }
+
+    function isValidLearnerNotification(data) {
+      return data.keys().hasAll([
+          'ownerId', 'recipientEmail', 'kind', 'title', 'body',
+          'targetView', 'credentialType', 'channel', 'read', 'sentBy', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'recipientEmail', 'kind', 'title', 'body',
+          'targetView', 'credentialType', 'channel', 'read', 'sentBy', 'createdAt'
+        ])
+        && data.ownerId is string && isValidId(data.ownerId)
+        && data.recipientEmail is string && data.recipientEmail.size() >= 3 && data.recipientEmail.size() <= 160
+        && data.kind in ['missing_reminder', 'section_completed', 'credential_emailed', 'admin_reminder']
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
+        && data.body is string && data.body.size() >= 1 && data.body.size() <= 600
+        && data.targetView in [
+          'journey', 'levels', 'wheel', 'shopping', 'career',
+          'universe', 'advanced', 'final', 'achievements', 'profile'
+        ]
+        && data.credentialType in ['', 'badge', 'certificate', 'lor', 'reminder_digest']
+        && data.channel in ['in_app', 'push', 'email', 'push_and_email']
+        && data.read is bool
+        && data.sentBy in ['system', 'learner', 'admin']
+        && data.createdAt is timestamp;
     }
 
     function isValidConnectionPost(data) {
@@ -403,7 +444,12 @@ service cloud.firestore {
         && incoming().updatedAt == request.time
         && (
           isAdmin()
-          || (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt']))
+          || (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly([
+            'displayName', 'photoURL', 'customPhotoDataUrl',
+            'linkedinId', 'githubId', 'mobileNumber', 'college', 'areaOfInterest', 'domain',
+            'pushEnabled', 'reminderFrequency', 'emailRemindersEnabled', 'lastReminderAtMs',
+            'updatedAt'
+          ]))
         );
       allow delete: if false;
     }
@@ -680,6 +726,40 @@ service cloud.firestore {
           'status', 'adminNote', 'updatedAt'
         ]);
       allow delete: if isValidId(feedbackId) && isAdmin();
+    }
+
+    match /learnerNotifications/{notificationId} {
+      allow get: if isValidId(notificationId)
+        && isGenuineGoogleUser()
+        && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isGenuineGoogleUser()
+        && (existing().ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(notificationId)
+        && isGenuineGoogleUser()
+        && isValidLearnerNotification(incoming())
+        && incoming().createdAt == request.time
+        && (
+          isAdmin()
+          || (
+            incoming().ownerId == request.auth.uid
+            && incoming().recipientEmail.lower() == request.auth.token.email.lower()
+            && incoming().sentBy in ['system', 'learner']
+          )
+        );
+      allow update: if isValidId(notificationId)
+        && isGenuineGoogleUser()
+        && isValidLearnerNotification(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().recipientEmail == existing().recipientEmail
+        && incoming().createdAt == existing().createdAt
+        && (
+          isAdmin()
+          || (
+            existing().ownerId == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly(['read'])
+          )
+        );
+      allow delete: if isValidId(notificationId) && isAdmin();
     }
   }
 }

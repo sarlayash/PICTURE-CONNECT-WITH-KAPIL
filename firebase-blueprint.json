@@ -30,6 +30,59 @@
           "maxLength": 500,
           "description": "Google avatar URL."
         },
+        "customPhotoDataUrl": {
+          "type": "string",
+          "maxLength": 140000,
+          "description": "Compressed 256x256 JPEG data URL uploaded by the learner under My Profile."
+        },
+        "linkedinId": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "Learner LinkedIn handle or profile URL."
+        },
+        "githubId": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "Learner GitHub username or profile URL."
+        },
+        "mobileNumber": {
+          "type": "string",
+          "maxLength": 25,
+          "description": "Learner mobile contact number (PII, owner/admin only)."
+        },
+        "college": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "Learner college, university, or organization name."
+        },
+        "areaOfInterest": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Comma-separated learner areas of interest."
+        },
+        "domain": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Primary career or technical domain."
+        },
+        "pushEnabled": {
+          "type": "boolean",
+          "description": "Whether browser push notifications for missing and completed sections are enabled."
+        },
+        "reminderFrequency": {
+          "type": "string",
+          "enum": ["daily", "every_3_days", "weekly", "off"],
+          "description": "Preferred cadence for section completion reminders."
+        },
+        "emailRemindersEnabled": {
+          "type": "boolean",
+          "description": "Whether learner opted in for email digest reminders to sign-up email."
+        },
+        "lastReminderAtMs": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Epoch milliseconds of the last delivered section reminder."
+        },
         "providerId": {
           "type": "string",
           "enum": ["google.com"],
@@ -683,12 +736,83 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "LearnerNotification": {
+      "title": "LearnerNotification",
+      "description": "In-app/push missing-section reminders, section completion celebrations, admin reminders, and Gmail badge/certificate/LOR dispatch logs.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "recipientEmail": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "missing_reminder",
+            "section_completed",
+            "credential_emailed",
+            "admin_reminder"
+          ]
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "body": { "type": "string", "minLength": 1, "maxLength": 600 },
+        "targetView": {
+          "type": "string",
+          "enum": [
+            "journey",
+            "levels",
+            "wheel",
+            "shopping",
+            "career",
+            "universe",
+            "advanced",
+            "final",
+            "achievements",
+            "profile"
+          ]
+        },
+        "credentialType": {
+          "type": "string",
+          "enum": ["", "badge", "certificate", "lor", "reminder_digest"]
+        },
+        "channel": {
+          "type": "string",
+          "enum": ["in_app", "push", "email", "push_and_email"]
+        },
+        "read": { "type": "boolean" },
+        "sentBy": {
+          "type": "string",
+          "enum": ["system", "learner", "admin"]
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "ownerId",
+        "recipientEmail",
+        "kind",
+        "title",
+        "body",
+        "targetView",
+        "credentialType",
+        "channel",
+        "read",
+        "sentBy",
+        "createdAt"
+      ]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/UserAccount" },
-      "description": "Verified Google learner user accounts."
+      "description": "Verified Google learner user accounts with My Profile details and notification preferences."
     },
     "/connections/{connectionId}": {
       "schema": { "$ref": "#/entities/ConnectionPost" },
@@ -729,6 +853,10 @@
     "/sectionFeedback/{feedbackId}": {
       "schema": { "$ref": "#/entities/SectionFeedback" },
       "description": "Learner ratings, highlights, and improvement suggestions submitted per section for Mentor Kapil's Admin Feedback Reports."
+    },
+    "/learnerNotifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/LearnerNotification" },
+      "description": "Push/in-app section reminders, completion celebrations, admin reminders, and Gmail badge/certificate/LOR dispatch logs."
     }
   }
 }

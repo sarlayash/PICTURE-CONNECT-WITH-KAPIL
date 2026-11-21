@@ -8,6 +8,7 @@ import {
   HelpCircle,
   Lightbulb,
   Lock,
+  Mail,
   RotateCcw,
   ShieldCheck,
   Sparkles,
@@ -31,7 +32,10 @@ import {
   resetCareerCategoryTest,
   submitCareerMcqAnswer,
 } from '../services/careerSkillsFirestoreService';
+import { buildCredentialEmailHtml } from '../services/gmailService';
 import { getCareerTheme } from '../data/themeColors';
+import { buildCareerCertificateDataUrl } from '../utils/credentialGenerators';
+import { EmailCredentialRequest } from './EmailCredentialModal';
 import { SmartImage } from './SmartImage';
 
 interface CareerSkillsStudioProps {
@@ -40,6 +44,8 @@ interface CareerSkillsStudioProps {
   learnerEmail: string;
   careerProgress: CareerSkillsProgressDoc;
   initialTab?: CareerCategoryId | 'credentials';
+  onActiveTabChange?: (tab: CareerCategoryId | 'credentials') => void;
+  onRequestEmail?: (req: EmailCredentialRequest) => void;
 }
 
 type ActiveStudioTab = CareerCategoryId | 'credentials';
@@ -192,6 +198,8 @@ export const CareerSkillsStudio: React.FC<CareerSkillsStudioProps> = ({
   learnerEmail,
   careerProgress,
   initialTab = 'indianism',
+  onActiveTabChange,
+  onRequestEmail,
 }) => {
   const [activeTab, setActiveTab] = useState<ActiveStudioTab>(initialTab);
   const [innerMode, setInnerMode] = useState<CategoryInnerMode>('mcq');
@@ -355,7 +363,9 @@ export const CareerSkillsStudio: React.FC<CareerSkillsStudioProps> = ({
     const link = document.createElement('a');
     link.download = `Badge-${safeName}-Kapil.png`;
     link.href = dataUrl;
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
   };
 
   const handleDownloadCertificatePng = () => {
@@ -497,7 +507,9 @@ export const CareerSkillsStudio: React.FC<CareerSkillsStudioProps> = ({
       const link = document.createElement('a');
       link.download = `Employability-Universe-Career-Skills-${safeName}.png`;
       link.href = canvas.toDataURL('image/png');
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     } finally {
       setDownloadingCert(false);
     }
@@ -576,6 +588,7 @@ export const CareerSkillsStudio: React.FC<CareerSkillsStudioProps> = ({
                 type="button"
                 onClick={() => {
                   setActiveTab(cat.id);
+                  onActiveTabChange?.(cat.id);
                   setResetConfirmCat(null);
                 }}
                 className={`px-4 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
@@ -590,7 +603,10 @@ export const CareerSkillsStudio: React.FC<CareerSkillsStudioProps> = ({
           })}
           <button
             type="button"
-            onClick={() => setActiveTab('credentials')}
+            onClick={() => {
+              setActiveTab('credentials');
+              onActiveTabChange?.('credentials');
+            }}
             className={`px-4 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'credentials'
                 ? 'bg-amber-600 border-amber-600 text-white shadow-sm'
@@ -1029,19 +1045,66 @@ export const CareerSkillsStudio: React.FC<CareerSkillsStudioProps> = ({
                   Exports a 2400 × 1700 px PNG certificate recording your verified Indianism, Interview Skills &amp; GD Skills scores.
                 </p>
               </div>
-              <button
-                type="button"
-                disabled={downloadingCert}
-                onClick={handleDownloadCertificatePng}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold cursor-pointer shrink-0 disabled:opacity-60"
-              >
-                <Award className="w-4 h-4" />
-                <span>
-                  {downloadingCert
-                    ? 'Rendering PNG...'
-                    : 'Download Certificate (PNG)'}
-                </span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  disabled={downloadingCert}
+                  onClick={handleDownloadCertificatePng}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold cursor-pointer shrink-0 disabled:opacity-60"
+                >
+                  <Award className="w-4 h-4" />
+                  <span>
+                    {downloadingCert
+                      ? 'Rendering PNG...'
+                      : 'Download Certificate (PNG)'}
+                  </span>
+                </button>
+                {onRequestEmail && learnerEmail && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const png = buildCareerCertificateDataUrl(
+                        learnerName,
+                        learnerEmail,
+                        careerProgress
+                      );
+                      const { htmlBody, textFallback } = buildCredentialEmailHtml({
+                        learnerName,
+                        learnerEmail,
+                        credentialKindLabel: 'Career Skills Academy Certificate (PNG)',
+                        credentialTitle: 'Certificate of Placement Communication',
+                        certificateId: careerProgress.careerCertificateId,
+                        summaryPoints: [
+                          `Career MCQs Correct: ${careerProgress.correctMcqs.length}/${CAREER_MCQS.length}`,
+                          `Career XP: ${careerProgress.careerXp} XP`,
+                          `Badges Unlocked: ${careerProgress.unlockedCareerBadges.length}/${CAREER_BADGES.length}`,
+                        ],
+                      });
+                      onRequestEmail({
+                        recipientEmail: learnerEmail,
+                        recipientName: learnerName,
+                        credentialType: 'certificate',
+                        title: 'Career Skills Certificate (PNG)',
+                        subject:
+                          'Your Career Skills Certificate — EMPLOYABILITY UNIVERSE With Kapil',
+                        htmlBody,
+                        textFallback,
+                        targetView: 'career',
+                        attachment: {
+                          filename:
+                            'Employability-Universe-Career-Skills-Certificate-Kapil.png',
+                          mimeType: 'image/png',
+                          base64OrDataUrl: png,
+                        },
+                      });
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-200 text-sm font-semibold cursor-pointer shrink-0"
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span>Email to Sign-Up ID</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="rounded-2xl border-4 border-slate-900 dark:border-slate-700 bg-gradient-to-br from-[#FDFCF8] via-white to-blue-50 text-slate-900 p-6 sm:p-10 shadow-xl">

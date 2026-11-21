@@ -236,7 +236,7 @@ export async function markShoppingExampleStudied(params: {
   const xpGain = current.studiedExamples.length < 25 ? 10 : 0;
   const nextXp = current.shopXp + xpGain;
 
-  const nextBadges = computeBadges({
+  const computedBadges = computeBadges({
     studiedExamples: nextStudied,
     answeredMcqs: current.answeredMcqs,
     correctMcqs: current.correctMcqs,
@@ -245,7 +245,11 @@ export async function markShoppingExampleStudied(params: {
     completedModule: current.completedModule,
   });
 
-  const newlyUnlockedBadges = nextBadges.filter(
+  const mergedBadges = Array.from(
+    new Set([...current.unlockedShopBadges, ...computedBadges])
+  ).slice(0, 15);
+
+  const newlyUnlockedBadges = mergedBadges.filter(
     (b) => !current.unlockedShopBadges.includes(b)
   );
 
@@ -253,7 +257,7 @@ export async function markShoppingExampleStudied(params: {
     ...current,
     shopXp: nextXp,
     studiedExamples: nextStudied,
-    unlockedShopBadges: nextBadges,
+    unlockedShopBadges: mergedBadges,
   });
 
   return { newlyAwardedXp: xpGain, newlyUnlockedBadges };
@@ -307,7 +311,7 @@ export async function submitShoppingMcqAnswer(params: {
     (nextAnswered.length >= 20 && current.roleplayScore > 0) ||
     nextAnswered.length >= SHOPPING_MCQS.length;
 
-  const nextBadges = computeBadges({
+  const computedBadges = computeBadges({
     studiedExamples: current.studiedExamples,
     answeredMcqs: nextAnswered,
     correctMcqs: nextCorrect,
@@ -316,7 +320,11 @@ export async function submitShoppingMcqAnswer(params: {
     completedModule: nextCompleted,
   });
 
-  const newlyUnlockedBadges = nextBadges.filter(
+  const mergedBadges = Array.from(
+    new Set([...current.unlockedShopBadges, ...computedBadges])
+  ).slice(0, 15);
+
+  const newlyUnlockedBadges = mergedBadges.filter(
     (b) => !current.unlockedShopBadges.includes(b)
   );
 
@@ -327,7 +335,7 @@ export async function submitShoppingMcqAnswer(params: {
     correctMcqs: nextCorrect,
     hintUsedMcqs: nextHints,
     mcqChoices: nextChoices,
-    unlockedShopBadges: nextBadges,
+    unlockedShopBadges: mergedBadges,
     completedModule: nextCompleted,
   });
 
@@ -362,7 +370,7 @@ export async function submitNegotiationRoleplay(params: {
     (current.answeredMcqs.length >= 20 && bestScore > 0) ||
     current.answeredMcqs.length >= SHOPPING_MCQS.length;
 
-  const nextBadges = computeBadges({
+  const computedBadges = computeBadges({
     studiedExamples: current.studiedExamples,
     answeredMcqs: current.answeredMcqs,
     correctMcqs: current.correctMcqs,
@@ -371,7 +379,11 @@ export async function submitNegotiationRoleplay(params: {
     completedModule: nextCompleted,
   });
 
-  const newlyUnlockedBadges = nextBadges.filter(
+  const mergedBadges = Array.from(
+    new Set([...current.unlockedShopBadges, ...computedBadges])
+  ).slice(0, 15);
+
+  const newlyUnlockedBadges = mergedBadges.filter(
     (b) => !current.unlockedShopBadges.includes(b)
   );
 
@@ -381,7 +393,7 @@ export async function submitNegotiationRoleplay(params: {
     roleplayDraft: clip(roleplayDraft, 1480),
     roleplayScore: bestScore,
     roleplayFeedback: evaluation.feedback,
-    unlockedShopBadges: nextBadges,
+    unlockedShopBadges: mergedBadges,
     completedModule: nextCompleted,
   });
 
@@ -417,6 +429,7 @@ export function subscribeAdminShoppingData(
       onData(out);
     },
     (err) => {
+      if (!auth.currentUser) return;
       onPermissionError(
         `Shopping & Negotiation stream error: ${
           err instanceof Error ? err.message : String(err)

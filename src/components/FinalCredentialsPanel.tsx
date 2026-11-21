@@ -6,6 +6,7 @@ import {
   Download,
   FileText,
   Lock,
+  Mail,
   RotateCcw,
   ShieldCheck,
   Sparkles,
@@ -18,7 +19,13 @@ import {
 import { AdvancedProgressDoc } from '../services/advancedFirestoreService';
 import { FinalAssessmentDoc } from '../services/finalAssessmentService';
 import { LearnerProgressDoc } from '../services/firestoreService';
+import { buildCredentialEmailHtml } from '../services/gmailService';
 import { ShoppingProgressDoc } from '../services/shoppingFirestoreService';
+import {
+  buildFinalCertificateDataUrl,
+  buildPersonalizedLorPdfDataUrl,
+} from '../utils/credentialGenerators';
+import { EmailCredentialRequest } from './EmailCredentialModal';
 
 interface FinalCredentialsPanelProps {
   learnerName: string;
@@ -31,6 +38,7 @@ interface FinalCredentialsPanelProps {
   onStartSecondAttempt?: () => void;
   retryingSecondAttempt?: boolean;
   retryError?: string | null;
+  onRequestEmail?: (req: EmailCredentialRequest) => void;
 }
 
 function formatDuration(seconds: number): string {
@@ -50,6 +58,7 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
   onStartSecondAttempt,
   retryingSecondAttempt = false,
   retryError = null,
+  onRequestEmail,
 }) => {
   const [downloadingPng, setDownloadingPng] = useState(false);
   const [downloadingLorPdf, setDownloadingLorPdf] = useState(false);
@@ -374,6 +383,23 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       docPdf.setLineWidth(0.5);
       docPdf.rect(10, 14, pageW - 20, pageH - 26);
 
+      const toPdfSafe = (value: string): string =>
+        (value || '')
+          .replace(/₹/g, 'Rs. ')
+          .replace(/[—–]/g, '-')
+          .replace(/[‘’]/g, "'")
+          .replace(/[“”]/g, '"')
+          .replace(/…/g, '...')
+          .replace(/•/g, '-')
+          .replace(/[^\x20-\x7E\xA0-\xFF]/g, ' ');
+
+      const safeLearnerName = toPdfSafe(learnerName);
+      const safeLearnerEmail = toPdfSafe(learnerEmail);
+      const safeCollege = toPdfSafe(collegeClean);
+      const safeTargetRole = toPdfSafe(targetRoleClean);
+      const safeGradeTier = toPdfSafe(finalDoc.gradeTier);
+      const safeFeedback = toPdfSafe(finalDoc.executiveFeedback);
+
       // Letterhead Header
       let y = 26;
       docPdf.setFont('helvetica', 'bold');
@@ -408,14 +434,14 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       docPdf.setFont('courier', 'bold');
       docPdf.setFontSize(8.5);
       docPdf.setTextColor(71, 85, 105);
-      docPdf.text(`LOR REF: ${finalDoc.lorVerificationId}`, margin, y);
-      docPdf.text(`DATE OF ISSUE: ${issueDate.toUpperCase()}`, pageW - margin, y, {
+      docPdf.text(`LOR REF: ${toPdfSafe(finalDoc.lorVerificationId)}`, margin, y);
+      docPdf.text(`DATE OF ISSUE: ${toPdfSafe(issueDate).toUpperCase()}`, pageW - margin, y, {
         align: 'right',
       });
 
       y += 5;
-      docPdf.text(`CAPSTONE CERT ID: ${finalDoc.finalCertificateId}`, margin, y);
-      docPdf.text(`CANDIDATE EMAIL: ${learnerEmail}`, pageW - margin, y, {
+      docPdf.text(`CAPSTONE CERT ID: ${toPdfSafe(finalDoc.finalCertificateId)}`, margin, y);
+      docPdf.text(`CANDIDATE EMAIL: ${safeLearnerEmail}`, pageW - margin, y, {
         align: 'right',
       });
 
@@ -445,17 +471,25 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       );
 
       // Personalized LOR Body Paragraphs
-      const p1 = `It is my privilege to strongly recommend ${learnerName} (${collegeClean}) for ${targetRoleClean}. ${learnerName} completed our rigorous experiential visual-intelligence curriculum and successfully cleared the timed 90-Minute Proctored Final Assessment (1000 XP Capstone, weighted at 50% higher analytical rigor) with a score of ${finalDoc.totalXpAwarded}/1000 XP (${finalDoc.percentageScore}% — ${finalDoc.gradeTier}), completed in ${formatDuration(finalDoc.timeUsedSeconds)}.`;
+      const p1 = toPdfSafe(
+        `It is my privilege to strongly recommend ${safeLearnerName} (${safeCollege}) for ${safeTargetRole}. ${safeLearnerName} completed our rigorous experiential visual-intelligence curriculum and successfully cleared the timed 90-Minute Proctored Final Assessment (1000 XP Capstone, weighted at 50% higher analytical rigor) with a score of ${finalDoc.totalXpAwarded}/1000 XP (${finalDoc.percentageScore}% - ${safeGradeTier}), completed in ${formatDuration(finalDoc.timeUsedSeconds)}.`
+      );
 
       const shopClause = hasShoppingActivity
         ? `, and the Shopping, Smart Buyer & Commercial Negotiation module (${shopCorrect}/${SHOPPING_MCQS.length} MCQs at ${shopAccuracy}% accuracy, Role-Play ${shopRoleplay}/100, ${shopXp} Shop XP, ${shopBadges}/${SHOPPING_BADGES.length} Badges)`
         : '';
 
-      const p2 = `Across the integrated program, ${learnerName} demonstrated verifiable proficiency spanning the Core Visual Mastery Track (${coreProgress.completedLevels.length}/10 executive levels completed, ${coreProgress.xp} Core XP), the AI-Powered Advanced Track (${advProgress.completedChallenges.length}/25 real-world visual challenges scored, averaging ${advAvgScore}/100)${shopClause}. Unlike theoretical classroom tests, this assessment demands separating observable evidence from unverified assumptions, framing unit-economics and safety trade-offs, and articulating accountable workplace decisions under strict time pressure.`;
+      const p2 = toPdfSafe(
+        `Across the integrated program, ${safeLearnerName} demonstrated verifiable proficiency spanning the Core Visual Mastery Track (${coreProgress.completedLevels.length}/10 executive levels completed, ${coreProgress.xp} Core XP), the AI-Powered Advanced Track (${advProgress.completedChallenges.length}/25 real-world visual challenges scored, averaging ${advAvgScore}/100)${shopClause}. Unlike theoretical classroom tests, this assessment demands separating observable evidence from unverified assumptions, framing unit-economics and safety trade-offs, and articulating accountable workplace decisions under strict time pressure.`
+      );
 
-      const p3 = `In the Final Capstone evaluation, ${learnerName} earned ${finalDoc.mcqScore}/400 XP in Rapid Synthesis Diagnostics, ${finalDoc.caseScore}/500 XP across five multi-domain executive case studies (FinTech Payment Outage Governance, EV Thermal Quality vs. Revenue Trade-Off, Human-Centered Healthcare Service Recovery, B2B SaaS Onboarding Alignment, and Technical Interview Portfolio Defense), and ${finalDoc.scareScore}/100 XP in the 60-Second SCARE (See–Connect–Analyse–Respond–Express) Placement Pitch.`;
+      const p3 = toPdfSafe(
+        `In the Final Capstone evaluation, ${safeLearnerName} earned ${finalDoc.mcqScore}/400 XP in Rapid Synthesis Diagnostics, ${finalDoc.caseScore}/500 XP across five multi-domain executive case studies (FinTech Payment Outage Governance, EV Thermal Quality vs. Revenue Trade-Off, Human-Centered Healthcare Service Recovery, B2B SaaS Onboarding Alignment, and Technical Interview Portfolio Defense), and ${finalDoc.scareScore}/100 XP in the 60-Second SCARE (See-Connect-Analyse-Respond-Express) Placement Pitch.`
+      );
 
-      const p4 = `Based on these audited responses, ${learnerName} exhibits the structured reasoning, ethical integrity, customer empathy, and crisp stakeholder communication required to contribute reliably from Day One. I endorse their candidature without reservation for ${targetRoleClean}.`;
+      const p4 = toPdfSafe(
+        `Based on these audited responses, ${safeLearnerName} exhibits the structured reasoning, ethical integrity, customer empathy, and crisp stakeholder communication required to contribute reliably from Day One. I endorse their candidature without reservation for ${safeTargetRole}.`
+      );
 
       docPdf.setFont('times', 'normal');
       docPdf.setFontSize(10);
@@ -492,7 +526,7 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
         { k: 'FINAL ASSESSMENT', v: `${finalDoc.totalXpAwarded}/1000 XP (${finalDoc.percentageScore}%)` },
         { k: 'CORE TRACK', v: `${coreProgress.completedLevels.length}/10 Lvls · ${coreProgress.xp} XP` },
         { k: 'AI ADVANCED TRACK', v: `${advProgress.completedChallenges.length}/25 · Avg ${advAvgScore}/100` },
-        { k: 'GRADE TIER', v: finalDoc.gradeTier },
+        { k: 'GRADE TIER', v: safeGradeTier },
       ];
 
       const colWidth = (contentW - 8) / cols.length;
@@ -521,7 +555,7 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
         docPdf.setFont('helvetica', 'normal');
         const maxFbLines = Math.max(1, Math.floor((sigY - (y + 4.5) - 2) / 4));
         const fbLines = docPdf
-          .splitTextToSize(finalDoc.executiveFeedback, contentW)
+          .splitTextToSize(safeFeedback, contentW)
           .slice(0, maxFbLines);
         docPdf.text(fbLines, margin, y + 4.5);
       }
@@ -547,12 +581,12 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
       docPdf.setFont('courier', 'bold');
       docPdf.setFontSize(8);
       docPdf.setTextColor(15, 23, 42);
-      docPdf.text(`VERIFICATION ID: ${finalDoc.lorVerificationId}`, pageW - margin, sigY + 17, {
+      docPdf.text(`VERIFICATION ID: ${toPdfSafe(finalDoc.lorVerificationId)}`, pageW - margin, sigY + 17, {
         align: 'right',
       });
       docPdf.setFont('helvetica', 'normal');
       docPdf.setTextColor(100, 116, 139);
-      docPdf.text(`Official Placement Credential · ${issueDate}`, pageW - margin, sigY + 21, {
+      docPdf.text(`Official Placement Credential · ${toPdfSafe(issueDate)}`, pageW - margin, sigY + 21, {
         align: 'right',
       });
 
@@ -562,6 +596,86 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
     } finally {
       setDownloadingLorPdf(false);
     }
+  };
+
+  const handleEmailFinalCertificate = () => {
+    if (!onRequestEmail || !learnerEmail || !finalDoc.passed) return;
+    const pngDataUrl = buildFinalCertificateDataUrl(
+      learnerName,
+      learnerEmail,
+      finalDoc,
+      shoppingProgress
+    );
+    const { htmlBody, textFallback } = buildCredentialEmailHtml({
+      learnerName,
+      learnerEmail,
+      credentialKindLabel: '1000 XP Final Capstone Certificate (PNG)',
+      credentialTitle: `Final Capstone Certificate of Merit — ${finalDoc.gradeTier}`,
+      certificateId: finalDoc.finalCertificateId,
+      summaryPoints: [
+        `Final Score: ${finalDoc.totalXpAwarded}/1000 XP (${finalDoc.percentageScore}%)`,
+        `Part A Diagnostics: ${finalDoc.mcqScore}/400 · Part B Case Studies: ${finalDoc.caseScore}/500 · Part C SCARE: ${finalDoc.scareScore}/100`,
+        `LOR Verification Reference: ${finalDoc.lorVerificationId}`,
+      ],
+    });
+    onRequestEmail({
+      recipientEmail: learnerEmail,
+      recipientName: learnerName,
+      credentialType: 'certificate',
+      title: '1000 XP Final Capstone Certificate (PNG)',
+      subject: `Your Official Final Capstone Certificate — EMPLOYABILITY UNIVERSE With Kapil`,
+      htmlBody,
+      textFallback,
+      targetView: 'final',
+      attachment: {
+        filename: 'Employability-Universe-With-Kapil-Capstone-Certificate.png',
+        mimeType: 'image/png',
+        base64OrDataUrl: pngDataUrl,
+      },
+    });
+  };
+
+  const handleEmailLorPdf = () => {
+    if (!onRequestEmail || !learnerEmail || !finalDoc.passed) return;
+    const pdfDataUrl = buildPersonalizedLorPdfDataUrl({
+      learnerName,
+      learnerEmail,
+      finalDoc,
+      coreProgress,
+      advProgress,
+      advAvgScore,
+      shoppingProgress,
+    });
+    const { htmlBody, textFallback } = buildCredentialEmailHtml({
+      learnerName,
+      learnerEmail,
+      credentialKindLabel: 'Personalized Placement Letter of Recommendation (PDF)',
+      credentialTitle: 'Official Placement LOR — Signed by Kapil Narula',
+      certificateId: finalDoc.lorVerificationId,
+      summaryPoints: [
+        `Final Capstone Score: ${finalDoc.totalXpAwarded}/1000 XP (${finalDoc.percentageScore}% — ${finalDoc.gradeTier})`,
+        `Core Track: ${coreProgress.completedLevels.length}/10 Levels · AI Advanced: ${advProgress.completedChallenges.length}/25 Challenges`,
+        `Target Role: ${targetRoleClean} · Institution: ${collegeClean}`,
+      ],
+      footerNote:
+        'Use this official PDF Letter of Recommendation for campus placement portals, LinkedIn Featured credentials, and recruiter applications.',
+    });
+    const safeName = learnerName.replace(/[^a-zA-Z0-9]+/g, '-');
+    onRequestEmail({
+      recipientEmail: learnerEmail,
+      recipientName: learnerName,
+      credentialType: 'lor',
+      title: 'Personalized Placement LOR (PDF)',
+      subject: `Your Personalized Placement LOR (PDF) — EMPLOYABILITY UNIVERSE With Kapil`,
+      htmlBody,
+      textFallback,
+      targetView: 'final',
+      attachment: {
+        filename: `Employability-Universe-LOR-${safeName}-Kapil.pdf`,
+        mimeType: 'application/pdf',
+        base64OrDataUrl: pdfDataUrl,
+      },
+    });
   };
 
   if (!finalDoc.passed) {
@@ -669,7 +783,7 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button
             type="button"
             disabled={downloadingPng}
@@ -677,7 +791,7 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs sm:text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
             <Download className="w-4 h-4" />
-            <span>{downloadingPng ? 'Generating PNG...' : 'Download Final Certificate (PNG)'}</span>
+            <span>{downloadingPng ? 'Generating PNG...' : 'Download Certificate (PNG)'}</span>
           </button>
 
           <button
@@ -687,8 +801,29 @@ export const FinalCredentialsPanel: React.FC<FinalCredentialsPanelProps> = ({
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-950 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white text-xs sm:text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
             <FileText className="w-4 h-4" />
-            <span>{downloadingLorPdf ? 'Building PDF...' : 'Download Personalized LOR (PDF)'}</span>
+            <span>{downloadingLorPdf ? 'Building PDF...' : 'Download LOR (PDF)'}</span>
           </button>
+
+          {onRequestEmail && learnerEmail && (
+            <>
+              <button
+                type="button"
+                onClick={handleEmailFinalCertificate}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-200 text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                <span>Email Cert</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleEmailLorPdf}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                <span>Email LOR</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 

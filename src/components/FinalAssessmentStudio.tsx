@@ -35,6 +35,7 @@ import {
 import { LearnerProgressDoc } from '../services/firestoreService';
 import { ShoppingProgressDoc } from '../services/shoppingFirestoreService';
 import { AppView } from './OverviewStudio';
+import { EmailCredentialRequest } from './EmailCredentialModal';
 import { FinalCredentialsPanel } from './FinalCredentialsPanel';
 import { SmartImage } from './SmartImage';
 
@@ -42,12 +43,14 @@ interface FinalAssessmentStudioProps {
   user: User;
   learnerName: string;
   learnerEmail: string;
+  defaultCollege?: string;
   finalDoc: FinalAssessmentDoc;
   coreProgress: LearnerProgressDoc;
   advProgress: AdvancedProgressDoc;
   advAvgScore: number;
   shoppingProgress?: ShoppingProgressDoc;
   onNavigateView: (view: AppView, levelNum?: number) => void;
+  onRequestEmail?: (req: EmailCredentialRequest) => void;
 }
 
 type ExamSectionIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -74,15 +77,19 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
   user,
   learnerName,
   learnerEmail,
+  defaultCollege = '',
   finalDoc,
   coreProgress,
   advProgress,
   advAvgScore,
   shoppingProgress,
   onNavigateView,
+  onRequestEmail,
 }) => {
   const [targetRole, setTargetRole] = useState(finalDoc.targetRole);
-  const [collegeOrOrg, setCollegeOrOrg] = useState(finalDoc.collegeOrOrg);
+  const [collegeOrOrg, setCollegeOrOrg] = useState(
+    finalDoc.collegeOrOrg || defaultCollege
+  );
 
   const [mcqAnswers, setMcqAnswers] = useState<number[]>(finalDoc.mcqAnswers);
   const [caseResponses, setCaseResponses] = useState<Record<CaseFieldKey, string>>(
@@ -705,6 +712,7 @@ export const FinalAssessmentStudio: React.FC<FinalAssessmentStudioProps> = ({
           }
           retryingSecondAttempt={retryingSecondAttempt}
           retryError={retryError}
+          onRequestEmail={onRequestEmail}
         />
       </div>
     );

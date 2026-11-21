@@ -36,6 +36,7 @@ import {
   saveAndScoreAdvancedChallenge,
 } from '../services/advancedFirestoreService';
 import { AdvancedAchievements } from './AdvancedAchievements';
+import { EmailCredentialRequest } from './EmailCredentialModal';
 
 interface AdvancedTrackStudioProps {
   user: User;
@@ -43,6 +44,7 @@ interface AdvancedTrackStudioProps {
   learnerEmail: string;
   advProgress: AdvancedProgressDoc;
   submissions: Record<string, AdvancedSubmissionDoc>;
+  onRequestEmail?: (req: EmailCredentialRequest) => void;
 }
 
 type StudioTab = 'challenges' | 'guide' | 'credentials';
@@ -122,6 +124,7 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
   learnerEmail,
   advProgress,
   submissions,
+  onRequestEmail,
 }) => {
   const [studioTab, setStudioTab] = useState<StudioTab>('challenges');
   const [activeThemeId, setActiveThemeId] = useState<AdvancedThemeId>('products');
@@ -242,13 +245,34 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
   };
 
   const handleCopyPrompt = async () => {
+    let copied = false;
     try {
-      await navigator.clipboard.writeText(promptUsed);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(promptUsed);
+        copied = true;
+      }
+    } catch {
+      copied = false;
+    }
+    if (!copied) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = promptUsed;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        copied = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch {
+        copied = false;
+      }
+    }
+    if (copied) {
       setCopiedPrompt(true);
       if (copiedTimeoutRef.current) window.clearTimeout(copiedTimeoutRef.current);
       copiedTimeoutRef.current = window.setTimeout(() => setCopiedPrompt(false), 2000);
-    } catch {
-      // Fallback silent
     }
   };
 
@@ -468,6 +492,7 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
           advProgress={advProgress}
           submissions={submissions}
           onJumpToChallenges={() => setStudioTab('challenges')}
+          onRequestEmail={onRequestEmail}
         />
       )}
 

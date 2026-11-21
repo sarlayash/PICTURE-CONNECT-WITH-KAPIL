@@ -246,6 +246,7 @@ export const NAV_SECTION_COLOR_KEYS: Record<string, ThemeColorKey> = {
   advanced: 'rose',
   final: 'amber',
   achievements: 'orange',
+  profile: 'indigo',
 };
 
 export function getNavSectionTheme(viewId: string): ColorThemeSpec {
@@ -263,7 +264,7 @@ export function getCareerTheme(catId: CareerCategoryId): ColorThemeSpec {
   return COLOR_THEMES[CAREER_COLOR_KEYS[catId] ?? 'sky'];
 }
 
-/** Distinct color identity for each Master Universe Pillar & 12 Tracks */
+/** Distinct color identity for each Master Universe Pillar & 16 Tracks */
 export const PILLAR_COLOR_KEYS: Record<MasterPillarId, ThemeColorKey> = {
   aptitude_grammar: 'amber',
   coding_dsa: 'violet',

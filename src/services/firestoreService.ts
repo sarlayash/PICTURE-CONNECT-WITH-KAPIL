@@ -13,7 +13,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { BADGES, getLearnerRank, LEVELS } from '../data/workshopData';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 
 function clip(value: string, max: number): string {
   return value.trim().slice(0, max);
@@ -63,11 +63,174 @@ export interface LearnerProgressDoc {
   certificateId: string;
 }
 
+export type ProfileReminderFrequency =
+  | 'daily'
+  | 'every_3_days'
+  | 'weekly'
+  | 'off';
+
+export interface UserProfileDoc {
+  uid: string;
+  displayName: string;
+  email: string;
+  photoURL?: string;
+  customPhotoDataUrl?: string;
+  linkedinId: string;
+  githubId: string;
+  mobileNumber: string;
+  college: string;
+  areaOfInterest: string;
+  domain: string;
+  pushEnabled: boolean;
+  reminderFrequency: ProfileReminderFrequency;
+  emailRemindersEnabled: boolean;
+  lastReminderAtMs: number;
+}
+
+export interface UserProfilePatch {
+  displayName?: string;
+  customPhotoDataUrl?: string;
+  linkedinId?: string;
+  githubId?: string;
+  mobileNumber?: string;
+  college?: string;
+  areaOfInterest?: string;
+  domain?: string;
+  pushEnabled?: boolean;
+  reminderFrequency?: ProfileReminderFrequency;
+  emailRemindersEnabled?: boolean;
+  lastReminderAtMs?: number;
+}
+
+export const PROFILE_DOMAINS: string[] = [
+  'Software Engineering & Full-Stack',
+  'Data Analytics & Business Intelligence',
+  'AI, Machine Learning & Cloud Computing',
+  'Backend Systems, Java / Python & DSA',
+  'Core Engineering & Product Management',
+  'Business Consulting, Finance & Strategy',
+  'Sales, Marketing & Client Communication',
+  'Campus Placement & Fresher Readiness',
+];
+
+export const PROFILE_INTEREST_OPTIONS: string[] = [
+  'DSA & Problem Solving',
+  'Python & Automation',
+  'C / C++ / Java',
+  'DBMS & SQL',
+  'Excel & Power BI',
+  'Cloud Computing',
+  'Interview & GD Skills',
+  'Grammar & Business English',
+  'Negotiation & Sales',
+  'Visual Storytelling',
+  'AI Prompting & Products',
+  'Aptitude & Placement Prep',
+];
+
+export function normalizeLinkedinId(raw: string): string {
+  const trimmed = clip(raw, 160);
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  const cleaned = trimmed
+    .replace(/^@/, '')
+    .replace(/^(www\.)?linkedin\.com\/in\//i, '')
+    .replace(/^\/+|\/+$/g, '');
+  return cleaned ? `https://linkedin.com/in/${cleaned}` : '';
+}
+
+export function normalizeGithubId(raw: string): string {
+  const trimmed = clip(raw, 160);
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  const cleaned = trimmed
+    .replace(/^@/, '')
+    .replace(/^(www\.)?github\.com\//i, '')
+    .replace(/^\/+|\/+$/g, '');
+  return cleaned ? `https://github.com/${cleaned}` : '';
+}
+
+export function sanitizeMobileNumber(raw: string): string {
+  return String(raw || '')
+    .replace(/[^\d+\-\s()]/g, '')
+    .trim()
+    .slice(0, 25);
+}
+
+export function isValidMobileInput(raw: string): boolean {
+  const cleaned = sanitizeMobileNumber(raw);
+  if (!cleaned) return true; // optional
+  const digits = cleaned.replace(/\D/g, '');
+  return digits.length >= 7 && digits.length <= 15;
+}
+
+export function computeProfileCompleteness(profile: UserProfileDoc): {
+  percent: number;
+  filledFields: number;
+  totalFields: number;
+  missingLabels: string[];
+} {
+  const checks: { label: string; ok: boolean }[] = [
+    {
+      label: 'Profile Picture',
+      ok: Boolean(profile.customPhotoDataUrl || profile.photoURL),
+    },
+    { label: 'Display Name', ok: profile.displayName.trim().length >= 2 },
+    { label: 'Mobile Number', ok: profile.mobileNumber.trim().length >= 7 },
+    { label: 'College / Organization', ok: profile.college.trim().length >= 2 },
+    { label: 'LinkedIn ID', ok: profile.linkedinId.trim().length >= 3 },
+    { label: 'GitHub ID', ok: profile.githubId.trim().length >= 3 },
+    { label: 'Domain', ok: profile.domain.trim().length >= 2 },
+    { label: 'Area of Interest', ok: profile.areaOfInterest.trim().length >= 2 },
+  ];
+  const filledFields = checks.filter((c) => c.ok).length;
+  return {
+    percent: Math.round((filledFields / checks.length) * 100),
+    filledFields,
+    totalFields: checks.length,
+    missingLabels: checks.filter((c) => !c.ok).map((c) => c.label),
+  };
+}
+
+export function createDefaultUserProfile(
+  uid: string,
+  displayName = 'Verified Learner',
+  email = '',
+  photoURL?: string
+): UserProfileDoc {
+  return {
+    uid,
+    displayName,
+    email,
+    photoURL,
+    customPhotoDataUrl: '',
+    linkedinId: '',
+    githubId: '',
+    mobileNumber: '',
+    college: '',
+    areaOfInterest: '',
+    domain: '',
+    pushEnabled: false,
+    reminderFrequency: 'daily',
+    emailRemindersEnabled: true,
+    lastReminderAtMs: 0,
+  };
+}
+
 export interface AdminUserRecord {
   uid: string;
   displayName: string;
   email: string;
   photoURL?: string;
+  customPhotoDataUrl?: string;
+  linkedinId?: string;
+  githubId?: string;
+  mobileNumber?: string;
+  college?: string;
+  areaOfInterest?: string;
+  domain?: string;
+  pushEnabled?: boolean;
+  reminderFrequency?: ProfileReminderFrequency;
   rankTitle: string;
   xp: number;
   completedLevels: number[];
@@ -135,7 +298,9 @@ export async function ensureLearnerProgressDoc(uid: string): Promise<void> {
 export async function upsertUserAccount(user: User): Promise<void> {
   const path = `users/${user.uid}`;
   const ref = doc(db, 'users', user.uid);
-  const displayName = clip(user.displayName || user.email?.split('@')[0] || 'Learner', 100);
+  const displayName =
+    clip(user.displayName || user.email?.split('@')[0] || '', 100) ||
+    'Verified Learner';
   const email = clip(user.email || '', 160);
   const photoURL = user.photoURL ? clip(user.photoURL, 500) : '';
 
@@ -153,8 +318,13 @@ export async function upsertUserAccount(user: User): Promise<void> {
         updatedAt: serverTimestamp(),
       });
     } else {
+      const existingData = snap.data();
+      const preservedName =
+        typeof existingData.displayName === 'string' && existingData.displayName.trim()
+          ? clip(existingData.displayName, 100)
+          : displayName;
       await updateDoc(ref, {
-        displayName,
+        displayName: preservedName,
         ...(photoURL ? { photoURL } : {}),
         updatedAt: serverTimestamp(),
       });
@@ -162,6 +332,147 @@ export async function upsertUserAccount(user: User): Promise<void> {
     await ensureLearnerProgressDoc(user.uid);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export function subscribeUserProfile(
+  user: User,
+  onData: (profile: UserProfileDoc) => void
+): () => void {
+  const path = `users/${user.uid}`;
+  const ref = doc(db, 'users', user.uid);
+  const fallbackName =
+    clip(user.displayName || user.email?.split('@')[0] || '', 100) ||
+    'Verified Learner';
+
+  return onSnapshot(
+    ref,
+    (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        const freq = String(data.reminderFrequency || 'daily');
+        const validFreq: ProfileReminderFrequency =
+          freq === 'daily' ||
+          freq === 'every_3_days' ||
+          freq === 'weekly' ||
+          freq === 'off'
+            ? freq
+            : 'daily';
+
+        onData({
+          uid: user.uid,
+          displayName: String(data.displayName || fallbackName),
+          email: String(data.email || user.email || ''),
+          photoURL: data.photoURL ? String(data.photoURL) : user.photoURL || undefined,
+          customPhotoDataUrl: data.customPhotoDataUrl
+            ? String(data.customPhotoDataUrl)
+            : '',
+          linkedinId: String(data.linkedinId || ''),
+          githubId: String(data.githubId || ''),
+          mobileNumber: String(data.mobileNumber || ''),
+          college: String(data.college || ''),
+          areaOfInterest: String(data.areaOfInterest || ''),
+          domain: String(data.domain || ''),
+          pushEnabled: Boolean(data.pushEnabled),
+          reminderFrequency: validFreq,
+          emailRemindersEnabled:
+            typeof data.emailRemindersEnabled === 'boolean'
+              ? data.emailRemindersEnabled
+              : true,
+          lastReminderAtMs: Number(data.lastReminderAtMs || 0),
+        });
+      } else {
+        onData(
+          createDefaultUserProfile(
+            user.uid,
+            fallbackName,
+            user.email || '',
+            user.photoURL || undefined
+          )
+        );
+      }
+    },
+    (error) => {
+      if (!auth.currentUser) return;
+      handleFirestoreError(error, OperationType.GET, path);
+    }
+  );
+}
+
+export async function updateUserProfile(
+  user: User,
+  patch: UserProfilePatch
+): Promise<void> {
+  const path = `users/${user.uid}`;
+  const ref = doc(db, 'users', user.uid);
+
+  const sanitized: Record<string, unknown> = {
+    updatedAt: serverTimestamp(),
+  };
+
+  if (typeof patch.displayName === 'string') {
+    const cleanName = clip(patch.displayName, 100);
+    if (cleanName.length >= 1) {
+      sanitized.displayName = cleanName;
+    }
+  }
+  if (typeof patch.customPhotoDataUrl === 'string') {
+    if (patch.customPhotoDataUrl.length > 140000) {
+      throw new Error(
+        'Profile photo is too large after compression. Please choose a smaller image.'
+      );
+    }
+    sanitized.customPhotoDataUrl = patch.customPhotoDataUrl;
+  }
+  if (typeof patch.linkedinId === 'string') {
+    sanitized.linkedinId = clip(patch.linkedinId, 160);
+  }
+  if (typeof patch.githubId === 'string') {
+    sanitized.githubId = clip(patch.githubId, 160);
+  }
+  if (typeof patch.mobileNumber === 'string') {
+    if (!isValidMobileInput(patch.mobileNumber)) {
+      throw new Error('Please enter a valid 7–15 digit mobile number.');
+    }
+    sanitized.mobileNumber = sanitizeMobileNumber(patch.mobileNumber);
+  }
+  if (typeof patch.college === 'string') {
+    sanitized.college = clip(patch.college, 160);
+  }
+  if (typeof patch.areaOfInterest === 'string') {
+    sanitized.areaOfInterest = clip(patch.areaOfInterest, 200);
+  }
+  if (typeof patch.domain === 'string') {
+    sanitized.domain = clip(patch.domain, 100);
+  }
+  if (typeof patch.pushEnabled === 'boolean') {
+    sanitized.pushEnabled = patch.pushEnabled;
+  }
+  if (
+    patch.reminderFrequency &&
+    ['daily', 'every_3_days', 'weekly', 'off'].includes(patch.reminderFrequency)
+  ) {
+    sanitized.reminderFrequency = patch.reminderFrequency;
+  }
+  if (typeof patch.emailRemindersEnabled === 'boolean') {
+    sanitized.emailRemindersEnabled = patch.emailRemindersEnabled;
+  }
+  if (
+    typeof patch.lastReminderAtMs === 'number' &&
+    Number.isFinite(patch.lastReminderAtMs) &&
+    patch.lastReminderAtMs >= 0
+  ) {
+    sanitized.lastReminderAtMs = Math.round(patch.lastReminderAtMs);
+  }
+
+  try {
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await upsertUserAccount(user);
+    }
+    await updateDoc(ref, sanitized);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
   }
 }
 
@@ -199,6 +510,7 @@ export function subscribeConnections(
       onData(withTimes.map((entry) => entry.post));
     },
     (error) => {
+      if (!auth.currentUser) return;
       handleFirestoreError(error, OperationType.LIST, path);
     }
   );
@@ -215,10 +527,12 @@ export async function createConnectionPost(
   try {
     await addDoc(collection(db, path), {
       authorId: user.uid,
-      authorName: clip(user.displayName || 'Verified Learner', 100),
+      authorName:
+        clip(user.displayName || user.email?.split('@')[0] || '', 100) ||
+        'Verified Learner',
       kind,
       promptRef: clip(promptRef, 80) || 'general',
-      title: clip(title, 120),
+      title: clip(title, 120) || 'Learner Connection',
       body: clip(body, 600),
       createdAt: serverTimestamp(),
     });
@@ -244,6 +558,7 @@ export function subscribeLearnerWorkspace(
       }
     },
     (error) => {
+      if (!auth.currentUser) return;
       handleFirestoreError(error, OperationType.GET, path);
     }
   );
@@ -327,6 +642,7 @@ export function subscribeLearnerProgress(
       }
     },
     (error) => {
+      if (!auth.currentUser) return;
       handleFirestoreError(error, OperationType.GET, path);
     }
   );
@@ -498,6 +814,15 @@ export function subscribeAdminLiveData(
       displayName: string;
       email: string;
       photoURL?: string;
+      customPhotoDataUrl?: string;
+      linkedinId?: string;
+      githubId?: string;
+      mobileNumber?: string;
+      college?: string;
+      areaOfInterest?: string;
+      domain?: string;
+      pushEnabled?: boolean;
+      reminderFrequency?: ProfileReminderFrequency;
       createdAtMs: number;
       updatedAtMs: number;
     }
@@ -533,6 +858,15 @@ export function subscribeAdminLiveData(
         displayName: user?.displayName || 'Verified Learner',
         email: user?.email || 'Hidden / Syncing',
         photoURL: user?.photoURL,
+        customPhotoDataUrl: user?.customPhotoDataUrl,
+        linkedinId: user?.linkedinId,
+        githubId: user?.githubId,
+        mobileNumber: user?.mobileNumber,
+        college: user?.college,
+        areaOfInterest: user?.areaOfInterest,
+        domain: user?.domain,
+        pushEnabled: user?.pushEnabled,
+        reminderFrequency: user?.reminderFrequency,
         rankTitle: getLearnerRank(xp).title,
         xp,
         completedLevels,
@@ -553,6 +887,7 @@ export function subscribeAdminLiveData(
   };
 
   const handleErr = (collectionName: string) => (err: unknown) => {
+    if (!auth.currentUser) return;
     const message = err instanceof Error ? err.message : String(err);
     console.error(`Admin stream error on ${collectionName}:`, message);
     onPermissionError(
@@ -563,13 +898,35 @@ export function subscribeAdminLiveData(
   const unsubUsers = onSnapshot(
     query(collection(db, 'users'), limit(500)),
     (snap) => {
+      Object.keys(usersMap).forEach((k) => delete usersMap[k]);
       snap.docs.forEach((d) => {
         const data = d.data();
+        const rawFreq = String(data.reminderFrequency || 'daily');
+        const freq: ProfileReminderFrequency =
+          rawFreq === 'daily' ||
+          rawFreq === 'every_3_days' ||
+          rawFreq === 'weekly' ||
+          rawFreq === 'off'
+            ? rawFreq
+            : 'daily';
         usersMap[d.id] = {
           uid: d.id,
           displayName: String(data.displayName || 'Learner'),
           email: String(data.email || ''),
           photoURL: data.photoURL ? String(data.photoURL) : undefined,
+          customPhotoDataUrl: data.customPhotoDataUrl
+            ? String(data.customPhotoDataUrl)
+            : undefined,
+          linkedinId: data.linkedinId ? String(data.linkedinId) : undefined,
+          githubId: data.githubId ? String(data.githubId) : undefined,
+          mobileNumber: data.mobileNumber ? String(data.mobileNumber) : undefined,
+          college: data.college ? String(data.college) : undefined,
+          areaOfInterest: data.areaOfInterest
+            ? String(data.areaOfInterest)
+            : undefined,
+          domain: data.domain ? String(data.domain) : undefined,
+          pushEnabled: Boolean(data.pushEnabled),
+          reminderFrequency: freq,
           createdAtMs: data.createdAt?.toMillis ? data.createdAt.toMillis() : 0,
           updatedAtMs: data.updatedAt?.toMillis ? data.updatedAt.toMillis() : 0,
         };
@@ -582,6 +939,7 @@ export function subscribeAdminLiveData(
   const unsubProgress = onSnapshot(
     query(collection(db, 'learnerProgress'), limit(500)),
     (snap) => {
+      Object.keys(progressMap).forEach((k) => delete progressMap[k]);
       snap.docs.forEach((d) => {
         const data = d.data();
         progressMap[d.id] = {
@@ -609,6 +967,7 @@ export function subscribeAdminLiveData(
   const unsubWorkspaces = onSnapshot(
     query(collection(db, 'learnerWorkspaces'), limit(500)),
     (snap) => {
+      Object.keys(workspaceMap).forEach((k) => delete workspaceMap[k]);
       snap.docs.forEach((d) => {
         const data = d.data();
         workspaceMap[d.id] = {

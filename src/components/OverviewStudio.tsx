@@ -52,7 +52,8 @@ export type AppView =
   | 'universe'
   | 'advanced'
   | 'final'
-  | 'achievements';
+  | 'achievements'
+  | 'profile';
 
 interface OverviewStudioProps {
   learnerName: string;

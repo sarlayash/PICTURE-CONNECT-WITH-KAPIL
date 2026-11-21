@@ -16,7 +16,7 @@ import {
   FinalGradeResult,
   gradeFinalAssessment,
 } from '../data/finalAssessmentData';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { AdvancedProgressDoc } from './advancedFirestoreService';
 import { LearnerProgressDoc } from './firestoreService';
 
@@ -241,6 +241,7 @@ export function subscribeFinalAssessment(
       }
     },
     (error) => {
+      if (!auth.currentUser) return;
       handleFirestoreError(error, OperationType.GET, path);
     }
   );
@@ -267,10 +268,9 @@ export async function startFinalAssessmentSession(params: {
   try {
     await setDoc(ref, {
       ownerId: user.uid,
-      authorName: clip(
-        user.displayName || user.email?.split('@')[0] || 'Verified Learner',
-        100
-      ),
+      authorName:
+        clip(user.displayName || user.email?.split('@')[0] || '', 100) ||
+        'Verified Learner',
       authorEmail: clip(user.email || 'verified@google.com', 160),
       targetRole: clip(targetRole, 120),
       collegeOrOrg: clip(collegeOrOrg, 120),
@@ -341,10 +341,9 @@ export async function saveFinalAssessmentDraft(params: {
 
   try {
     await updateDoc(ref, {
-      authorName: clip(
-        user.displayName || user.email?.split('@')[0] || 'Verified Learner',
-        100
-      ),
+      authorName:
+        clip(user.displayName || user.email?.split('@')[0] || '', 100) ||
+        'Verified Learner',
       targetRole: clip(targetRole, 120),
       collegeOrOrg: clip(collegeOrOrg, 120),
       mcqAnswers: sanitizedMcq,
@@ -437,10 +436,9 @@ export async function submitFinalAssessment(params: {
 
   try {
     await updateDoc(ref, {
-      authorName: clip(
-        user.displayName || user.email?.split('@')[0] || 'Verified Learner',
-        100
-      ),
+      authorName:
+        clip(user.displayName || user.email?.split('@')[0] || '', 100) ||
+        'Verified Learner',
       targetRole: clip(targetRole, 120),
       collegeOrOrg: clip(collegeOrOrg, 120),
       status: 'submitted',
@@ -598,6 +596,7 @@ export function subscribeAdminFinalAssessments(
       onData(out);
     },
     (err) => {
+      if (!auth.currentUser) return;
       onPermissionError(
         `Final Assessment stream error: ${
           err instanceof Error ? err.message : String(err)

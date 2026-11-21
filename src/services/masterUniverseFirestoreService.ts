@@ -399,6 +399,7 @@ export function subscribeAdminMasterData(
       onData(out);
     },
     (err) => {
+      if (!auth.currentUser) return;
       onPermissionError(
         `Master Universe MCQ stream error: ${
           err instanceof Error ? err.message : String(err)

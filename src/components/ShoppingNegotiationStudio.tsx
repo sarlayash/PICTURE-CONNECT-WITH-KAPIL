@@ -13,6 +13,7 @@ import {
   Layers,
   Lightbulb,
   Lock,
+  Mail,
   MessageSquare,
   Search,
   ShieldAlert,
@@ -46,12 +47,15 @@ import {
   SOLVED_NEGOTIATION_CASES,
   SolvedBuyerDomainExample,
 } from '../data/shoppingNegotiationData';
+import { buildCredentialEmailHtml } from '../services/gmailService';
 import {
   markShoppingExampleStudied,
   ShoppingProgressDoc,
   submitNegotiationRoleplay,
   submitShoppingMcqAnswer,
 } from '../services/shoppingFirestoreService';
+import { buildShoppingCertificateDataUrl } from '../utils/credentialGenerators';
+import { EmailCredentialRequest } from './EmailCredentialModal';
 import { SmartImage } from './SmartImage';
 
 interface ShoppingNegotiationStudioProps {
@@ -59,6 +63,7 @@ interface ShoppingNegotiationStudioProps {
   learnerName: string;
   learnerEmail: string;
   shoppingProgress: ShoppingProgressDoc;
+  onRequestEmail?: (req: EmailCredentialRequest) => void;
 }
 
 type StudioTab = 'notes' | 'examples' | 'mcqs' | 'roleplay' | 'credentials';
@@ -276,6 +281,7 @@ export const ShoppingNegotiationStudio: React.FC<ShoppingNegotiationStudioProps>
   learnerName,
   learnerEmail,
   shoppingProgress,
+  onRequestEmail,
 }) => {
   const [activeTab, setActiveTab] = useState<StudioTab>('notes');
   const [exampleKind, setExampleKind] = useState<ExampleKindFilter>('buyer_cases');
@@ -1964,25 +1970,72 @@ export const ShoppingNegotiationStudio: React.FC<ShoppingNegotiationStudioProps>
                   Unlock by completing all 50 MCQs ({answeredCount}/{totalMcqs}) OR completing 20+ MCQs + Role-Play Lab ({shoppingProgress.roleplayScore}/100). Every new MCQ score, studied case, and badge updates your certificate live (and syncs to your Portal &amp; Capstone Certificates!).
                 </p>
               </div>
-              <button
-                type="button"
-                disabled={!shoppingProgress.completedModule || downloadingCert}
-                onClick={handleDownloadCertificatePng}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {shoppingProgress.completedModule ? (
-                  <Download className="w-4 h-4" />
-                ) : (
-                  <Lock className="w-4 h-4" />
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  disabled={!shoppingProgress.completedModule || downloadingCert}
+                  onClick={handleDownloadCertificatePng}
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {shoppingProgress.completedModule ? (
+                    <Download className="w-4 h-4" />
+                  ) : (
+                    <Lock className="w-4 h-4" />
+                  )}
+                  <span>
+                    {!shoppingProgress.completedModule
+                      ? 'Unlock via 50 MCQs or 20 MCQs + Lab'
+                      : downloadingCert
+                      ? 'Generating PNG...'
+                      : 'Download Certificate (PNG)'}
+                  </span>
+                </button>
+                {onRequestEmail && learnerEmail && shoppingProgress.completedModule && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const png = buildShoppingCertificateDataUrl(
+                        learnerName,
+                        learnerEmail,
+                        shoppingProgress
+                      );
+                      const { htmlBody, textFallback } = buildCredentialEmailHtml({
+                        learnerName,
+                        learnerEmail,
+                        credentialKindLabel: 'Shopping & Smart Buyer Certificate (PNG)',
+                        credentialTitle: 'Certificate of Smart Buyer & Negotiation Mastery',
+                        certificateId: shoppingProgress.shopCertificateId,
+                        summaryPoints: [
+                          `Shopping MCQs Correct: ${shoppingProgress.correctMcqs.length}/${SHOPPING_MCQS.length}`,
+                          `Negotiation Role-Play Lab: ${shoppingProgress.roleplayScore}/100 · Shop XP: ${shoppingProgress.shopXp} XP`,
+                          `Badges Unlocked: ${shoppingProgress.unlockedShopBadges.length}/${SHOPPING_BADGES.length}`,
+                        ],
+                      });
+                      onRequestEmail({
+                        recipientEmail: learnerEmail,
+                        recipientName: learnerName,
+                        credentialType: 'certificate',
+                        title: 'Shopping & Smart Buyer Certificate (PNG)',
+                        subject:
+                          'Your Shopping & Smart Buyer Certificate — EMPLOYABILITY UNIVERSE With Kapil',
+                        htmlBody,
+                        textFallback,
+                        targetView: 'shopping',
+                        attachment: {
+                          filename:
+                            'Employability-Universe-Shopping-Negotiation-Certificate-Kapil.png',
+                          mimeType: 'image/png',
+                          base64OrDataUrl: png,
+                        },
+                      });
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-3 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 text-sm font-semibold cursor-pointer whitespace-nowrap shrink-0"
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span>Email to Sign-Up ID</span>
+                  </button>
                 )}
-                <span>
-                  {!shoppingProgress.completedModule
-                    ? 'Unlock via 50 MCQs or 20 MCQs + Lab'
-                    : downloadingCert
-                    ? 'Generating PNG...'
-                    : 'Download Certificate (PNG)'}
-                </span>
-              </button>
+              </div>
             </div>
 
             <div className="rounded-2xl border-4 border-slate-900 dark:border-slate-700 bg-gradient-to-br from-[#FDFBF7] via-white to-emerald-50 text-slate-900 p-6 sm:p-10 shadow-xl">

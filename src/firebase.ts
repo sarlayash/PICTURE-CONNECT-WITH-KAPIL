@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import {
   getAuth,
   GoogleAuthProvider,
+  onAuthStateChanged,
   signInWithPopup,
   signOut,
   User,
@@ -20,6 +21,32 @@ export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: 'select_account',
+});
+
+export const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
+
+// In-memory only (never localStorage or sessionStorage)
+let cachedGmailAccessToken: string | null = null;
+let cachedGmailTokenExpiresAtMs = 0;
+
+export function clearCachedGmailToken(): void {
+  cachedGmailAccessToken = null;
+  cachedGmailTokenExpiresAtMs = 0;
+}
+
+export function getCachedGmailToken(): string | null {
+  if (!cachedGmailAccessToken) return null;
+  if (Date.now() >= cachedGmailTokenExpiresAtMs) {
+    clearCachedGmailToken();
+    return null;
+  }
+  return cachedGmailAccessToken;
+}
+
+onAuthStateChanged(auth, (u) => {
+  if (!u) {
+    clearCachedGmailToken();
+  }
 });
 
 export const ADMIN_EMAIL = 'kapilnarula27july@gmail.com';
@@ -41,6 +68,7 @@ export function isFacilitatorAdmin(user: User | null): boolean {
 export async function signInWithGoogleOnly(): Promise<User> {
   const result = await signInWithPopup(auth, googleProvider);
   if (!isGenuineGoogleUser(result.user)) {
+    clearCachedGmailToken();
     await signOut(auth);
     throw new Error(
       'Only verified Google accounts are permitted. Please sign in with a genuine Google account.'
@@ -49,7 +77,53 @@ export async function signInWithGoogleOnly(): Promise<User> {
   return result.user;
 }
 
+/**
+ * Requests a short-lived in-memory Google OAuth access token with `gmail.send`
+ * scope so the signed-in user can send badges, certificates, LORs, or reminders
+ * to their own verified sign-up Gmail address.
+ */
+export async function requestGmailSendToken(
+  loginHint?: string,
+  forceRefresh = false
+): Promise<string> {
+  if (!forceRefresh) {
+    const existing = getCachedGmailToken();
+    if (existing) return existing;
+  }
+
+  const gmailProvider = new GoogleAuthProvider();
+  gmailProvider.addScope(GMAIL_SEND_SCOPE);
+  const customParams: Record<string, string> = {
+    prompt: forceRefresh ? 'consent' : 'select_account',
+  };
+  if (loginHint && loginHint.includes('@')) {
+    customParams.login_hint = loginHint;
+  }
+  gmailProvider.setCustomParameters(customParams);
+
+  const result = await signInWithPopup(auth, gmailProvider);
+  if (!isGenuineGoogleUser(result.user)) {
+    clearCachedGmailToken();
+    await signOut(auth);
+    throw new Error('Only verified Google accounts can send credentials via Gmail.');
+  }
+
+  const credential = GoogleAuthProvider.credentialFromResult(result);
+  const token = credential?.accessToken;
+  if (!token) {
+    throw new Error(
+      'Gmail permission was not granted. Please allow Gmail send access in the Google popup to email your credentials.'
+    );
+  }
+
+  cachedGmailAccessToken = token;
+  // Google OAuth access tokens typically live 60 minutes; refresh proactively at 50m
+  cachedGmailTokenExpiresAtMs = Date.now() + 50 * 60 * 1000;
+  return token;
+}
+
 export async function signOutUser(): Promise<void> {
+  clearCachedGmailToken();
   await signOut(auth);
 }
 

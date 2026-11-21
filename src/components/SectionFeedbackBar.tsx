@@ -52,6 +52,7 @@ export const SectionFeedbackBar: React.FC<SectionFeedbackBarProps> = ({
   const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
+    setMyItems([]);
     const unsub = subscribeMySectionFeedback(
       user,
       sectionId,

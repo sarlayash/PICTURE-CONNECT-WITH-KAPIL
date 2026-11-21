@@ -33,6 +33,9 @@ function playChime() {
     gain.connect(ctx.destination);
     osc.start();
     osc.stop(ctx.currentTime + 0.55);
+    window.setTimeout(() => {
+      ctx.close().catch(() => {});
+    }, 700);
   } catch {
     // Ignore audio context restrictions if blocked
   }
@@ -53,10 +56,20 @@ export const StageTimer: React.FC<StageTimerProps> = ({
   const [running, setRunning] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const expiredRef = useRef(false);
+  const remainingRef = useRef(initialSeconds);
+  const onTickRef = useRef(onTick);
+  const onExpireRef = useRef(onExpire);
+  const soundEnabledRef = useRef(soundEnabled);
+
+  onTickRef.current = onTick;
+  onExpireRef.current = onExpire;
+  soundEnabledRef.current = soundEnabled;
+  remainingRef.current = remaining;
 
   useEffect(() => {
     setDuration(initialSeconds);
     setRemaining(initialSeconds);
+    remainingRef.current = initialSeconds;
     setRunning(false);
     expiredRef.current = false;
   }, [initialSeconds]);
@@ -64,20 +77,19 @@ export const StageTimer: React.FC<StageTimerProps> = ({
   useEffect(() => {
     if (!running) return;
     const interval = window.setInterval(() => {
-      setRemaining((prev) => {
-        const next = Math.max(0, prev - 1);
-        onTick?.(next);
-        if (next === 0 && !expiredRef.current) {
-          expiredRef.current = true;
-          setRunning(false);
-          if (soundEnabled) playChime();
-          onExpire?.();
-        }
-        return next;
-      });
+      const next = Math.max(0, remainingRef.current - 1);
+      remainingRef.current = next;
+      setRemaining(next);
+      onTickRef.current?.(next);
+      if (next === 0 && !expiredRef.current) {
+        expiredRef.current = true;
+        setRunning(false);
+        if (soundEnabledRef.current) playChime();
+        onExpireRef.current?.();
+      }
     }, 1000);
     return () => window.clearInterval(interval);
-  }, [running, soundEnabled, onTick, onExpire]);
+  }, [running]);
 
   const mins = Math.floor(remaining / 60);
   const secs = remaining % 60;

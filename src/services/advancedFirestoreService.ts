@@ -17,7 +17,7 @@ import {
   getAdvancedRank,
   scoreAdvancedSubmission,
 } from '../data/advancedTrackData';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 
 function clip(value: string, max: number): string {
   return value.trim().slice(0, max);
@@ -117,6 +117,7 @@ export function subscribeAdvancedProgress(
       }
     },
     (error) => {
+      if (!auth.currentUser) return;
       handleFirestoreError(error, OperationType.GET, path);
     }
   );
@@ -176,6 +177,7 @@ export function subscribeAdvancedSubmissions(
       onData(next);
     },
     (error) => {
+      if (!auth.currentUser) return;
       handleFirestoreError(error, OperationType.LIST, path);
     }
   );
@@ -232,7 +234,9 @@ export async function saveAndScoreAdvancedChallenge(params: {
   try {
     await setDoc(subRef, {
       ownerId: user.uid,
-      authorName: clip(user.displayName || user.email?.split('@')[0] || 'Verified Learner', 100),
+      authorName:
+        clip(user.displayName || user.email?.split('@')[0] || '', 100) ||
+        'Verified Learner',
       challengeId: challenge.id,
       themeId: challenge.themeId,
       promptUsed: cleanPrompt,
@@ -369,6 +373,7 @@ export function subscribeAdminAdvancedData(
   const unsubProg = onSnapshot(
     query(collection(db, 'advancedProgress'), limit(500)),
     (snap) => {
+      Object.keys(progMap).forEach((k) => delete progMap[k]);
       snap.docs.forEach((d) => {
         const data = d.data();
         progMap[d.id] = {
@@ -390,6 +395,7 @@ export function subscribeAdminAdvancedData(
       emit();
     },
     (err) => {
+      if (!auth.currentUser) return;
       onPermissionError(
         `Advanced Progress sync note: ${
           err instanceof Error ? err.message : String(err)
@@ -411,6 +417,7 @@ export function subscribeAdminAdvancedData(
       emit();
     },
     (err) => {
+      if (!auth.currentUser) return;
       onPermissionError(
         `Advanced Submissions sync note: ${
           err instanceof Error ? err.message : String(err)

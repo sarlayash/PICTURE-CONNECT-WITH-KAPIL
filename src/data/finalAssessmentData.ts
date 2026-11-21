@@ -641,14 +641,14 @@ export const FINAL_SCARE_PROMPT = {
 };
 
 function countWords(text: string): number {
-  return text
+  return (text || '')
     .trim()
     .split(/\s+/)
     .filter((w) => w.length > 1).length;
 }
 
 function countKeywordHits(text: string, keywords: string[]): number {
-  const lower = text.toLowerCase();
+  const lower = (text || '').toLowerCase();
   return keywords.reduce((acc, kw) => (lower.includes(kw) ? acc + 1 : acc), 0);
 }
 

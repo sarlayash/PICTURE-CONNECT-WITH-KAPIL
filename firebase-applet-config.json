@@ -3,10 +3,10 @@
   "appId": "1:461344041752:web:be01873e0d4eff25d04c6d",
   "apiKey": "AIzaSyCz6bAcN9kCvU6Fp822wq_W9Jc4hfupS48",
   "authDomain": "picture-connect-with-kapil.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-pictureconnectwi-9dd45ef3-5775-4529-a53b-fc73d8f1a4ab",
   "storageBucket": "picture-connect-with-kapil.firebasestorage.app",
   "messagingSenderId": "461344041752",
   "measurementId": "",
   "oAuthClientId": "461344041752-76ouca16gbho7dcaplmvba82ppj0f8qn.apps.googleusercontent.com",
-  "recaptchaSiteKey": ""
+  "recaptchaSiteKey": "",
+  "firestoreDatabaseId": "ai-studio-pictureconnectwi-9dd45ef3-5775-4529-a53b-fc73d8f1a4ab"
 }

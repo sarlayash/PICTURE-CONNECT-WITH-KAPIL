@@ -14,6 +14,7 @@ import {
   HelpCircle,
   Lightbulb,
   Lock,
+  Mail,
   RotateCcw,
   ShieldCheck,
   Sparkles,
@@ -37,6 +38,7 @@ import {
   MasterPillarId,
   MasterTrackId,
 } from '../data/masterUniverseData';
+import { buildCredentialEmailHtml } from '../services/gmailService';
 import {
   markMasterPlaybookStudied,
   MasterSkillsProgressDoc,
@@ -44,6 +46,8 @@ import {
   submitMasterMcqAnswer,
 } from '../services/masterUniverseFirestoreService';
 import { getPillarTheme, getTrackTheme } from '../data/themeColors';
+import { buildMasterUniverseCertificateDataUrl } from '../utils/credentialGenerators';
+import { EmailCredentialRequest } from './EmailCredentialModal';
 import { SmartImage } from './SmartImage';
 
 interface MasterUniverseStudioProps {
@@ -54,6 +58,7 @@ interface MasterUniverseStudioProps {
   initialPillar?: MasterPillarId | 'credentials';
   initialTrack?: MasterTrackId;
   onActiveTrackChange?: (trackTitle: string) => void;
+  onRequestEmail?: (req: EmailCredentialRequest) => void;
 }
 
 type StudioTopTab = MasterPillarId | 'credentials';
@@ -226,6 +231,7 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
   initialPillar = 'aptitude_grammar',
   initialTrack,
   onActiveTrackChange,
+  onRequestEmail,
 }) => {
   const [activePillar, setActivePillar] = useState<StudioTopTab>(initialPillar);
   const [activeTrack, setActiveTrack] = useState<MasterTrackId>(
@@ -1614,29 +1620,78 @@ export const MasterUniverseStudio: React.FC<MasterUniverseStudioProps> = ({
                 </p>
               </div>
 
-              <button
-                type="button"
-                disabled={!certUnlocked || downloadingCert}
-                onClick={handleDownloadCertificatePng}
-                className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-colors ${
-                  certUnlocked
-                    ? 'bg-blue-700 hover:bg-blue-800 text-white cursor-pointer'
-                    : 'bg-slate-200 dark:bg-slate-800 text-slate-500 cursor-not-allowed'
-                }`}
-              >
-                {certUnlocked ? (
-                  <Download className="w-4 h-4" />
-                ) : (
-                  <Lock className="w-4 h-4" />
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  disabled={!certUnlocked || downloadingCert}
+                  onClick={handleDownloadCertificatePng}
+                  className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-colors ${
+                    certUnlocked
+                      ? 'bg-blue-700 hover:bg-blue-800 text-white cursor-pointer'
+                      : 'bg-slate-200 dark:bg-slate-800 text-slate-500 cursor-not-allowed'
+                  }`}
+                >
+                  {certUnlocked ? (
+                    <Download className="w-4 h-4" />
+                  ) : (
+                    <Lock className="w-4 h-4" />
+                  )}
+                  <span>
+                    {downloadingCert
+                      ? 'Rendering PNG...'
+                      : certUnlocked
+                      ? 'Download Master Certificate PNG'
+                      : `Complete ${Math.max(0, 30 - totalAnswered)} More MCQs to Unlock`}
+                  </span>
+                </button>
+                {onRequestEmail && learnerEmail && certUnlocked && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const png = buildMasterUniverseCertificateDataUrl(
+                        learnerName,
+                        learnerEmail,
+                        masterProgress
+                      );
+                      const { htmlBody, textFallback } = buildCredentialEmailHtml({
+                        learnerName,
+                        learnerEmail,
+                        credentialKindLabel: '16-Track Master Universe Certificate (PNG)',
+                        credentialTitle: fullMasteryUnlocked
+                          ? 'Master Certificate of Full-Stack Employability'
+                          : 'Certificate of Multi-Domain Proficiency',
+                        certificateId: masterProgress.masterCertificateId,
+                        summaryPoints: [
+                          `Universe MCQs Correct: ${masterProgress.correctMcqs.length}/${MASTER_MCQS.length}`,
+                          `Completed Tracks: ${masterProgress.completedTracks.length}/16 · Universe XP: ${masterProgress.masterXp} XP`,
+                          `Badges Unlocked: ${masterProgress.unlockedMasterBadges.length}/${MASTER_BADGES.length}`,
+                        ],
+                      });
+                      onRequestEmail({
+                        recipientEmail: learnerEmail,
+                        recipientName: learnerName,
+                        credentialType: 'certificate',
+                        title: '16-Track Master Universe Certificate (PNG)',
+                        subject:
+                          'Your 16-Track Master Universe Certificate — EMPLOYABILITY UNIVERSE With Kapil',
+                        htmlBody,
+                        textFallback,
+                        targetView: 'universe',
+                        attachment: {
+                          filename:
+                            'Employability-Universe-16-Track-Master-Certificate-Kapil.png',
+                          mimeType: 'image/png',
+                          base64OrDataUrl: png,
+                        },
+                      });
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-3 rounded-xl border border-violet-300 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-violet-800 dark:text-violet-200 text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0"
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span>Email to Sign-Up ID</span>
+                  </button>
                 )}
-                <span>
-                  {downloadingCert
-                    ? 'Rendering PNG...'
-                    : certUnlocked
-                    ? 'Download Master Certificate PNG'
-                    : `Complete ${Math.max(0, 30 - totalAnswered)} More MCQs to Unlock`}
-                </span>
-              </button>
+              </div>
             </div>
 
             <div className="rounded-2xl border-2 border-slate-900 dark:border-amber-600/70 bg-gradient-to-br from-[#FDFBF5] via-white to-blue-50/70 dark:from-slate-950 dark:via-slate-900 dark:to-blue-950/30 p-6 sm:p-8 text-center space-y-4">

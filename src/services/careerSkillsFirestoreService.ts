@@ -15,7 +15,7 @@ import {
   computeCareerCategoryStats,
   getCareerSkillsRank,
 } from '../data/careerSkillsData';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 
 function clip(value: string, max: number): string {
   return value.trim().slice(0, max);
@@ -147,10 +147,9 @@ async function persistCareerDoc(
   try {
     await setDoc(ref, {
       ownerId: user.uid,
-      authorName: clip(
-        user.displayName || user.email?.split('@')[0] || 'Verified Learner',
-        100
-      ),
+      authorName:
+        clip(user.displayName || user.email?.split('@')[0] || '', 100) ||
+        'Verified Learner',
       authorEmail: clip(user.email || '', 160),
       careerXp: Math.min(25000, Math.max(0, Math.round(nextState.careerXp))),
       studiedTopics: nextState.studiedTopics.slice(0, 35),
@@ -192,6 +191,7 @@ export function subscribeCareerSkillsProgress(
       }
     },
     (error) => {
+      if (!auth.currentUser) return;
       handleFirestoreError(error, OperationType.GET, path);
     }
   );
@@ -213,14 +213,18 @@ export async function markCareerTopicStudied(params: {
   const xpGain = current.studiedTopics.length < 12 ? 10 : 0;
   const nextXp = current.careerXp + xpGain;
 
-  const nextBadges = computeCareerBadges({
+  const computedBadges = computeCareerBadges({
     answeredMcqs: current.answeredMcqs,
     correctMcqs: current.correctMcqs,
     hintUsedMcqs: current.hintUsedMcqs,
     studiedTopics: nextStudied,
   });
 
-  const newlyUnlockedBadges = nextBadges.filter(
+  const mergedBadges = Array.from(
+    new Set([...current.unlockedCareerBadges, ...computedBadges])
+  ).slice(0, 12);
+
+  const newlyUnlockedBadges = mergedBadges.filter(
     (b) => !current.unlockedCareerBadges.includes(b)
   );
 
@@ -228,7 +232,7 @@ export async function markCareerTopicStudied(params: {
     ...current,
     careerXp: nextXp,
     studiedTopics: nextStudied,
-    unlockedCareerBadges: nextBadges,
+    unlockedCareerBadges: mergedBadges,
   });
 
   return { newlyAwardedXp: xpGain, newlyUnlockedBadges };
@@ -279,14 +283,18 @@ export async function submitCareerMcqAnswer(params: {
   const nextXp = Math.min(25000, current.careerXp + xpGain);
   const nextCompletedCats = deriveCompletedCategories(nextAnswered);
 
-  const nextBadges = computeCareerBadges({
+  const computedBadges = computeCareerBadges({
     answeredMcqs: nextAnswered,
     correctMcqs: nextCorrect,
     hintUsedMcqs: nextHints,
     studiedTopics: current.studiedTopics,
   });
 
-  const newlyUnlockedBadges = nextBadges.filter(
+  const mergedBadges = Array.from(
+    new Set([...current.unlockedCareerBadges, ...computedBadges])
+  ).slice(0, 12);
+
+  const newlyUnlockedBadges = mergedBadges.filter(
     (b) => !current.unlockedCareerBadges.includes(b)
   );
 
@@ -298,7 +306,7 @@ export async function submitCareerMcqAnswer(params: {
     hintUsedMcqs: nextHints,
     mcqChoices: nextChoices,
     completedCategories: nextCompletedCats,
-    unlockedCareerBadges: nextBadges,
+    unlockedCareerBadges: mergedBadges,
   });
 
   return {
@@ -386,6 +394,7 @@ export function subscribeAdminCareerSkillsData(
       onData(out);
     },
     (err) => {
+      if (!auth.currentUser) return;
       onPermissionError(
         `Career Skills MCQ stream error: ${
           err instanceof Error ? err.message : String(err)

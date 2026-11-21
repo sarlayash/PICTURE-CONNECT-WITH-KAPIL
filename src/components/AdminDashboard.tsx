@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { User } from 'firebase/auth';
 import {
+  BellRing,
   CheckCircle2,
   Download,
   Eye,
@@ -8,6 +9,7 @@ import {
   FileJson,
   Lock,
   LogOut,
+  Mail,
   MessageSquare,
   RotateCcw,
   Search,
@@ -68,13 +70,22 @@ import {
 } from '../services/feedbackFirestoreService';
 import {
   AdminUserRecord,
+  normalizeGithubId,
+  normalizeLinkedinId,
   subscribeAdminLiveData,
 } from '../services/firestoreService';
+import { buildMissingSectionsReminderEmail } from '../services/gmailService';
+import {
+  adminSendReminderNotification,
+  computeSectionAudit,
+} from '../services/notificationService';
+import { EmailCredentialRequest } from './EmailCredentialModal';
 
 interface AdminDashboardProps {
   open: boolean;
   onClose: () => void;
   currentUser: User | null;
+  onRequestEmail?: (req: EmailCredentialRequest) => void;
 }
 
 type FilterStatus = 'all' | 'mastered' | 'active' | 'starter';
@@ -100,7 +111,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   open,
   onClose,
   currentUser,
+  onRequestEmail,
 }) => {
+  const [adminReminderBusyUid, setAdminReminderBusyUid] = useState<string | null>(
+    null
+  );
+  const [adminReminderNote, setAdminReminderNote] = useState<string | null>(null);
   const [userIdInput, setUserIdInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [credError, setCredError] = useState<string | null>(null);
@@ -149,6 +165,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [resetBusy, setResetBusy] = useState(false);
 
   const hasAdminGoogleSession = isFacilitatorAdmin(currentUser);
+
+  useEffect(() => {
+    if (!hasAdminGoogleSession) {
+      setRecords([]);
+      setAdvByUid({});
+      setFinalByUid({});
+      setShopByUid({});
+      setCareerByUid({});
+      setMasterByUid({});
+      setFeedbackItems([]);
+      setInspectedUser(null);
+      setStreamError(null);
+      setLastSyncMs(0);
+      if (!open) {
+        setCredentialsUnlocked(false);
+        setUserIdInput('');
+        setPasswordInput('');
+      }
+    }
+  }, [hasAdminGoogleSession, open]);
 
   useEffect(() => {
     if (!open || !credentialsUnlocked || !hasAdminGoogleSession) return;
@@ -443,6 +479,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const headers = [
       'Learner Name',
       'Google Email',
+      'Mobile Number',
+      'College / Organization',
+      'Domain',
+      'Area of Interest',
+      'LinkedIn ID',
+      'GitHub ID',
+      'Push Enabled',
       'Core Rank',
       'Core Total XP',
       'Core Levels Completed',
@@ -460,7 +503,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       'Advanced Certificate ID',
       'Shop & Negotiation XP',
       'Shop Rank',
-      'Shop MCQs (/20)',
+      'Shop MCQs (/50)',
       'Shop Accuracy %',
       'Shop Hints Used',
       'Shop Role-Play (/100)',
@@ -516,6 +559,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return [
         r.displayName,
         r.email,
+        r.mobileNumber || '',
+        r.college || '',
+        r.domain || '',
+        r.areaOfInterest || '',
+        r.linkedinId || '',
+        r.githubId || '',
+        r.pushEnabled ? 'YES' : 'NO',
         r.rankTitle,
         r.xp,
         `${r.completedLevels.length}/10`,
@@ -1766,30 +1816,229 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               {/* Selected Learner Submissions Inspector */}
-              {inspectedUser && (
+              {inspectedUser && (() => {
+                const inspAdv = advByUid[inspectedUser.uid];
+                const inspShop = shopByUid[inspectedUser.uid];
+                const inspCareer = careerByUid[inspectedUser.uid];
+                const inspMaster = masterByUid[inspectedUser.uid];
+                const inspFin = finalByUid[inspectedUser.uid];
+                const learnerAudit = computeSectionAudit({
+                  completedLevels: inspectedUser.completedLevels,
+                  completedWheelPrompts: inspectedUser.completedWheelPrompts,
+                  shoppingAnsweredCount: inspShop?.answeredMcqs.length ?? 0,
+                  shoppingRoleplayScore: inspShop?.roleplayScore ?? 0,
+                  careerAnsweredCount: inspCareer?.answeredMcqs.length ?? 0,
+                  masterAnsweredCount: inspMaster?.answeredMcqs.length ?? 0,
+                  advCompletedCount: inspAdv?.completedChallenges.length ?? 0,
+                  finalPassed: Boolean(inspFin?.passed),
+                  finalStatus: inspFin?.status ?? 'not_started',
+                });
+                const inspAvatar =
+                  inspectedUser.customPhotoDataUrl || inspectedUser.photoURL;
+
+                const handleAdminPushReminder = async () => {
+                  setAdminReminderBusyUid(inspectedUser.uid);
+                  setAdminReminderNote(null);
+                  try {
+                    const nextMissing = learnerAudit.missingOrIncompleteItems[0];
+                    await adminSendReminderNotification({
+                      targetUid: inspectedUser.uid,
+                      recipientEmail: inspectedUser.email,
+                      title: nextMissing
+                        ? `Mentor Kapil Reminder: ${learnerAudit.missingOrIncompleteItems.length} section(s) remaining`
+                        : 'Mentor Kapil Appreciation: 100% Complete!',
+                      body: nextMissing
+                        ? `Hi ${inspectedUser.displayName}, you are ${learnerAudit.overallCompletionPct}% done. Next recommended step: ${nextMissing.title} — ${nextMissing.actionHint}`
+                        : `Bravo ${inspectedUser.displayName}! All sections are complete — email your certificates and Placement LOR from My Profile.`,
+                      targetView: nextMissing?.targetView || 'achievements',
+                      channel: 'in_app',
+                    });
+                    setAdminReminderNote(
+                      `In-app reminder delivered to ${inspectedUser.displayName}'s Notification Center!`
+                    );
+                  } catch (err) {
+                    setAdminReminderNote(
+                      err instanceof Error ? err.message : 'Could not send reminder.'
+                    );
+                  } finally {
+                    setAdminReminderBusyUid(null);
+                  }
+                };
+
+                const handleAdminEmailReminder = () => {
+                  if (!onRequestEmail || !inspectedUser.email.includes('@')) return;
+                  const digest = buildMissingSectionsReminderEmail({
+                    learnerName: inspectedUser.displayName,
+                    learnerEmail: inspectedUser.email,
+                    overallCompletionPct: learnerAudit.overallCompletionPct,
+                    completedSections: learnerAudit.completedItems.map((i) => ({
+                      title: i.title,
+                      detail: i.currentLabel,
+                    })),
+                    missingSections: learnerAudit.missingOrIncompleteItems.map((i) => ({
+                      title: i.title,
+                      detail: i.currentLabel,
+                      actionHint: i.actionHint,
+                    })),
+                  });
+                  onRequestEmail({
+                    recipientEmail: inspectedUser.email,
+                    recipientName: inspectedUser.displayName,
+                    credentialType: 'reminder_digest',
+                    title: `Missing-Section Reminder for ${inspectedUser.displayName}`,
+                    subject: digest.subject,
+                    htmlBody: digest.htmlBody,
+                    textFallback: digest.textFallback,
+                    targetView:
+                      learnerAudit.missingOrIncompleteItems[0]?.targetView ||
+                      'journey',
+                    sentByAdmin: true,
+                    targetUid: inspectedUser.uid,
+                  });
+                };
+
+                return (
                 <div className="rounded-2xl border border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-slate-950 p-5 space-y-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="text-xs font-mono text-blue-700 dark:text-blue-400 font-semibold">
-                        LEARNER PORTFOLIO AUDIT · {inspectedUser.certificateId}
-                      </div>
-                      <h3 className="font-display text-xl font-bold text-slate-950 dark:text-white">
-                        {inspectedUser.displayName} ({inspectedUser.email})
-                      </h3>
-                      <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 font-mono">
-                        Completed Levels:{' '}
-                        {inspectedUser.completedLevels.length > 0
-                          ? inspectedUser.completedLevels.map((l) => `L${l}`).join(', ')
-                          : 'None yet'}
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      {inspAvatar && (
+                        <img
+                          src={inspAvatar}
+                          alt={inspectedUser.displayName}
+                          className="w-12 h-12 rounded-xl object-cover border border-blue-300/60 shrink-0"
+                        />
+                      )}
+                      <div>
+                        <div className="text-xs font-mono text-blue-700 dark:text-blue-400 font-semibold">
+                          LEARNER PORTFOLIO AUDIT · {inspectedUser.certificateId} ·{' '}
+                          {learnerAudit.overallCompletionPct}% UNIVERSE COMPLETE
+                        </div>
+                        <h3 className="font-display text-xl font-bold text-slate-950 dark:text-white">
+                          {inspectedUser.displayName} ({inspectedUser.email})
+                        </h3>
+                        <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 font-mono">
+                          Completed Levels:{' '}
+                          {inspectedUser.completedLevels.length > 0
+                            ? inspectedUser.completedLevels.map((l) => `L${l}`).join(', ')
+                            : 'None yet'}
+                        </div>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setInspectedUser(null)}
-                      className="text-xs font-semibold text-slate-500 hover:text-slate-950 dark:hover:text-white cursor-pointer"
-                    >
-                      Close Inspector ✕
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={adminReminderBusyUid === inspectedUser.uid}
+                        onClick={handleAdminPushReminder}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold cursor-pointer disabled:opacity-60"
+                      >
+                        <BellRing className="w-3.5 h-3.5" />
+                        <span>
+                          {adminReminderBusyUid === inspectedUser.uid
+                            ? 'Sending...'
+                            : `Send Alert (${learnerAudit.missingOrIncompleteItems.length} Missing)`}
+                        </span>
+                      </button>
+                      {onRequestEmail && inspectedUser.email.includes('@') && (
+                        <button
+                          type="button"
+                          onClick={handleAdminEmailReminder}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold cursor-pointer"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                          <span>Email Reminder</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInspectedUser(null);
+                          setAdminReminderNote(null);
+                        }}
+                        className="text-xs font-semibold text-slate-500 hover:text-slate-950 dark:hover:text-white cursor-pointer px-2"
+                      >
+                        Close ✕
+                      </button>
+                    </div>
+                  </div>
+
+                  {adminReminderNote && (
+                    <div className="p-2.5 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 text-xs font-semibold text-emerald-800 dark:text-emerald-200">
+                      {adminReminderNote}
+                    </div>
+                  )}
+
+                  {/* Learner Profile Card */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+                    <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                      <div className="text-[10px] font-mono uppercase text-slate-500">
+                        College / Org &amp; Mobile
+                      </div>
+                      <div className="font-semibold text-slate-900 dark:text-white mt-0.5">
+                        {inspectedUser.college || 'Not added yet'}
+                      </div>
+                      <div className="text-slate-600 dark:text-slate-400 font-mono mt-0.5">
+                        {inspectedUser.mobileNumber || 'No mobile'}
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                      <div className="text-[10px] font-mono uppercase text-slate-500">
+                        Domain &amp; Area of Interest
+                      </div>
+                      <div className="font-semibold text-slate-900 dark:text-white mt-0.5">
+                        {inspectedUser.domain || 'Not set'}
+                      </div>
+                      <div className="text-slate-600 dark:text-slate-400 mt-0.5 truncate">
+                        {inspectedUser.areaOfInterest || '—'}
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                      <div className="text-[10px] font-mono uppercase text-slate-500">
+                        LinkedIn &amp; GitHub
+                      </div>
+                      <div className="space-y-0.5 mt-0.5 truncate">
+                        {inspectedUser.linkedinId ? (
+                          <a
+                            href={normalizeLinkedinId(inspectedUser.linkedinId)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block text-blue-700 dark:text-blue-400 hover:underline truncate"
+                          >
+                            LinkedIn: {inspectedUser.linkedinId}
+                          </a>
+                        ) : (
+                          <span className="text-slate-500 block">No LinkedIn</span>
+                        )}
+                        {inspectedUser.githubId ? (
+                          <a
+                            href={normalizeGithubId(inspectedUser.githubId)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block text-indigo-700 dark:text-indigo-400 hover:underline truncate"
+                          >
+                            GitHub: {inspectedUser.githubId}
+                          </a>
+                        ) : (
+                          <span className="text-slate-500 block">No GitHub</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                      <div className="text-[10px] font-mono uppercase text-slate-500">
+                        Missing Sections ({learnerAudit.missingOrIncompleteItems.length})
+                      </div>
+                      <div className="font-semibold text-amber-700 dark:text-amber-400 mt-0.5">
+                        {learnerAudit.missingOrIncompleteItems.length === 0
+                          ? 'All 8 Sections Complete!'
+                          : learnerAudit.missingOrIncompleteItems
+                              .slice(0, 2)
+                              .map((m) => m.title.split('(')[0].trim())
+                              .join(', ')}
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-500 mt-0.5">
+                        Push: {inspectedUser.pushEnabled ? 'ON' : 'OFF'} (
+                        {inspectedUser.reminderFrequency || 'daily'})
+                      </div>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
@@ -2067,7 +2316,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   )}
                 </div>
-              )}
+                );
+              })()}
                 </>
               )}
             </>

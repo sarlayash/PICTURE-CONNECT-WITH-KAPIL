@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Download,
   Lock,
+  Mail,
   ShieldCheck,
   Sparkles,
   Trophy,
@@ -18,6 +19,12 @@ import {
   AdvancedProgressDoc,
   AdvancedSubmissionDoc,
 } from '../services/advancedFirestoreService';
+import { buildCredentialEmailHtml } from '../services/gmailService';
+import {
+  buildAdvBadgePngDataUrl,
+  buildAdvancedCertificateDataUrl,
+} from '../utils/credentialGenerators';
+import { EmailCredentialRequest } from './EmailCredentialModal';
 
 interface AdvancedAchievementsProps {
   learnerName: string;
@@ -25,6 +32,7 @@ interface AdvancedAchievementsProps {
   advProgress: AdvancedProgressDoc;
   submissions: Record<string, AdvancedSubmissionDoc>;
   onJumpToChallenges: () => void;
+  onRequestEmail?: (req: EmailCredentialRequest) => void;
 }
 
 const ACCENT_STYLES: Record<string, string> = {
@@ -221,6 +229,7 @@ export const AdvancedAchievements: React.FC<AdvancedAchievementsProps> = ({
   advProgress,
   submissions,
   onJumpToChallenges,
+  onRequestEmail,
 }) => {
   const [downloadingCert, setDownloadingCert] = useState(false);
   const [downloadingBadgeId, setDownloadingBadgeId] = useState<string | null>(null);
@@ -258,6 +267,82 @@ export const AdvancedAchievements: React.FC<AdvancedAchievementsProps> = ({
     } finally {
       setDownloadingBadgeId(null);
     }
+  };
+
+  const handleEmailAdvBadge = (badge: AdvancedBadgeDefinition) => {
+    if (!onRequestEmail || !learnerEmail) return;
+    const pngDataUrl = buildAdvBadgePngDataUrl(
+      badge,
+      learnerName,
+      advProgress.advCertificateId
+    );
+    const { htmlBody, textFallback } = buildCredentialEmailHtml({
+      learnerName,
+      learnerEmail,
+      credentialKindLabel: 'AI Advanced Track Badge (PNG Medallion)',
+      credentialTitle: `${badge.title} Badge`,
+      certificateId: advProgress.advCertificateId,
+      summaryPoints: [
+        `Badge Criteria: ${badge.criteriaLabel}`,
+        `AI Challenges Scored: ${completedCount}/25 · Avg Auto-Score: ${avgScore}/100`,
+        `Advanced XP: ${advProgress.advXp} XP`,
+      ],
+    });
+    const safeSlug = badge.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    onRequestEmail({
+      recipientEmail: learnerEmail,
+      recipientName: learnerName,
+      credentialType: 'badge',
+      title: `AI Badge: ${badge.title} (PNG)`,
+      subject: `Your AI Advanced Badge: ${badge.title} — EMPLOYABILITY UNIVERSE With Kapil`,
+      htmlBody,
+      textFallback,
+      targetView: 'advanced',
+      attachment: {
+        filename: `AI-Advanced-Badge-${safeSlug}.png`,
+        mimeType: 'image/png',
+        base64OrDataUrl: pngDataUrl,
+      },
+    });
+  };
+
+  const handleEmailAdvCert = () => {
+    if (!onRequestEmail || !learnerEmail) return;
+    const pngDataUrl = buildAdvancedCertificateDataUrl(
+      learnerName,
+      learnerEmail,
+      advProgress,
+      avgScore
+    );
+    const { htmlBody, textFallback } = buildCredentialEmailHtml({
+      learnerName,
+      learnerEmail,
+      credentialKindLabel: 'Official AI-Powered Advanced Certificate (PNG)',
+      credentialTitle: isFullMastery
+        ? 'Certificate of AI-Powered Visual Mastery'
+        : 'Certificate of AI-Powered Employability',
+      certificateId: advProgress.advCertificateId,
+      summaryPoints: [
+        `AI Visual Challenges Scored: ${completedCount}/25`,
+        `Average Auto-Score: ${avgScore}/100 · Advanced XP: ${advProgress.advXp} XP`,
+        `Badges Unlocked: ${advProgress.unlockedAdvBadges.length}/${ADVANCED_BADGES.length} · Rank: ${rank.title}`,
+      ],
+    });
+    onRequestEmail({
+      recipientEmail: learnerEmail,
+      recipientName: learnerName,
+      credentialType: 'certificate',
+      title: 'AI-Powered Advanced Certificate (PNG)',
+      subject: `Your AI Advanced Track Certificate — EMPLOYABILITY UNIVERSE With Kapil`,
+      htmlBody,
+      textFallback,
+      targetView: 'advanced',
+      attachment: {
+        filename: 'Employability-Universe-AI-Advanced-Certificate-Kapil.png',
+        mimeType: 'image/png',
+        base64OrDataUrl: pngDataUrl,
+      },
+    });
   };
 
   const handleDownloadAllEarned = () => {
@@ -637,15 +722,27 @@ export const AdvancedAchievements: React.FC<AdvancedAchievementsProps> = ({
                     {badge.criteriaLabel}
                   </div>
                   {unlocked ? (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => handleDownloadBadgePng(badge)}
-                      className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-950 dark:bg-white text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-200 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
-                    >
-                      <Download className="w-3.5 h-3.5 shrink-0" />
-                      <span>{busy ? 'Exporting PNG...' : 'Download PNG'}</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => handleDownloadBadgePng(badge)}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-slate-950 dark:bg-white text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-200 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        <Download className="w-3.5 h-3.5 shrink-0" />
+                        <span>{busy ? 'Exporting...' : 'PNG'}</span>
+                      </button>
+                      {onRequestEmail && learnerEmail && (
+                        <button
+                          type="button"
+                          onClick={() => handleEmailAdvBadge(badge)}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                        >
+                          <Mail className="w-3.5 h-3.5 shrink-0" />
+                          <span>Email</span>
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                       <Lock className="w-3 h-3 shrink-0" />
@@ -671,19 +768,31 @@ export const AdvancedAchievements: React.FC<AdvancedAchievementsProps> = ({
             </p>
           </div>
 
-          <button
-            type="button"
-            disabled={downloadingCert}
-            onClick={handleDownloadAdvCertPng}
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600"
-          >
-            <Award className="w-4 h-4" />
-            <span>
-              {downloadingCert
-                ? 'Generating PNG...'
-                : 'Download Advanced Certificate (PNG)'}
-            </span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <button
+              type="button"
+              disabled={downloadingCert}
+              onClick={handleDownloadAdvCertPng}
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600"
+            >
+              <Award className="w-4 h-4" />
+              <span>
+                {downloadingCert
+                  ? 'Generating PNG...'
+                  : 'Download Advanced Certificate (PNG)'}
+              </span>
+            </button>
+            {onRequestEmail && learnerEmail && (
+              <button
+                type="button"
+                onClick={handleEmailAdvCert}
+                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl border border-indigo-300 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-800 dark:text-indigo-200 text-sm font-semibold cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <Mail className="w-4 h-4" />
+                <span>Email to Sign-Up ID</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Responsive Preview Card */}

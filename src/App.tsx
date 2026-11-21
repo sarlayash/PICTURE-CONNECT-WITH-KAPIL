@@ -1,6 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { Award, Lock, LogOut, Moon, ShieldCheck, Sun } from 'lucide-react';
+import {
+  Award,
+  Bell,
+  Lock,
+  LogOut,
+  Moon,
+  ShieldCheck,
+  Sun,
+  UserCircle2,
+} from 'lucide-react';
 import { evaluateFinalPrerequisites } from './data/finalAssessmentData';
 import { getNavSectionTheme } from './data/themeColors';
 import { BADGES, getLearnerRank, LEVELS, WORKSHOP_META } from './data/workshopData';
@@ -14,6 +23,7 @@ import {
   ConnectionPostDoc,
   createConnectionPost,
   createDefaultProgress,
+  createDefaultUserProfile,
   LearnerProgressDoc,
   LearnerWorkspaceDoc,
   recordVideoChallengeCompletion,
@@ -22,7 +32,10 @@ import {
   subscribeConnections,
   subscribeLearnerProgress,
   subscribeLearnerWorkspace,
+  subscribeUserProfile,
+  updateUserProfile,
   upsertUserAccount,
+  UserProfileDoc,
 } from './services/firestoreService';
 import {
   AdvancedProgressDoc,
@@ -61,6 +74,16 @@ import {
   MasterSkillsProgressDoc,
   subscribeMasterProgress,
 } from './services/masterUniverseFirestoreService';
+import {
+  computeSectionAudit,
+  LearnerNotificationDoc,
+  logLearnerNotification,
+  NotificationTargetView,
+  registerNotificationServiceWorker,
+  shouldTriggerScheduledReminder,
+  showBrowserPushNotification,
+  subscribeMyNotifications,
+} from './services/notificationService';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { GoogleAuthGate } from './components/GoogleAuthGate';
 import { AppView, OverviewStudio } from './components/OverviewStudio';
@@ -74,7 +97,16 @@ import { MasterUniverseStudio } from './components/MasterUniverseStudio';
 import { FinalAssessmentStudio } from './components/FinalAssessmentStudio';
 import { AdminDashboard } from './components/AdminDashboard';
 import { SectionFeedbackBar } from './components/SectionFeedbackBar';
-import { FEEDBACK_SECTION_LABELS } from './services/feedbackFirestoreService';
+import { MyProfileStudio } from './components/MyProfileStudio';
+import { NotificationCenterDrawer } from './components/NotificationCenterDrawer';
+import {
+  EmailCredentialModal,
+  EmailCredentialRequest,
+} from './components/EmailCredentialModal';
+import {
+  FEEDBACK_SECTION_LABELS,
+  FeedbackSectionId,
+} from './services/feedbackFirestoreService';
 
 const THEME_STORAGE_KEY = 'pcwk_theme_v2';
 
@@ -96,7 +128,16 @@ function PictureConnectWorkspace() {
     'Quantitative & Logical Aptitude'
   );
   const [adminOpen, setAdminOpen] = useState(false);
+  const [notifDrawerOpen, setNotifDrawerOpen] = useState(false);
+  const [emailRequest, setEmailRequest] =
+    useState<EmailCredentialRequest | null>(null);
 
+  const [userProfile, setUserProfile] = useState<UserProfileDoc>(() =>
+    createDefaultUserProfile('pending')
+  );
+  const [notifications, setNotifications] = useState<LearnerNotificationDoc[]>(
+    []
+  );
   const [connections, setConnections] = useState<ConnectionPostDoc[]>([]);
   const [workspace, setWorkspace] = useState<LearnerWorkspaceDoc>({ ownerId: '' });
   const [progress, setProgress] = useState<LearnerProgressDoc>(() =>
@@ -120,6 +161,7 @@ function PictureConnectWorkspace() {
   const [masterProgress, setMasterProgress] = useState<MasterSkillsProgressDoc>(() =>
     createDefaultMasterProgress('pending')
   );
+  const reminderCheckedUidRef = useRef<string>('');
 
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     try {
@@ -142,6 +184,21 @@ function PictureConnectWorkspace() {
     const unsub = onAuthStateChanged(auth, async (nextUser) => {
       if (!nextUser) {
         setUser(null);
+        setAdminOpen(false);
+        setNotifDrawerOpen(false);
+        setEmailRequest(null);
+        reminderCheckedUidRef.current = '';
+        setUserProfile(createDefaultUserProfile('pending'));
+        setNotifications([]);
+        setConnections([]);
+        setWorkspace({ ownerId: '' });
+        setProgress(createDefaultProgress('pending'));
+        setAdvProgress(createDefaultAdvancedProgress('pending'));
+        setAdvSubmissions({});
+        setFinalAssessment(createDefaultFinalAssessment('pending'));
+        setShoppingProgress(createDefaultShoppingProgress('pending'));
+        setCareerProgress(createDefaultCareerSkillsProgress('pending'));
+        setMasterProgress(createDefaultMasterProgress('pending'));
         setAuthReady(true);
         return;
       }
@@ -152,12 +209,25 @@ function PictureConnectWorkspace() {
         );
         await signOutUser();
         setUser(null);
+        setAdminOpen(false);
         setAuthReady(true);
         return;
       }
 
       setAuthError(null);
       setUser(nextUser);
+      setUserProfile(
+        createDefaultUserProfile(
+          nextUser.uid,
+          nextUser.displayName || nextUser.email?.split('@')[0] || 'Verified Learner',
+          nextUser.email || '',
+          nextUser.photoURL || undefined
+        )
+      );
+      setNotifications([]);
+      setConnections([]);
+      setWorkspace({ ownerId: nextUser.uid });
+      setAdvSubmissions({});
       setProgress(createDefaultProgress(nextUser.uid));
       setAdvProgress(createDefaultAdvancedProgress(nextUser.uid));
       setFinalAssessment(
@@ -200,8 +270,26 @@ function PictureConnectWorkspace() {
   }, []);
 
   useEffect(() => {
+    registerNotificationServiceWorker();
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      const onSwMessage = (event: MessageEvent) => {
+        if (event.data?.type === 'NOTIFICATION_NAVIGATE' && event.data?.targetView) {
+          setView(event.data.targetView as AppView);
+        }
+      };
+      navigator.serviceWorker.addEventListener('message', onSwMessage);
+      return () => {
+        navigator.serviceWorker.removeEventListener('message', onSwMessage);
+      };
+    }
+    return undefined;
+  }, []);
+
+  useEffect(() => {
     if (!authReady || !user) return;
 
+    const unsubProfile = subscribeUserProfile(user, setUserProfile);
+    const unsubNotifications = subscribeMyNotifications(user.uid, setNotifications);
     const unsubConnections = subscribeConnections(setConnections);
     const unsubWorkspace = subscribeLearnerWorkspace(user.uid, setWorkspace);
     const unsubProgress = subscribeLearnerProgress(user.uid, setProgress);
@@ -216,6 +304,8 @@ function PictureConnectWorkspace() {
     const unsubMaster = subscribeMasterProgress(user, setMasterProgress);
 
     return () => {
+      unsubProfile();
+      unsubNotifications();
       unsubConnections();
       unsubWorkspace();
       unsubProgress();
@@ -227,6 +317,76 @@ function PictureConnectWorkspace() {
       unsubMaster();
     };
   }, [authReady, user]);
+
+  const sectionAudit = useMemo(
+    () =>
+      computeSectionAudit({
+        completedLevels: progress.completedLevels,
+        completedWheelPrompts: progress.completedWheelPrompts,
+        shoppingAnsweredCount: shoppingProgress.answeredMcqs.length,
+        shoppingRoleplayScore: shoppingProgress.roleplayScore,
+        careerAnsweredCount: careerProgress.answeredMcqs.length,
+        masterAnsweredCount: masterProgress.answeredMcqs.length,
+        advCompletedCount: advProgress.completedChallenges.length,
+        finalPassed: finalAssessment.passed,
+        finalStatus: finalAssessment.status,
+      }),
+    [
+      progress.completedLevels,
+      progress.completedWheelPrompts,
+      shoppingProgress.answeredMcqs.length,
+      shoppingProgress.roleplayScore,
+      careerProgress.answeredMcqs.length,
+      masterProgress.answeredMcqs.length,
+      advProgress.completedChallenges.length,
+      finalAssessment.passed,
+      finalAssessment.status,
+    ]
+  );
+
+  // Automatic scheduled missing-section push reminder when due
+  useEffect(() => {
+    if (!user || userProfile.uid !== user.uid) return;
+    if (reminderCheckedUidRef.current === user.uid) return;
+    const due = shouldTriggerScheduledReminder({
+      pushEnabled: userProfile.pushEnabled,
+      reminderFrequency: userProfile.reminderFrequency,
+      lastReminderAtMs: userProfile.lastReminderAtMs,
+      missingCount: sectionAudit.missingOrIncompleteItems.length,
+    });
+    if (!due) return;
+
+    reminderCheckedUidRef.current = user.uid;
+    const nextMissing = sectionAudit.missingOrIncompleteItems[0];
+    if (!nextMissing) return;
+
+    const title = `Missing Section Reminder (${sectionAudit.overallCompletionPct}% done)`;
+    const body = `${nextMissing.title}: ${nextMissing.actionHint}`;
+
+    (async () => {
+      const delivery = await showBrowserPushNotification({
+        title,
+        body,
+        targetView: nextMissing.targetView,
+        tag: 'euwk-scheduled-reminder',
+      });
+      try {
+        await logLearnerNotification({
+          user,
+          kind: 'missing_reminder',
+          title,
+          body,
+          targetView: nextMissing.targetView,
+          credentialType: 'reminder_digest',
+          channel: delivery.delivered ? 'push' : 'in_app',
+          sentBy: 'system',
+        });
+        await updateUserProfile(user, { lastReminderAtMs: Date.now() });
+      } catch (err) {
+        console.error('Scheduled reminder log failed:', err);
+      }
+    })();
+  }, [user, userProfile, sectionAudit]);
 
   if (!authReady) {
     return (
@@ -254,7 +414,14 @@ function PictureConnectWorkspace() {
     );
   }
 
-  const learnerName = user.displayName || user.email?.split('@')[0] || 'Verified Learner';
+  const learnerName =
+    userProfile.displayName ||
+    user.displayName ||
+    user.email?.split('@')[0] ||
+    'Verified Learner';
+  const learnerAvatar =
+    userProfile.customPhotoDataUrl || userProfile.photoURL || user.photoURL || '';
+  const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
   const rank = getLearnerRank(progress.xp);
 
   const handleNavigateView = (
@@ -428,13 +595,26 @@ function PictureConnectWorkspace() {
 
       {/* Main Content Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* Verified Google Learner Identity & Live XP Strip */}
+        {/* Verified Google Learner Identity, Push Alerts Bell & My Profile Strip */}
         <div className="no-print flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200/70 dark:border-slate-800/80 text-xs text-slate-600 dark:text-slate-400">
           <div className="flex flex-wrap items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <span className="font-semibold text-slate-900 dark:text-white">
+            {learnerAvatar ? (
+              <img
+                src={learnerAvatar}
+                alt={learnerName}
+                onClick={() => handleNavigateView('profile')}
+                className="w-7 h-7 rounded-full object-cover border border-indigo-400/50 cursor-pointer shrink-0"
+              />
+            ) : (
+              <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            )}
+            <button
+              type="button"
+              onClick={() => handleNavigateView('profile')}
+              className="font-semibold text-slate-900 dark:text-white hover:text-indigo-700 dark:hover:text-indigo-400 cursor-pointer"
+            >
               {learnerName}
-            </span>
+            </button>
             <span aria-hidden="true">·</span>
             <span className="font-medium text-blue-700 dark:text-blue-400">
               {rank.title}
@@ -449,7 +629,37 @@ function PictureConnectWorkspace() {
             </span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <button
+              type="button"
+              onClick={() => setNotifDrawerOpen(true)}
+              className="relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
+            >
+              <Bell className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>Reminders</span>
+              {(unreadNotificationsCount > 0 ||
+                sectionAudit.missingOrIncompleteItems.length > 0) && (
+                <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 font-mono text-[10px] font-bold">
+                  {unreadNotificationsCount > 0
+                    ? unreadNotificationsCount
+                    : sectionAudit.missingOrIncompleteItems.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleNavigateView('profile')}
+              className={`inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer ${
+                view === 'profile'
+                  ? 'text-indigo-700 dark:text-indigo-400 underline'
+                  : 'text-slate-700 dark:text-slate-300 hover:text-indigo-700 dark:hover:text-indigo-400'
+              }`}
+            >
+              <UserCircle2 className="w-3.5 h-3.5" />
+              <span>My Profile</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setAdminOpen(true)}
@@ -535,7 +745,34 @@ function PictureConnectWorkspace() {
             onGoToCertificate={() => handleNavigateView('achievements')}
             progress={progress}
             onCompleteLevel={async (levelNum) => {
-              return awardLevelCompletion(user.uid, progress, levelNum);
+              const res = await awardLevelCompletion(user.uid, progress, levelNum);
+              if (res.newlyAwardedXp > 0) {
+                const lvlTitle =
+                  LEVELS.find((l) => l.level === levelNum)?.title ||
+                  `Level ${levelNum}`;
+                if (userProfile.pushEnabled) {
+                  showBrowserPushNotification({
+                    title: `Level ${levelNum} Completed! +${res.newlyAwardedXp} XP`,
+                    body: `Great momentum on "${lvlTitle}". Keep going toward all 10 levels!`,
+                    targetView: 'achievements',
+                    tag: `euwk-lvl-${levelNum}`,
+                  });
+                }
+                logLearnerNotification({
+                  user,
+                  kind: 'section_completed',
+                  title: `Completed Level ${levelNum}: ${lvlTitle}`,
+                  body: `Earned +${res.newlyAwardedXp} XP${
+                    res.newlyUnlockedBadges.length > 0
+                      ? ` and unlocked ${res.newlyUnlockedBadges.length} new badge(s)!`
+                      : '.'
+                  }`,
+                  targetView: 'achievements',
+                  channel: userProfile.pushEnabled ? 'push' : 'in_app',
+                  sentBy: 'system',
+                }).catch(() => {});
+              }
+              return res;
             }}
             sharedPerspectives={perspectivePosts}
             onAddPerspective={async (sceneTitle, text) => {
@@ -577,6 +814,7 @@ function PictureConnectWorkspace() {
             learnerName={learnerName}
             learnerEmail={user.email || ''}
             shoppingProgress={shoppingProgress}
+            onRequestEmail={setEmailRequest}
           />
         )}
 
@@ -587,6 +825,12 @@ function PictureConnectWorkspace() {
             learnerEmail={user.email || ''}
             careerProgress={careerProgress}
             initialTab={activeCareerTab}
+            onActiveTabChange={(tab) => {
+              if (tab !== 'credentials') {
+                setActiveCareerTab(tab);
+              }
+            }}
+            onRequestEmail={setEmailRequest}
           />
         )}
 
@@ -599,6 +843,7 @@ function PictureConnectWorkspace() {
             initialPillar={activeMasterPillar}
             initialTrack={activeMasterTrack}
             onActiveTrackChange={setActiveMasterTrackTitle}
+            onRequestEmail={setEmailRequest}
           />
         )}
 
@@ -609,6 +854,7 @@ function PictureConnectWorkspace() {
             learnerEmail={user.email || ''}
             advProgress={advProgress}
             submissions={advSubmissions}
+            onRequestEmail={setEmailRequest}
           />
         )}
 
@@ -617,12 +863,14 @@ function PictureConnectWorkspace() {
             user={user}
             learnerName={learnerName}
             learnerEmail={user.email || ''}
+            defaultCollege={userProfile.college}
             finalDoc={finalAssessment}
             coreProgress={progress}
             advProgress={advProgress}
             advAvgScore={advAvgScore}
             shoppingProgress={shoppingProgress}
             onNavigateView={handleNavigateView}
+            onRequestEmail={setEmailRequest}
           />
         )}
 
@@ -633,18 +881,40 @@ function PictureConnectWorkspace() {
             progress={progress}
             shoppingProgress={shoppingProgress}
             onNavigateToLevels={(lvl) => handleNavigateView('levels', lvl)}
+            onRequestEmail={setEmailRequest}
+          />
+        )}
+
+        {view === 'profile' && (
+          <MyProfileStudio
+            user={user}
+            profile={userProfile}
+            progress={progress}
+            shoppingProgress={shoppingProgress}
+            careerProgress={careerProgress}
+            masterProgress={masterProgress}
+            advProgress={advProgress}
+            advAvgScore={advAvgScore}
+            finalAssessment={finalAssessment}
+            audit={sectionAudit}
+            onRequestEmail={setEmailRequest}
+            onNavigateView={(target: NotificationTargetView, lvl?: number) =>
+              handleNavigateView(target as AppView, lvl)
+            }
           />
         )}
 
         {/* Per-Section Learner Feedback Bar — Feeds Mentor Kapil's Admin Feedback Reports */}
-        <div className="no-print pt-4">
-          <SectionFeedbackBar
-            user={user}
-            sectionId={view}
-            sectionLabel={FEEDBACK_SECTION_LABELS[view]}
-            subTopic={feedbackSubTopic}
-          />
-        </div>
+        {view !== 'profile' && (
+          <div className="no-print pt-4">
+            <SectionFeedbackBar
+              user={user}
+              sectionId={view as FeedbackSectionId}
+              sectionLabel={FEEDBACK_SECTION_LABELS[view as FeedbackSectionId]}
+              subTopic={feedbackSubTopic}
+            />
+          </div>
+        )}
       </main>
 
       {/* Clean Footer with Theme Switcher & Powered By Kapil Attribution */}
@@ -670,10 +940,33 @@ function PictureConnectWorkspace() {
         </div>
       </footer>
 
+      <NotificationCenterDrawer
+        open={notifDrawerOpen}
+        onClose={() => setNotifDrawerOpen(false)}
+        user={user}
+        profile={userProfile}
+        audit={sectionAudit}
+        notifications={notifications}
+        onNavigateView={(target, lvl) =>
+          handleNavigateView(target as AppView, lvl)
+        }
+        onRequestEmail={(req) => {
+          setNotifDrawerOpen(false);
+          setEmailRequest(req);
+        }}
+      />
+
+      <EmailCredentialModal
+        user={user}
+        request={emailRequest}
+        onClose={() => setEmailRequest(null)}
+      />
+
       <AdminDashboard
         open={adminOpen}
         onClose={() => setAdminOpen(false)}
         currentUser={user}
+        onRequestEmail={setEmailRequest}
       />
     </div>
   );
