@@ -35,6 +35,8 @@ export interface EmailCredentialRequest {
   /** Optional custom sender label when Admin sends a reminder */
   sentByAdmin?: boolean;
   targetUid?: string;
+  /** Optional post-send hook (e.g. mark daily mock resultEmailed = true) */
+  onAfterSent?: () => void | Promise<void>;
 }
 
 interface EmailCredentialModalProps {
@@ -92,6 +94,10 @@ export const EmailCredentialModal: React.FC<EmailCredentialModalProps> = ({
             kind:
               request.credentialType === 'reminder_digest'
                 ? 'missing_reminder'
+                : request.credentialType === 'daily_mock_invite'
+                ? 'daily_mock_launch'
+                : request.credentialType === 'daily_mock_summary'
+                ? 'daily_mock_result'
                 : 'credential_emailed',
             title: `Emailed: ${request.title}`.slice(0, 120),
             body: `Delivered "${request.title}" to your verified sign-up email (${request.recipientEmail}) via Gmail.`,
@@ -102,6 +108,14 @@ export const EmailCredentialModal: React.FC<EmailCredentialModalProps> = ({
           });
         } catch (logErr) {
           console.error('Could not log email receipt to Firestore:', logErr);
+        }
+      }
+
+      if (request.onAfterSent) {
+        try {
+          await request.onAfterSent();
+        } catch (hookErr) {
+          console.error('Post-send hook warning:', hookErr);
         }
       }
 

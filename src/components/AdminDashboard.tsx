@@ -3,19 +3,23 @@ import { User } from 'firebase/auth';
 import {
   BellRing,
   CheckCircle2,
+  Clock,
   Download,
   Eye,
   FileCheck2,
   FileJson,
+  Flame,
   Lock,
   LogOut,
   Mail,
   MessageSquare,
   RotateCcw,
   Search,
+  Send,
   ShieldCheck,
   Sparkles,
   Star,
+  Target,
   Trophy,
   Users,
   X,
@@ -74,7 +78,25 @@ import {
   normalizeLinkedinId,
   subscribeAdminLiveData,
 } from '../services/firestoreService';
-import { buildMissingSectionsReminderEmail } from '../services/gmailService';
+import {
+  formatDateKeyReadable,
+  generateDailyMockPaper,
+  getTodayDateKey,
+  gradeDailyMockAttempt,
+} from '../data/dailyMockData';
+import {
+  adminResetDailyMockAttempt,
+  computeDailyMockStreak,
+  DailyMockAttemptDoc,
+  markDailyMockResultEmailed,
+  subscribeAllDailyMockAttempts,
+} from '../services/dailyMockFirestoreService';
+import {
+  buildAdminDailyCohortDigestEmail,
+  buildDailyMockLaunchEmail,
+  buildDailyMockResultSummaryEmail,
+  buildMissingSectionsReminderEmail,
+} from '../services/gmailService';
 import {
   adminSendReminderNotification,
   computeSectionAudit,
@@ -150,8 +172,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   );
   const [fbDraftNotes, setFbDraftNotes] = useState<Record<string, string>>({});
   const [fbSavingId, setFbSavingId] = useState<string | null>(null);
+  const [dailyMockAttempts, setDailyMockAttempts] = useState<
+    DailyMockAttemptDoc[]
+  >([]);
+  const [dailyMockDateFilter, setDailyMockDateFilter] = useState<string>(() =>
+    getTodayDateKey()
+  );
+  const [dailyBroadcastBusy, setDailyBroadcastBusy] = useState(false);
+  const [dailyBroadcastNote, setDailyBroadcastNote] = useState<string | null>(
+    null
+  );
+  const [dailyResetConfirmId, setDailyResetConfirmId] = useState<string | null>(
+    null
+  );
+  const [dailyResetBusy, setDailyResetBusy] = useState(false);
   const [adminTrackView, setAdminTrackView] = useState<
-    'core' | 'advanced' | 'shopping' | 'career' | 'universe' | 'final' | 'feedback'
+    | 'core'
+    | 'advanced'
+    | 'shopping'
+    | 'career'
+    | 'universe'
+    | 'daily_mock'
+    | 'final'
+    | 'feedback'
   >('core');
   const [lastSyncMs, setLastSyncMs] = useState<number>(0);
   const [streamError, setStreamError] = useState<string | null>(null);
@@ -175,6 +218,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setCareerByUid({});
       setMasterByUid({});
       setFeedbackItems([]);
+      setDailyMockAttempts([]);
       setInspectedUser(null);
       setStreamError(null);
       setLastSyncMs(0);
@@ -247,6 +291,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setStreamError(errMsg);
       }
     );
+    const unsubDailyMock = subscribeAllDailyMockAttempts(
+      (items) => {
+        setDailyMockAttempts(items);
+      },
+      (errMsg) => {
+        setStreamError(errMsg);
+      }
+    );
 
     return () => {
       unsubCore();
@@ -256,6 +308,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       unsubCareer();
       unsubMaster();
       unsubFeedback();
+      unsubDailyMock();
     };
   }, [open, credentialsUnlocked, hasAdminGoogleSession]);
 
@@ -668,6 +721,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         careerSkillsMcqs: careerByUid[r.uid] ?? null,
         masterUniverseSkills: masterByUid[r.uid] ?? null,
         finalAssessment: finalByUid[r.uid] ?? null,
+        dailyMockAttempts: dailyMockAttempts.filter((a) => a.ownerId === r.uid),
       })),
       feedbackReports: filteredFeedback,
     };
@@ -763,6 +817,325 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const dateStamp = new Date().toISOString().slice(0, 10);
     link.href = url;
     link.download = `Employability-Universe-Feedback-Report-${dateStamp}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const todayDateKey = getTodayDateKey();
+  const availableDailyDates = useMemo(() => {
+    const set = new Set<string>([todayDateKey]);
+    for (const a of dailyMockAttempts) {
+      if (a.dateKey) set.add(a.dateKey);
+    }
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [dailyMockAttempts, todayDateKey]);
+
+  const dailyAttemptsByUid = useMemo(() => {
+    const map: Record<string, DailyMockAttemptDoc[]> = {};
+    for (const a of dailyMockAttempts) {
+      if (!map[a.ownerId]) map[a.ownerId] = [];
+      map[a.ownerId].push(a);
+    }
+    return map;
+  }, [dailyMockAttempts]);
+
+  const selectedDailyPaper = useMemo(
+    () => generateDailyMockPaper(dailyMockDateFilter),
+    [dailyMockDateFilter]
+  );
+
+  const selectedDateAttemptsByUid = useMemo(() => {
+    const map: Record<string, DailyMockAttemptDoc> = {};
+    for (const a of dailyMockAttempts) {
+      if (a.dateKey === dailyMockDateFilter) {
+        map[a.ownerId] = a;
+      }
+    }
+    return map;
+  }, [dailyMockAttempts, dailyMockDateFilter]);
+
+  const dailySubmittedForDate = useMemo(
+    () =>
+      Object.values(selectedDateAttemptsByUid).filter(
+        (a) => a.status === 'submitted'
+      ),
+    [selectedDateAttemptsByUid]
+  );
+
+  const dailyTodaySubmittedCount = useMemo(
+    () =>
+      dailyMockAttempts.filter(
+        (a) => a.dateKey === todayDateKey && a.status === 'submitted'
+      ).length,
+    [dailyMockAttempts, todayDateKey]
+  );
+
+  const dailyPendingLearners = useMemo(
+    () =>
+      records.filter(
+        (r) => selectedDateAttemptsByUid[r.uid]?.status !== 'submitted'
+      ),
+    [records, selectedDateAttemptsByUid]
+  );
+
+  const dailyAvgOverall =
+    dailySubmittedForDate.length > 0
+      ? Math.round(
+          dailySubmittedForDate.reduce((s, a) => s + a.scorePercent, 0) /
+            dailySubmittedForDate.length
+        )
+      : 0;
+
+  const dailyAvgHard =
+    dailySubmittedForDate.length > 0
+      ? Math.round(
+          dailySubmittedForDate.reduce(
+            (s, a) => s + a.hardAccuracyPercent,
+            0
+          ) / dailySubmittedForDate.length
+        )
+      : 0;
+
+  const dailyPassedCount = dailySubmittedForDate.filter((a) => a.passed).length;
+
+  const handleBroadcastDailyMockAlerts = async () => {
+    if (dailyPendingLearners.length === 0) {
+      setDailyBroadcastNote(
+        'Every verified learner has already submitted this paper!'
+      );
+      return;
+    }
+    setDailyBroadcastBusy(true);
+    setDailyBroadcastNote(null);
+    setStreamError(null);
+    try {
+      let sent = 0;
+      for (const learner of dailyPendingLearners) {
+        await adminSendReminderNotification({
+          targetUid: learner.uid,
+          recipientEmail: learner.email,
+          kind: 'daily_mock_launch',
+          credentialType: 'daily_mock_invite',
+          title: `Daily 60-Min Mock Alert (${selectedDailyPaper.paperCode})`,
+          body: `Mentor Kapil reminder: Complete ${selectedDailyPaper.displayDate}’s 40-MCQ Daily Mock Test (50% Hard FAANG/MNC questions across all 7 topics) to earn daily XP and receive your results summary.`,
+          targetView: 'daily_mock',
+          channel: 'in_app',
+        });
+        sent += 1;
+      }
+      setDailyBroadcastNote(
+        `Broadcasted Daily Mock portal alerts to ${sent} pending learner${
+          sent === 1 ? '' : 's'
+        } for ${selectedDailyPaper.paperCode}.`
+      );
+    } catch (err) {
+      setStreamError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to broadcast Daily Mock portal alerts.'
+      );
+    } finally {
+      setDailyBroadcastBusy(false);
+    }
+  };
+
+  const handleEmailLearnerDailyInvite = (learner: AdminUserRecord) => {
+    if (!onRequestEmail) return;
+    const streak = computeDailyMockStreak(
+      dailyAttemptsByUid[learner.uid] || [],
+      todayDateKey
+    );
+    const invite = buildDailyMockLaunchEmail({
+      learnerName: learner.displayName,
+      learnerEmail: learner.email,
+      dateKey: dailyMockDateFilter,
+      displayDate: formatDateKeyReadable(dailyMockDateFilter),
+      paperCode: selectedDailyPaper.paperCode,
+      streakDays: streak,
+    });
+    onRequestEmail({
+      recipientEmail: learner.email,
+      recipientName: learner.displayName,
+      credentialType: 'daily_mock_invite',
+      title: `Daily 60-Min Mock Invite → ${learner.displayName}`,
+      subject: invite.subject,
+      htmlBody: invite.htmlBody,
+      textFallback: invite.textFallback,
+      targetView: 'daily_mock',
+    });
+  };
+
+  const handleEmailLearnerDailySummary = (
+    learner: AdminUserRecord,
+    attempt: DailyMockAttemptDoc
+  ) => {
+    if (!onRequestEmail) return;
+    const graded = gradeDailyMockAttempt(selectedDailyPaper, attempt.answers);
+    const standardTotal = Math.max(
+      1,
+      attempt.totalQuestions - attempt.hardQuestionCount
+    );
+    const streak = computeDailyMockStreak(
+      dailyAttemptsByUid[learner.uid] || [],
+      todayDateKey
+    );
+    const summary = buildDailyMockResultSummaryEmail({
+      learnerName: learner.displayName,
+      learnerEmail: learner.email,
+      displayDate: selectedDailyPaper.displayDate,
+      paperCode: selectedDailyPaper.paperCode,
+      correctCount: attempt.correctCount,
+      totalQuestions: attempt.totalQuestions,
+      scorePercent: attempt.scorePercent,
+      hardCorrectCount: attempt.hardCorrectCount,
+      hardTotal: attempt.hardQuestionCount,
+      hardAccuracyPercent: attempt.hardAccuracyPercent,
+      standardCorrectCount: attempt.standardCorrectCount,
+      standardTotal,
+      timeUsedSeconds: attempt.timeUsedSeconds,
+      gradeLabel: attempt.gradeLabel || graded.gradeLabel,
+      passed: attempt.passed,
+      xpAwarded: attempt.xpAwarded,
+      streakDays: streak,
+      strongestTopic: attempt.strongestTopic || graded.strongestTopic,
+      weakestTopic: attempt.weakestTopic || graded.weakestTopic,
+      mentorAdvice: graded.mentorAdvice,
+      pillarRows: graded.pillarScores.map((p) => ({
+        pillarTitle: p.pillarTitle,
+        correct: p.correct,
+        total: p.total,
+        hardCorrect: p.hardCorrect,
+        hardTotal: p.hardTotal,
+        percent: p.percent,
+      })),
+    });
+    onRequestEmail({
+      recipientEmail: learner.email,
+      recipientName: learner.displayName,
+      credentialType: 'daily_mock_summary',
+      title: `Daily Mock Results Summary → ${learner.displayName}`,
+      subject: summary.subject,
+      htmlBody: summary.htmlBody,
+      textFallback: summary.textFallback,
+      targetView: 'daily_mock',
+      onAfterSent: async () => {
+        await markDailyMockResultEmailed(attempt.id);
+      },
+    });
+  };
+
+  const handleEmailAdminDailyDigest = () => {
+    if (!onRequestEmail) return;
+    const adminRecipient = currentUser?.email || ADMIN_EMAIL;
+    const digest = buildAdminDailyCohortDigestEmail({
+      displayDate: selectedDailyPaper.displayDate,
+      paperCode: selectedDailyPaper.paperCode,
+      totalLearners: records.length,
+      submittedRows: dailySubmittedForDate
+        .slice()
+        .sort((a, b) => b.scorePercent - a.scorePercent)
+        .map((a) => ({
+          name: a.authorName,
+          email: a.authorEmail,
+          scorePercent: a.scorePercent,
+          hardAccuracyPercent: a.hardAccuracyPercent,
+          gradeLabel: a.gradeLabel,
+          weakestTopic: a.weakestTopic || '—',
+        })),
+      pendingCount: dailyPendingLearners.length,
+    });
+    onRequestEmail({
+      recipientEmail: adminRecipient,
+      recipientName: 'Mentor Kapil (Admin)',
+      credentialType: 'daily_mock_summary',
+      title: `Admin Daily Mock Cohort Digest (${selectedDailyPaper.displayDate})`,
+      subject: digest.subject,
+      htmlBody: digest.htmlBody,
+      textFallback: digest.textFallback,
+      targetView: 'daily_mock',
+    });
+  };
+
+  const handleResetDailyMockAttempt = async (attemptId: string) => {
+    setDailyResetBusy(true);
+    setStreamError(null);
+    try {
+      await adminResetDailyMockAttempt(attemptId);
+      setDailyResetConfirmId(null);
+      setDailyBroadcastNote(
+        'Daily Mock attempt reset. Learner can now retake today’s 60-minute paper.'
+      );
+    } catch (err) {
+      setStreamError(
+        err instanceof Error ? err.message : 'Unable to reset Daily Mock attempt.'
+      );
+    } finally {
+      setDailyResetBusy(false);
+    }
+  };
+
+  const handleDownloadDailyMockCsv = () => {
+    const headers = [
+      'Date',
+      'Paper Code',
+      'Learner Name',
+      'Learner Email',
+      'Status',
+      'Overall Score',
+      'Overall %',
+      'Hard MCQs (50%)',
+      'Hard %',
+      'Standard MCQs (50%)',
+      'Grade',
+      'Passed (60%+)',
+      'XP Awarded',
+      'Time Used (min)',
+      'Strongest Topic',
+      'Weakest Topic',
+      'Streak (days)',
+      'Results Emailed',
+    ];
+    const rows = records.map((r) => {
+      const a = selectedDateAttemptsByUid[r.uid];
+      const streak = computeDailyMockStreak(
+        dailyAttemptsByUid[r.uid] || [],
+        todayDateKey
+      );
+      return [
+        dailyMockDateFilter,
+        selectedDailyPaper.paperCode,
+        r.displayName,
+        r.email,
+        a ? a.status.toUpperCase() : 'PENDING',
+        a?.status === 'submitted' ? `${a.correctCount}/${a.totalQuestions}` : '—',
+        a?.status === 'submitted' ? `${a.scorePercent}%` : '—',
+        a?.status === 'submitted' ? `${a.hardCorrectCount}/${a.hardQuestionCount}` : '—',
+        a?.status === 'submitted' ? `${a.hardAccuracyPercent}%` : '—',
+        a?.status === 'submitted'
+          ? `${a.standardCorrectCount}/${Math.max(1, a.totalQuestions - a.hardQuestionCount)}`
+          : '—',
+        a?.status === 'submitted' ? a.gradeLabel : '—',
+        a?.status === 'submitted' ? (a.passed ? 'YES' : 'NO') : '—',
+        a?.status === 'submitted' ? a.xpAwarded : 0,
+        a?.status === 'submitted'
+          ? (a.timeUsedSeconds / 60).toFixed(1)
+          : '—',
+        a?.strongestTopic || '—',
+        a?.weakestTopic || '—',
+        streak,
+        a?.resultEmailed ? 'YES' : 'NO',
+      ];
+    });
+    const csvContent =
+      '\uFEFF' +
+      [headers, ...rows].map((row) => row.map(escapeCsv).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Employability-Universe-Daily-Mock-${dailyMockDateFilter}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1003,6 +1376,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </button>
                   <button
                     type="button"
+                    onClick={() => setAdminTrackView('daily_mock')}
+                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                      adminTrackView === 'daily_mock'
+                        ? 'bg-rose-700 text-white shadow-sm'
+                        : 'bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-300'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>
+                      Daily 60m Mock ({dailyTodaySubmittedCount}/{totalLearners} Today)
+                    </span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setAdminTrackView('final')}
                     className={`px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
                       adminTrackView === 'final'
@@ -1029,8 +1416,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </button>
                 </div>
                 <div className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                  Daily Mock Today: {dailyTodaySubmittedCount}/{totalLearners} ·{' '}
                   {finalSubmittedCount} Final ({finalPassedCount} Passed) ·{' '}
-                  {Object.values(masterByUid).filter((m) => m.completedTracks.length >= MASTER_TRACKS.length).length} Universe {MASTER_TRACKS.length}/{MASTER_TRACKS.length} ·{' '}
                   {feedbackItems.length} Feedback ({feedbackAvgRating || '—'}★)
                 </div>
               </div>
@@ -1329,6 +1716,333 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       })}
                     </div>
                   )}
+                </div>
+              ) : adminTrackView === 'daily_mock' ? (
+                <div className="space-y-6">
+                  {/* Daily Mock KPI Strip */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/20 p-4">
+                      <div className="flex items-center justify-between text-xs text-rose-800 dark:text-rose-300 font-semibold">
+                        <span>Submitted ({dailyMockDateFilter})</span>
+                        <CheckCircle2 className="w-4 h-4" />
+                      </div>
+                      <div className="font-mono text-2xl font-bold text-slate-950 dark:text-white mt-2 tabular-nums">
+                        {dailySubmittedForDate.length} / {totalLearners}
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-500 mt-1">
+                        {dailyPendingLearners.length} pending · {selectedDailyPaper.paperCode}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4">
+                      <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                        <span>Cohort Overall Avg</span>
+                        <Target className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="font-mono text-2xl font-bold text-slate-950 dark:text-white mt-2 tabular-nums">
+                        {dailySubmittedForDate.length > 0 ? `${dailyAvgOverall}%` : '—'}
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-500 mt-1">
+                        40 MCQs · 60 min standardized
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4">
+                      <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                        <span>Hard MCQs Avg (50%)</span>
+                        <Flame className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                      </div>
+                      <div className="font-mono text-2xl font-bold text-rose-700 dark:text-rose-400 mt-2 tabular-nums">
+                        {dailySubmittedForDate.length > 0 ? `${dailyAvgHard}%` : '—'}
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-500 mt-1">
+                        20 Hard FAANG/MNC questions
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4">
+                      <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                        <span>Passed (60%+ Benchmark)</span>
+                        <Trophy className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                      <div className="font-mono text-2xl font-bold text-emerald-700 dark:text-emerald-400 mt-2 tabular-nums">
+                        {dailyPassedCount} / {dailySubmittedForDate.length}
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-500 mt-1">
+                        {dailySubmittedForDate.length > 0
+                          ? `${Math.round((dailyPassedCount / dailySubmittedForDate.length) * 100)}% pass rate`
+                          : 'Awaiting submissions'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Daily Mock Controls Toolbar */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Paper Date:
+                      </label>
+                      <select
+                        value={dailyMockDateFilter}
+                        onChange={(e) => setDailyMockDateFilter(e.target.value)}
+                        className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono text-slate-900 dark:text-white"
+                      >
+                        {availableDailyDates.map((dk) => (
+                          <option key={dk} value={dk}>
+                            {dk} {dk === todayDateKey ? '(Today)' : ''} · {generateDailyMockPaper(dk).paperCode}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={dailyBroadcastBusy}
+                        onClick={handleBroadcastDailyMockAlerts}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-xs font-semibold cursor-pointer disabled:opacity-60"
+                      >
+                        <BellRing className="w-3.5 h-3.5" />
+                        <span>
+                          {dailyBroadcastBusy
+                            ? 'Broadcasting...'
+                            : `Broadcast Portal Alert to Pending (${dailyPendingLearners.length})`}
+                        </span>
+                      </button>
+
+                      {onRequestEmail && (
+                        <button
+                          type="button"
+                          onClick={handleEmailAdminDailyDigest}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-semibold cursor-pointer"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                          <span>Email Daily Cohort Digest to Admin</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={handleDownloadDailyMockCsv}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Export Daily CSV</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {dailyBroadcastNote && (
+                    <div className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/70 dark:bg-emerald-950/30 text-xs text-emerald-800 dark:text-emerald-200 flex items-center justify-between gap-2">
+                      <span>{dailyBroadcastNote}</span>
+                      <button
+                        type="button"
+                        onClick={() => setDailyBroadcastNote(null)}
+                        className="text-emerald-700 dark:text-emerald-300 hover:underline font-semibold cursor-pointer"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Per-Learner Daily Mock Table */}
+                  <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-[11px] font-mono uppercase text-slate-500">
+                          <th className="py-3 px-4">Learner</th>
+                          <th className="py-3 px-3">Status</th>
+                          <th className="py-3 px-3 text-right">Overall</th>
+                          <th className="py-3 px-3 text-right">Hard (50%)</th>
+                          <th className="py-3 px-3">Weakest Topic</th>
+                          <th className="py-3 px-3 text-center">Streak</th>
+                          <th className="py-3 px-4 text-right">Portal &amp; Email Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                        {records.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={7}
+                              className="py-8 text-center text-slate-500"
+                            >
+                              No verified learners found yet.
+                            </td>
+                          </tr>
+                        ) : (
+                          records.map((r) => {
+                            const attempt = selectedDateAttemptsByUid[r.uid];
+                            const streak = computeDailyMockStreak(
+                              dailyAttemptsByUid[r.uid] || [],
+                              todayDateKey
+                            );
+                            return (
+                              <tr
+                                key={r.uid}
+                                className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
+                              >
+                                <td className="py-3 px-4">
+                                  <div className="font-semibold text-slate-950 dark:text-white">
+                                    {r.displayName}
+                                  </div>
+                                  <div className="text-[11px] font-mono text-slate-500">
+                                    {r.email}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3 font-mono">
+                                  {attempt?.status === 'submitted' ? (
+                                    <span className="inline-flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
+                                      <CheckCircle2 className="w-3.5 h-3.5" />
+                                      <span>
+                                        SUBMITTED{attempt.resultEmailed ? ' · EMAILED' : ''}
+                                      </span>
+                                    </span>
+                                  ) : attempt?.status === 'in_progress' ? (
+                                    <span className="font-bold text-amber-700 dark:text-amber-400">
+                                      IN PROGRESS ({attempt.answers.filter((v) => v >= 0).length}/40)
+                                    </span>
+                                  ) : (
+                                    <span className="font-semibold text-rose-700 dark:text-rose-400">
+                                      PENDING
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-3 text-right font-mono tabular-nums font-bold text-slate-950 dark:text-white">
+                                  {attempt?.status === 'submitted'
+                                    ? `${attempt.scorePercent}% (${attempt.correctCount}/${attempt.totalQuestions})`
+                                    : '—'}
+                                </td>
+                                <td className="py-3 px-3 text-right font-mono tabular-nums font-bold text-rose-700 dark:text-rose-400">
+                                  {attempt?.status === 'submitted'
+                                    ? `${attempt.hardAccuracyPercent}% (${attempt.hardCorrectCount}/${attempt.hardQuestionCount})`
+                                    : '—'}
+                                </td>
+                                <td className="py-3 px-3 text-slate-600 dark:text-slate-300 max-w-[180px] truncate">
+                                  {attempt?.status === 'submitted'
+                                    ? attempt.weakestTopic || '—'
+                                    : '—'}
+                                </td>
+                                <td className="py-3 px-3 text-center font-mono tabular-nums font-semibold text-amber-700 dark:text-amber-400">
+                                  {streak}d
+                                </td>
+                                <td className="py-3 px-4">
+                                  <div className="flex flex-wrap items-center justify-end gap-1.5">
+                                    {attempt?.status === 'submitted' ? (
+                                      <>
+                                        {onRequestEmail && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleEmailLearnerDailySummary(r, attempt)
+                                            }
+                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-semibold cursor-pointer"
+                                          >
+                                            <Mail className="w-3 h-3" />
+                                            <span>Email Results</span>
+                                          </button>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            await adminSendReminderNotification({
+                                              targetUid: r.uid,
+                                              recipientEmail: r.email,
+                                              kind: 'daily_mock_result',
+                                              credentialType: 'daily_mock_summary',
+                                              title: `Daily Mock Results (${selectedDailyPaper.displayDate}): ${attempt.scorePercent}%`,
+                                              body: `Mentor Kapil shared your scorecard: ${attempt.correctCount}/${attempt.totalQuestions} (${attempt.scorePercent}%) · Hard 50%: ${attempt.hardAccuracyPercent}%. Priority revision: ${attempt.weakestTopic}.`,
+                                              targetView: 'daily_mock',
+                                              channel: 'in_app',
+                                            });
+                                            setDailyBroadcastNote(
+                                              `Sent portal results notification to ${r.displayName}.`
+                                            );
+                                          }}
+                                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                                        >
+                                          <Send className="w-3 h-3" />
+                                          <span>Notify</span>
+                                        </button>
+                                        {dailyResetConfirmId === attempt.id ? (
+                                          <div className="inline-flex items-center gap-1">
+                                            <button
+                                              type="button"
+                                              disabled={dailyResetBusy}
+                                              onClick={() =>
+                                                handleResetDailyMockAttempt(attempt.id)
+                                              }
+                                              className="px-2 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold cursor-pointer"
+                                            >
+                                              {dailyResetBusy ? '...' : 'Confirm'}
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => setDailyResetConfirmId(null)}
+                                              className="px-2 py-1 rounded border border-slate-300 dark:border-slate-700 text-[11px] cursor-pointer"
+                                            >
+                                              Cancel
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setDailyResetConfirmId(attempt.id)
+                                            }
+                                            className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-amber-300 dark:border-amber-800 text-[11px] font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30 cursor-pointer"
+                                          >
+                                            <RotateCcw className="w-3 h-3" />
+                                            <span>Reset</span>
+                                          </button>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <>
+                                        {onRequestEmail && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleEmailLearnerDailyInvite(r)
+                                            }
+                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-[11px] font-semibold cursor-pointer"
+                                          >
+                                            <Mail className="w-3 h-3" />
+                                            <span>Email Invite</span>
+                                          </button>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            await adminSendReminderNotification({
+                                              targetUid: r.uid,
+                                              recipientEmail: r.email,
+                                              kind: 'daily_mock_launch',
+                                              credentialType: 'daily_mock_invite',
+                                              title: `Reminder: Daily 60-Min Mock (${selectedDailyPaper.paperCode})`,
+                                              body: `Mentor Kapil reminder: Take ${selectedDailyPaper.displayDate}’s 40-MCQ Daily Mock Test (50% Hard MCQs) across all 7 topics.`,
+                                              targetView: 'daily_mock',
+                                              channel: 'in_app',
+                                            });
+                                            setDailyBroadcastNote(
+                                              `Sent Daily Mock portal reminder to ${r.displayName}.`
+                                            );
+                                          }}
+                                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                                        >
+                                          <BellRing className="w-3 h-3" />
+                                          <span>Ping</span>
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               ) : (
                 <>

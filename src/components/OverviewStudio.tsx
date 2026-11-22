@@ -3,10 +3,12 @@ import {
   ArrowRight,
   Award,
   CheckCircle2,
+  Clock,
   Compass,
   Eye,
   EyeOff,
   FileCheck2,
+  Flame,
   Lock,
   Plus,
   Sparkles,
@@ -51,6 +53,7 @@ export type AppView =
   | 'career'
   | 'universe'
   | 'advanced'
+  | 'daily_mock'
   | 'final'
   | 'achievements'
   | 'profile';
@@ -83,6 +86,11 @@ interface OverviewStudioProps {
   finalAttemptCount?: number;
   finalEligible?: boolean;
   finalPrereqLabel?: string;
+  dailyMockStatus?: 'not_started' | 'in_progress' | 'submitted';
+  dailyMockScorePct?: number;
+  dailyMockHardPct?: number;
+  dailyMockStreak?: number;
+  dailyMockPaperCode?: string;
   onNavigateView: (
     view: AppView,
     levelNum?: number,
@@ -133,6 +141,11 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   finalAttemptCount = 0,
   finalEligible = false,
   finalPrereqLabel = '0/4',
+  dailyMockStatus = 'not_started',
+  dailyMockScorePct = 0,
+  dailyMockHardPct = 0,
+  dailyMockStreak = 0,
+  dailyMockPaperCode = '',
   onNavigateView,
   learnerConnections,
   onAddConnection,
@@ -355,6 +368,59 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
           <div className="font-mono tabular-nums text-sm sm:text-base font-bold text-blue-700 dark:text-blue-400 mt-2">
             {progress.certificateId}
           </div>
+        </div>
+      </section>
+
+      {/* Daily 60-Min Mock Test Callout Banner */}
+      <section className="rounded-2xl border border-rose-200 dark:border-rose-900/60 bg-gradient-to-r from-rose-50 via-white to-indigo-50/70 dark:from-rose-950/30 dark:via-slate-900 dark:to-indigo-950/30 p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+        <div className="space-y-1.5 max-w-2xl">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">
+            <Clock className="w-3.5 h-3.5" />
+            <span>Daily 60-Min Mock Test · 50% Hard FAANG/MNC MCQs</span>
+            {dailyMockPaperCode && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{dailyMockPaperCode}</span>
+              </>
+            )}
+          </div>
+          <h2 className="font-display text-xl sm:text-2xl font-bold text-slate-950 dark:text-white">
+            {dailyMockStatus === 'submitted'
+              ? `Today’s Daily Mock Completed — ${dailyMockScorePct}% Overall (Hard 50%: ${dailyMockHardPct}%)`
+              : dailyMockStatus === 'in_progress'
+              ? 'Today’s 60-Min Daily Mock Is In Progress — Resume Before Timer Ends'
+              : 'Take Today’s 60-Minute All-Topics Daily Mock Test (40 MCQs)'}
+          </h2>
+          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+            Covers all 7 Employability Universe pillars — Aptitude, Grammar/Tenses/Punctuation/Idioms, C/C++/Java/Python/DSA, Excel/Power BI/DBMS/Cloud, Indianism/Interview/GD, Shopping/Negotiation, and Picture Connect/AI — with instant portal &amp; email results summary.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 shrink-0">
+          <div className="text-right font-mono tabular-nums">
+            <div className="text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center justify-end gap-1">
+              <Flame className="w-3.5 h-3.5 text-amber-500" />
+              <span>Daily Streak</span>
+            </div>
+            <div className="text-xl font-bold text-slate-950 dark:text-white">
+              {dailyMockStreak} day{dailyMockStreak === 1 ? '' : 's'}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onNavigateView('daily_mock')}
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <span>
+              {dailyMockStatus === 'submitted'
+                ? 'View Results & Email Summary'
+                : dailyMockStatus === 'in_progress'
+                ? 'Resume 60-Min Mock'
+                : 'Launch Daily 60m Mock'}
+            </span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
         </div>
       </section>
 

@@ -79,14 +79,20 @@ service cloud.firestore {
         ])
         && data.ownerId is string && isValidId(data.ownerId)
         && data.recipientEmail is string && data.recipientEmail.size() >= 3 && data.recipientEmail.size() <= 160
-        && data.kind in ['missing_reminder', 'section_completed', 'credential_emailed', 'admin_reminder']
+        && data.kind in [
+          'missing_reminder', 'section_completed', 'credential_emailed',
+          'admin_reminder', 'daily_mock_launch', 'daily_mock_result'
+        ]
         && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
         && data.body is string && data.body.size() >= 1 && data.body.size() <= 600
         && data.targetView in [
           'journey', 'levels', 'wheel', 'shopping', 'career',
-          'universe', 'advanced', 'final', 'achievements', 'profile'
+          'universe', 'advanced', 'final', 'achievements', 'profile', 'daily_mock'
         ]
-        && data.credentialType in ['', 'badge', 'certificate', 'lor', 'reminder_digest']
+        && data.credentialType in [
+          '', 'badge', 'certificate', 'lor', 'reminder_digest',
+          'daily_mock_invite', 'daily_mock_summary'
+        ]
         && data.channel in ['in_app', 'push', 'email', 'push_and_email']
         && data.read is bool
         && data.sentBy in ['system', 'learner', 'admin']
@@ -346,7 +352,7 @@ service cloud.firestore {
         && data.authorEmail is string && data.authorEmail.size() >= 3 && data.authorEmail.size() <= 160
         && data.sectionId in [
           'journey', 'levels', 'wheel', 'shopping', 'career',
-          'universe', 'advanced', 'final', 'achievements'
+          'universe', 'advanced', 'final', 'achievements', 'daily_mock'
         ]
         && data.sectionLabel is string && data.sectionLabel.size() >= 1 && data.sectionLabel.size() <= 80
         && data.subTopic is string && data.subTopic.size() <= 100
@@ -423,6 +429,57 @@ service cloud.firestore {
         && data.finalCertificateId is string && data.finalCertificateId.size() >= 4 && data.finalCertificateId.size() <= 64
         && data.lorVerificationId is string && data.lorVerificationId.size() >= 4 && data.lorVerificationId.size() <= 64
         && data.executiveFeedback is string && data.executiveFeedback.size() <= 1000
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDailyMockAttempt(data, attemptId) {
+      return data.keys().hasAll([
+          'ownerId', 'authorName', 'authorEmail', 'dateKey', 'paperCode',
+          'status', 'startedAtMs', 'submittedAtMs', 'timeUsedSeconds',
+          'answers', 'flaggedIndices', 'totalQuestions', 'hardQuestionCount',
+          'answeredCount', 'correctCount', 'hardCorrectCount', 'standardCorrectCount',
+          'scorePercent', 'hardAccuracyPercent', 'passed', 'gradeLabel',
+          'xpAwarded', 'topicSummary', 'weakestTopic', 'strongestTopic',
+          'resultEmailed', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'authorName', 'authorEmail', 'dateKey', 'paperCode',
+          'status', 'startedAtMs', 'submittedAtMs', 'timeUsedSeconds',
+          'answers', 'flaggedIndices', 'totalQuestions', 'hardQuestionCount',
+          'answeredCount', 'correctCount', 'hardCorrectCount', 'standardCorrectCount',
+          'scorePercent', 'hardAccuracyPercent', 'passed', 'gradeLabel',
+          'xpAwarded', 'topicSummary', 'weakestTopic', 'strongestTopic',
+          'resultEmailed', 'updatedAt'
+        ])
+        && data.ownerId is string && isValidId(data.ownerId)
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100
+        && data.authorEmail is string && data.authorEmail.size() >= 3 && data.authorEmail.size() <= 160
+        && data.dateKey is string && data.dateKey.size() == 10 && data.dateKey.matches('^20[0-9]{2}-[0-9]{2}-[0-9]{2}$')
+        && attemptId == (data.ownerId + '_' + data.dateKey)
+        && data.paperCode is string && data.paperCode.size() >= 4 && data.paperCode.size() <= 40
+        && data.status in ['in_progress', 'submitted']
+        && data.startedAtMs is number && data.startedAtMs >= 0
+        && data.submittedAtMs is number && data.submittedAtMs >= 0
+        && data.timeUsedSeconds is number && data.timeUsedSeconds >= 0 && data.timeUsedSeconds <= 3600
+        && data.answers is list && data.answers.size() <= 40
+        && (data.answers.size() == 0 || (data.answers[0] is int && data.answers[0] >= -1 && data.answers[0] <= 3))
+        && data.flaggedIndices is list && data.flaggedIndices.size() <= 40
+        && (data.flaggedIndices.size() == 0 || (data.flaggedIndices[0] is int && data.flaggedIndices[0] >= 0 && data.flaggedIndices[0] <= 39))
+        && data.totalQuestions is int && data.totalQuestions >= 1 && data.totalQuestions <= 40
+        && data.hardQuestionCount is int && data.hardQuestionCount >= 1 && data.hardQuestionCount <= 40
+        && data.answeredCount is int && data.answeredCount >= 0 && data.answeredCount <= 40
+        && data.correctCount is int && data.correctCount >= 0 && data.correctCount <= 40
+        && data.hardCorrectCount is int && data.hardCorrectCount >= 0 && data.hardCorrectCount <= 40
+        && data.standardCorrectCount is int && data.standardCorrectCount >= 0 && data.standardCorrectCount <= 40
+        && data.scorePercent is int && data.scorePercent >= 0 && data.scorePercent <= 100
+        && data.hardAccuracyPercent is int && data.hardAccuracyPercent >= 0 && data.hardAccuracyPercent <= 100
+        && data.passed is bool
+        && data.gradeLabel is string && data.gradeLabel.size() <= 40
+        && data.xpAwarded is int && data.xpAwarded >= 0 && data.xpAwarded <= 500
+        && data.topicSummary is string && data.topicSummary.size() <= 800
+        && data.weakestTopic is string && data.weakestTopic.size() <= 80
+        && data.strongestTopic is string && data.strongestTopic.size() <= 80
+        && data.resultEmailed is bool
         && data.updatedAt is timestamp;
     }
 
@@ -760,6 +817,55 @@ service cloud.firestore {
           )
         );
       allow delete: if isValidId(notificationId) && isAdmin();
+    }
+
+    match /dailyMockAttempts/{attemptId} {
+      allow get: if isValidId(attemptId)
+        && isGenuineGoogleUser()
+        && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isGenuineGoogleUser()
+        && (existing().ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(attemptId)
+        && isGenuineGoogleUser()
+        && isValidDailyMockAttempt(incoming(), attemptId)
+        && incoming().ownerId == request.auth.uid
+        && incoming().authorEmail.lower() == request.auth.token.email.lower()
+        && incoming().status == 'in_progress'
+        && incoming().resultEmailed == false
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(attemptId)
+        && isGenuineGoogleUser()
+        && isValidDailyMockAttempt(incoming(), attemptId)
+        && incoming().ownerId == existing().ownerId
+        && incoming().authorEmail == existing().authorEmail
+        && incoming().dateKey == existing().dateKey
+        && incoming().paperCode == existing().paperCode
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            existing().ownerId == request.auth.uid
+            && existing().status == 'in_progress'
+            && incoming().startedAtMs == existing().startedAtMs
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'authorName', 'status', 'submittedAtMs', 'timeUsedSeconds',
+              'answers', 'flaggedIndices', 'answeredCount', 'correctCount',
+              'hardCorrectCount', 'standardCorrectCount', 'scorePercent',
+              'hardAccuracyPercent', 'passed', 'gradeLabel', 'xpAwarded',
+              'topicSummary', 'weakestTopic', 'strongestTopic', 'resultEmailed',
+              'updatedAt'
+            ])
+          )
+          || (
+            existing().ownerId == request.auth.uid
+            && existing().status == 'submitted'
+            && incoming().status == 'submitted'
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'resultEmailed', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isValidId(attemptId) && isAdmin();
     }
   }
 }

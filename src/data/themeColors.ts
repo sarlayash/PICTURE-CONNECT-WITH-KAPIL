@@ -245,6 +245,7 @@ export const NAV_SECTION_COLOR_KEYS: Record<string, ThemeColorKey> = {
   universe: 'violet',
   advanced: 'rose',
   final: 'amber',
+  daily_mock: 'rose',
   achievements: 'orange',
   profile: 'indigo',
 };

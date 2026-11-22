@@ -384,6 +384,352 @@ export function buildMissingSectionsReminderEmail(params: {
 }
 
 /**
+ * Daily 60-Min Mock Test Launch Notification Email (50% Hard MCQs across all 7 pillars)
+ */
+export function buildDailyMockLaunchEmail(params: {
+  learnerName: string;
+  learnerEmail: string;
+  dateKey: string;
+  displayDate: string;
+  paperCode: string;
+  streakDays: number;
+  portalUrl?: string;
+}): { subject: string; htmlBody: string; textFallback: string } {
+  const safeName = escapeHtml(params.learnerName);
+  const safeDate = escapeHtml(params.displayDate);
+  const safeCode = escapeHtml(params.paperCode);
+  const portalUrl =
+    params.portalUrl ||
+    (typeof window !== 'undefined' ? window.location.origin : '');
+
+  const subject = `Daily 60-Min Mock Test Live (${params.displayDate}) · 50% Hard MCQs · ${params.paperCode}`;
+
+  const topics = [
+    'Quantitative & Logical Aptitude (6 MCQs · 3 Hard)',
+    'Grammar, Tenses, Punctuation & Idioms (6 MCQs · 3 Hard)',
+    'C, C++, Java, Python & DSA (8 MCQs · 4 Hard)',
+    'Excel, Power BI, DBMS & Cloud Computing (6 MCQs · 3 Hard)',
+    'Indianism, Interview & GD Skills (6 MCQs · 3 Hard)',
+    'Shopping, Buyer Psychology & Negotiation (4 MCQs · 2 Hard)',
+    'Picture Connect, Critical Thinking & AI (4 MCQs · 2 Hard)',
+  ];
+
+  const topicsHtml = topics
+    .map(
+      (t) =>
+        `<li style="margin:5px 0;font-size:13px;color:#1e293b;">${escapeHtml(t)}</li>`
+    )
+    .join('');
+
+  const htmlBody = `<!doctype html>
+<html>
+<body style="margin:0;padding:24px;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
+  <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #cbd5e1;border-radius:14px;overflow:hidden;">
+    <div style="background:linear-gradient(90deg,#0f172a,#881337,#4f46e5);padding:24px 28px;color:#ffffff;">
+      <div style="font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:#fde047;font-weight:700;">EMPLOYABILITY UNIVERSE WITH KAPIL · DAILY MOCK TEST</div>
+      <h1 style="margin:8px 0 4px;font-size:21px;line-height:1.25;">Today’s 60-Minute Mock Paper Is Ready</h1>
+      <div style="font-size:13px;color:#e2e8f0;">${safeDate} · Paper ${safeCode} · 40 MCQs (20 Hard / 50%)</div>
+    </div>
+    <div style="padding:26px 28px;">
+      <p style="margin:0 0 12px;font-size:15px;">Hello <strong>${safeName}</strong>,</p>
+      <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#334155;">
+        Your daily 60-minute placement mock exam is now open inside <strong>EMPLOYABILITY UNIVERSE With Kapil</strong>. Today’s standardized paper tests <strong>every topic covered across the portal</strong> with strictly <strong>50% Hard FAANG/MNC-level MCQs</strong>.
+      </p>
+      <div style="display:block;margin:14px 0 18px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;color:#0f172a;">
+        <strong>Duration:</strong> 60 Minutes (Auto-save + Live Countdown)<br/>
+        <strong>Difficulty Split:</strong> 20 Hard MCQs (50%) + 20 Standard MCQs (50%)<br/>
+        <strong>Pass Benchmark:</strong> 60% (24/40) · Earn up to +500 Daily XP<br/>
+        <strong>Current Streak:</strong> ${params.streakDays} day${params.streakDays === 1 ? '' : 's'}
+      </div>
+      <h2 style="margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:0.8px;color:#475569;">All 7 Topics Covered Today</h2>
+      <ul style="padding-left:18px;margin:0 0 18px;">${topicsHtml}</ul>
+      ${
+        portalUrl
+          ? `<div style="margin:18px 0 10px;">
+              <a href="${escapeHtml(portalUrl)}" style="display:inline-block;padding:12px 22px;background:#be123c;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:700;font-size:14px;">Launch Today’s 60-Min Mock Test</a>
+            </div>`
+          : ''
+      }
+      <p style="margin:14px 0 0;font-size:12px;color:#64748b;">
+        Once submitted, your detailed daily results summary (Hard vs Standard accuracy + 7-pillar mastery breakdown) will be generated immediately for portal review and email delivery.
+      </p>
+      <div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b;">
+        Stay sharp every day,<br/>
+        <strong style="color:#0f172a;">Kapil Narula</strong> · EMPLOYABILITY UNIVERSE With Kapil
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const textFallback = [
+    `EMPLOYABILITY UNIVERSE WITH KAPIL — DAILY 60-MIN MOCK TEST (${params.displayDate})`,
+    `Paper Code: ${params.paperCode} | 40 MCQs | 60 Minutes | 50% Hard MCQs`,
+    '',
+    `Hello ${params.learnerName},`,
+    'Today’s 60-minute Daily Mock Test is live across all 7 Employability Universe pillars:',
+    ...topics.map((t) => `- ${t}`),
+    '',
+    `Current Streak: ${params.streakDays} day(s) | Pass Target: 60% | Reward: up to +500 XP`,
+    portalUrl ? `Open Portal: ${portalUrl}` : '',
+    '— Mentor Kapil Narula · EMPLOYABILITY UNIVERSE With Kapil',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  return { subject, htmlBody, textFallback };
+}
+
+/**
+ * Daily Mock Test Results Summary Email (sent to learner's sign-up email ID)
+ */
+export function buildDailyMockResultSummaryEmail(params: {
+  learnerName: string;
+  learnerEmail: string;
+  displayDate: string;
+  paperCode: string;
+  correctCount: number;
+  totalQuestions: number;
+  scorePercent: number;
+  hardCorrectCount: number;
+  hardTotal: number;
+  hardAccuracyPercent: number;
+  standardCorrectCount: number;
+  standardTotal: number;
+  timeUsedSeconds: number;
+  gradeLabel: string;
+  passed: boolean;
+  xpAwarded: number;
+  streakDays: number;
+  strongestTopic: string;
+  weakestTopic: string;
+  mentorAdvice: string;
+  pillarRows: {
+    pillarTitle: string;
+    correct: number;
+    total: number;
+    hardCorrect: number;
+    hardTotal: number;
+    percent: number;
+  }[];
+  portalUrl?: string;
+}): { subject: string; htmlBody: string; textFallback: string } {
+  const safeName = escapeHtml(params.learnerName);
+  const safeDate = escapeHtml(params.displayDate);
+  const safeCode = escapeHtml(params.paperCode);
+  const mins = Math.floor(params.timeUsedSeconds / 60);
+  const secs = params.timeUsedSeconds % 60;
+  const timeStr = `${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
+  const stdPercent = Math.round(
+    (params.standardCorrectCount / Math.max(1, params.standardTotal)) * 100
+  );
+  const portalUrl =
+    params.portalUrl ||
+    (typeof window !== 'undefined' ? window.location.origin : '');
+
+  const subject = `Daily Mock Results (${params.displayDate}): ${params.scorePercent}% (${params.correctCount}/${params.totalQuestions}) · Hard ${params.hardAccuracyPercent}% · ${params.gradeLabel}`;
+
+  const pillarRowsHtml = params.pillarRows
+    .map(
+      (r) => `
+      <tr>
+        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#0f172a;font-weight:600;">${escapeHtml(r.pillarTitle)}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;font-family:monospace;text-align:center;color:#0f172a;">${r.correct}/${r.total}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;font-family:monospace;text-align:center;color:#9f1239;">${r.hardCorrect}/${r.hardTotal}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;font-family:monospace;text-align:right;font-weight:700;color:${r.percent >= 70 ? '#047857' : r.percent >= 50 ? '#b45309' : '#be123c'};">${r.percent}%</td>
+      </tr>`
+    )
+    .join('');
+
+  const htmlBody = `<!doctype html>
+<html>
+<body style="margin:0;padding:24px;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
+  <div style="max-width:650px;margin:0 auto;background:#ffffff;border:1px solid #cbd5e1;border-radius:14px;overflow:hidden;">
+    <div style="background:linear-gradient(90deg,#0f172a,#1e3a8a,#047857);padding:24px 28px;color:#ffffff;">
+      <div style="font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:#fde047;font-weight:700;">DAILY MOCK TEST RESULTS SUMMARY · EMPLOYABILITY UNIVERSE WITH KAPIL</div>
+      <h1 style="margin:8px 0 4px;font-size:22px;line-height:1.25;">${params.scorePercent}% Overall · ${escapeHtml(params.gradeLabel)}</h1>
+      <div style="font-size:13px;color:#cbd5e1;">${safeDate} · Paper ${safeCode} · Time Used ${timeStr}</div>
+    </div>
+    <div style="padding:26px 28px;">
+      <p style="margin:0 0 14px;font-size:15px;">Hello <strong>${safeName}</strong>,</p>
+      <p style="margin:0 0 18px;font-size:14px;line-height:1.6;color:#334155;">
+        Here is your verified Daily 60-Minute Mock Test scorecard across all 7 Employability Universe pillars.
+      </p>
+
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+        <tr>
+          <td style="padding:12px 14px;font-size:12px;color:#475569;border-right:1px solid #e2e8f0;">
+            <div>OVERALL SCORE</div>
+            <div style="font-size:20px;font-weight:800;color:#0f172a;font-family:monospace;margin-top:4px;">${params.correctCount}/${params.totalQuestions} (${params.scorePercent}%)</div>
+          </td>
+          <td style="padding:12px 14px;font-size:12px;color:#475569;border-right:1px solid #e2e8f0;">
+            <div>HARD MCQs (50%)</div>
+            <div style="font-size:20px;font-weight:800;color:#be123c;font-family:monospace;margin-top:4px;">${params.hardCorrectCount}/${params.hardTotal} (${params.hardAccuracyPercent}%)</div>
+          </td>
+          <td style="padding:12px 14px;font-size:12px;color:#475569;">
+            <div>STANDARD MCQs (50%)</div>
+            <div style="font-size:20px;font-weight:800;color:#047857;font-family:monospace;margin-top:4px;">${params.standardCorrectCount}/${params.standardTotal} (${stdPercent}%)</div>
+          </td>
+        </tr>
+      </table>
+
+      <div style="margin-bottom:18px;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;color:#1e293b;">
+        <strong>Status:</strong> ${params.passed ? 'PASSED (60%+ Benchmark Cleared)' : 'NEEDS REVISION (Target 60%+)'} · <strong>Daily XP Earned:</strong> +${params.xpAwarded} XP · <strong>Active Streak:</strong> ${params.streakDays} day${params.streakDays === 1 ? '' : 's'}<br/>
+        <strong>Strongest Pillar:</strong> ${escapeHtml(params.strongestTopic)} · <strong>Priority Revision Focus:</strong> ${escapeHtml(params.weakestTopic)}
+      </div>
+
+      <h2 style="margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:0.8px;color:#475569;">7-Pillar Topic Breakdown</h2>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #e2e8f0;margin-bottom:18px;">
+        <thead>
+          <tr style="background:#f1f5f9;">
+            <th align="left" style="padding:8px 10px;font-size:11px;text-transform:uppercase;color:#475569;">Topic Pillar</th>
+            <th align="center" style="padding:8px 10px;font-size:11px;text-transform:uppercase;color:#475569;">Score</th>
+            <th align="center" style="padding:8px 10px;font-size:11px;text-transform:uppercase;color:#475569;">Hard</th>
+            <th align="right" style="padding:8px 10px;font-size:11px;text-transform:uppercase;color:#475569;">Accuracy</th>
+          </tr>
+        </thead>
+        <tbody>${pillarRowsHtml}</tbody>
+      </table>
+
+      <div style="padding:14px 16px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:13px;line-height:1.6;color:#78350f;">
+        <strong>Mentor Kapil’s Daily Action Plan:</strong> ${escapeHtml(params.mentorAdvice)}
+      </div>
+
+      ${
+        portalUrl
+          ? `<div style="margin:18px 0 8px;">
+              <a href="${escapeHtml(portalUrl)}" style="display:inline-block;padding:11px 20px;background:#1e3a8a;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:700;font-size:13px;">Review All 40 Answer Explanations on Portal</a>
+            </div>`
+          : ''
+      }
+
+      <div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b;">
+        Consistency beats cramming,<br/>
+        <strong style="color:#0f172a;">Kapil Narula</strong> · Architect &amp; Lead Employability Mentor · EMPLOYABILITY UNIVERSE With Kapil
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const textFallback = [
+    `EMPLOYABILITY UNIVERSE WITH KAPIL — DAILY MOCK RESULTS (${params.displayDate})`,
+    `Paper: ${params.paperCode} | Learner: ${params.learnerName} (${params.learnerEmail})`,
+    `Overall: ${params.correctCount}/${params.totalQuestions} (${params.scorePercent}%) — ${params.gradeLabel} (${params.passed ? 'PASSED' : 'NEEDS REVISION'})`,
+    `Hard MCQs (50%): ${params.hardCorrectCount}/${params.hardTotal} (${params.hardAccuracyPercent}%)`,
+    `Standard MCQs (50%): ${params.standardCorrectCount}/${params.standardTotal} (${stdPercent}%)`,
+    `Time Used: ${timeStr} | XP Awarded: +${params.xpAwarded} | Streak: ${params.streakDays} day(s)`,
+    `Strongest: ${params.strongestTopic} | Focus Revision: ${params.weakestTopic}`,
+    '',
+    '7-PILLAR BREAKDOWN:',
+    ...params.pillarRows.map(
+      (r) =>
+        `- ${r.pillarTitle}: ${r.correct}/${r.total} (${r.percent}%) | Hard ${r.hardCorrect}/${r.hardTotal}`
+    ),
+    '',
+    `Mentor Kapil’s Advice: ${params.mentorAdvice}`,
+    portalUrl ? `Portal: ${portalUrl}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  return { subject, htmlBody, textFallback };
+}
+
+/**
+ * Admin Daily Cohort Digest Email summarizing all learner attempts for a given day
+ */
+export function buildAdminDailyCohortDigestEmail(params: {
+  displayDate: string;
+  paperCode: string;
+  totalLearners: number;
+  submittedRows: {
+    name: string;
+    email: string;
+    scorePercent: number;
+    hardAccuracyPercent: number;
+    gradeLabel: string;
+    weakestTopic: string;
+  }[];
+  pendingCount: number;
+}): { subject: string; htmlBody: string; textFallback: string } {
+  const count = params.submittedRows.length;
+  const avgScore =
+    count > 0
+      ? Math.round(
+          params.submittedRows.reduce((s, r) => s + r.scorePercent, 0) / count
+        )
+      : 0;
+  const avgHard =
+    count > 0
+      ? Math.round(
+          params.submittedRows.reduce((s, r) => s + r.hardAccuracyPercent, 0) /
+            count
+        )
+      : 0;
+  const passedCount = params.submittedRows.filter(
+    (r) => r.scorePercent >= 60
+  ).length;
+
+  const subject = `Daily Mock Cohort Digest (${params.displayDate}): ${count}/${params.totalLearners} Submitted · Avg ${avgScore}% (Hard ${avgHard}%)`;
+
+  const rowsHtml =
+    params.submittedRows.length > 0
+      ? params.submittedRows
+          .map(
+            (r) => `
+        <tr>
+          <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#0f172a;"><strong>${escapeHtml(r.name)}</strong><br/><span style="font-size:11px;color:#64748b;">${escapeHtml(r.email)}</span></td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;font-family:monospace;text-align:center;font-weight:700;">${r.scorePercent}%</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;font-family:monospace;text-align:center;color:#be123c;">${r.hardAccuracyPercent}%</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${escapeHtml(r.gradeLabel)}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#475569;">${escapeHtml(r.weakestTopic)}</td>
+        </tr>`
+          )
+          .join('')
+      : `<tr><td colspan="5" style="padding:14px;text-align:center;font-size:13px;color:#64748b;">No learners have submitted today’s paper yet.</td></tr>`;
+
+  const htmlBody = `<!doctype html>
+<html>
+<body style="margin:0;padding:24px;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
+  <div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #cbd5e1;border-radius:14px;overflow:hidden;">
+    <div style="background:#0f172a;padding:22px 26px;color:#ffffff;">
+      <div style="font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:#fde047;font-weight:700;">ADMIN DAILY MOCK COHORT DIGEST · EMPLOYABILITY UNIVERSE WITH KAPIL</div>
+      <h1 style="margin:8px 0 4px;font-size:20px;">${escapeHtml(params.displayDate)} · ${escapeHtml(params.paperCode)}</h1>
+      <div style="font-size:13px;color:#cbd5e1;">Submitted: ${count}/${params.totalLearners} · Pending: ${params.pendingCount} · Avg Score: ${avgScore}% · Avg Hard MCQ: ${avgHard}% · Passed: ${passedCount}/${count}</div>
+    </div>
+    <div style="padding:22px 26px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #e2e8f0;">
+        <thead>
+          <tr style="background:#f8fafc;">
+            <th align="left" style="padding:8px 10px;font-size:11px;text-transform:uppercase;color:#475569;">Learner</th>
+            <th align="center" style="padding:8px 10px;font-size:11px;text-transform:uppercase;color:#475569;">Overall</th>
+            <th align="center" style="padding:8px 10px;font-size:11px;text-transform:uppercase;color:#475569;">Hard 50%</th>
+            <th align="left" style="padding:8px 10px;font-size:11px;text-transform:uppercase;color:#475569;">Grade</th>
+            <th align="left" style="padding:8px 10px;font-size:11px;text-transform:uppercase;color:#475569;">Weakest Topic</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const textFallback = [
+    `ADMIN DAILY MOCK COHORT DIGEST — ${params.displayDate} (${params.paperCode})`,
+    `Submitted: ${count}/${params.totalLearners} | Pending: ${params.pendingCount} | Avg: ${avgScore}% | Hard Avg: ${avgHard}% | Passed: ${passedCount}/${count}`,
+    '',
+    ...params.submittedRows.map(
+      (r) =>
+        `- ${r.name} (${r.email}): ${r.scorePercent}% | Hard ${r.hardAccuracyPercent}% | ${r.gradeLabel} | Focus: ${r.weakestTopic}`
+    ),
+  ].join('\n');
+
+  return { subject, htmlBody, textFallback };
+}
+
+/**
  * Dispatches an email through the authenticated user's Gmail account using
  * Gmail API v1 `users/me/messages/send` with in-memory OAuth access token.
  * Must ONLY be called after explicit user confirmation in the UI modal.

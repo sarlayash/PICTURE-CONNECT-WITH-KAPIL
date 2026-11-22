@@ -13,8 +13,21 @@ import {
   X,
 } from 'lucide-react';
 import {
+  buildDailyMockLaunchEmail,
+  buildDailyMockResultSummaryEmail,
   buildMissingSectionsReminderEmail,
 } from '../services/gmailService';
+import {
+  formatDateKeyReadable,
+  generateDailyMockPaper,
+  getTodayDateKey,
+  gradeDailyMockAttempt,
+} from '../data/dailyMockData';
+import {
+  computeDailyMockStreak,
+  DailyMockAttemptDoc,
+  markDailyMockResultEmailed,
+} from '../services/dailyMockFirestoreService';
 import {
   ProfileReminderFrequency,
   updateUserProfile,
@@ -40,6 +53,7 @@ interface NotificationCenterDrawerProps {
   profile: UserProfileDoc;
   audit: SectionAuditReport;
   notifications: LearnerNotificationDoc[];
+  dailyMockAttempts?: DailyMockAttemptDoc[];
   onNavigateView: (target: NotificationTargetView, levelNum?: number) => void;
   onRequestEmail: (req: EmailCredentialRequest) => void;
 }
@@ -69,6 +83,7 @@ export const NotificationCenterDrawer: React.FC<NotificationCenterDrawerProps> =
   profile,
   audit,
   notifications,
+  dailyMockAttempts = [],
   onNavigateView,
   onRequestEmail,
 }) => {
@@ -80,6 +95,15 @@ export const NotificationCenterDrawer: React.FC<NotificationCenterDrawerProps> =
 
   const perm = getBrowserNotificationPermission();
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const todayDateKey = getTodayDateKey();
+  const todayPaper = generateDailyMockPaper(todayDateKey);
+  const todayMockAttempt = dailyMockAttempts.find(
+    (a) => a.dateKey === todayDateKey
+  );
+  const dailyMockStreak = computeDailyMockStreak(
+    dailyMockAttempts,
+    todayDateKey
+  );
 
   const handleTogglePush = async () => {
     setBusyPush(true);
@@ -209,6 +233,84 @@ export const NotificationCenterDrawer: React.FC<NotificationCenterDrawerProps> =
       htmlBody: digest.htmlBody,
       textFallback: digest.textFallback,
       targetView: audit.missingOrIncompleteItems[0]?.targetView || 'journey',
+    });
+  };
+
+  const handleEmailDailyMockAction = () => {
+    const recipientEmail = user.email || profile.email;
+    if (!recipientEmail) return;
+    const learnerName =
+      profile.displayName || user.displayName || 'Verified Learner';
+
+    if (todayMockAttempt && todayMockAttempt.status === 'submitted') {
+      const graded = gradeDailyMockAttempt(todayPaper, todayMockAttempt.answers);
+      const standardTotal = Math.max(
+        1,
+        todayMockAttempt.totalQuestions - todayMockAttempt.hardQuestionCount
+      );
+      const emailDoc = buildDailyMockResultSummaryEmail({
+        learnerName,
+        learnerEmail: recipientEmail,
+        displayDate: todayPaper.displayDate,
+        paperCode: todayPaper.paperCode,
+        correctCount: todayMockAttempt.correctCount,
+        totalQuestions: todayMockAttempt.totalQuestions,
+        scorePercent: todayMockAttempt.scorePercent,
+        hardCorrectCount: todayMockAttempt.hardCorrectCount,
+        hardTotal: todayMockAttempt.hardQuestionCount,
+        hardAccuracyPercent: todayMockAttempt.hardAccuracyPercent,
+        standardCorrectCount: todayMockAttempt.standardCorrectCount,
+        standardTotal,
+        timeUsedSeconds: todayMockAttempt.timeUsedSeconds,
+        gradeLabel: todayMockAttempt.gradeLabel || graded.gradeLabel,
+        passed: todayMockAttempt.passed,
+        xpAwarded: todayMockAttempt.xpAwarded,
+        streakDays: dailyMockStreak,
+        strongestTopic: todayMockAttempt.strongestTopic || graded.strongestTopic,
+        weakestTopic: todayMockAttempt.weakestTopic || graded.weakestTopic,
+        mentorAdvice: graded.mentorAdvice,
+        pillarRows: graded.pillarScores.map((p) => ({
+          pillarTitle: p.pillarTitle,
+          correct: p.correct,
+          total: p.total,
+          hardCorrect: p.hardCorrect,
+          hardTotal: p.hardTotal,
+          percent: p.percent,
+        })),
+      });
+      onRequestEmail({
+        recipientEmail,
+        recipientName: learnerName,
+        credentialType: 'daily_mock_summary',
+        title: `Daily Mock Results Summary (${todayPaper.displayDate})`,
+        subject: emailDoc.subject,
+        htmlBody: emailDoc.htmlBody,
+        textFallback: emailDoc.textFallback,
+        targetView: 'daily_mock',
+        onAfterSent: async () => {
+          await markDailyMockResultEmailed(todayMockAttempt.id);
+        },
+      });
+      return;
+    }
+
+    const invite = buildDailyMockLaunchEmail({
+      learnerName,
+      learnerEmail: recipientEmail,
+      dateKey: todayDateKey,
+      displayDate: formatDateKeyReadable(todayDateKey),
+      paperCode: todayPaper.paperCode,
+      streakDays: dailyMockStreak,
+    });
+    onRequestEmail({
+      recipientEmail,
+      recipientName: learnerName,
+      credentialType: 'daily_mock_invite',
+      title: `Daily 60-Min Mock Reminder (${todayPaper.paperCode})`,
+      subject: invite.subject,
+      htmlBody: invite.htmlBody,
+      textFallback: invite.textFallback,
+      targetView: 'daily_mock',
     });
   };
 
@@ -353,6 +455,69 @@ export const NotificationCenterDrawer: React.FC<NotificationCenterDrawerProps> =
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
+          {/* Today's 60-Min Daily Mock Test Quick Card */}
+          <div className="rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/25 p-3.5 space-y-2.5">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">
+                  Daily 60-Min Mock · {todayPaper.paperCode}
+                </div>
+                <div className="text-xs font-bold text-slate-950 dark:text-white mt-0.5">
+                  {todayMockAttempt?.status === 'submitted'
+                    ? `Completed Today: ${todayMockAttempt.scorePercent}% (${todayMockAttempt.correctCount}/${todayMockAttempt.totalQuestions})`
+                    : todayMockAttempt?.status === 'in_progress'
+                    ? `In Progress · ${todayMockAttempt.answers.filter((v) => v >= 0).length}/40 Answered`
+                    : 'Today’s 40-MCQ Paper Pending (50% Hard)'}
+                </div>
+                <div className="text-[11px] font-mono text-slate-600 dark:text-slate-400 mt-0.5 tabular-nums">
+                  {todayMockAttempt?.status === 'submitted'
+                    ? `Hard 50%: ${todayMockAttempt.hardAccuracyPercent}% · Streak: ${dailyMockStreak}d`
+                    : `All 7 Topics · 20 Hard + 20 Standard · Streak: ${dailyMockStreak}d`}
+                </div>
+              </div>
+              <span
+                className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
+                  todayMockAttempt?.status === 'submitted'
+                    ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300'
+                    : 'bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300'
+                }`}
+              >
+                {todayMockAttempt?.status === 'submitted' ? 'DONE' : '60m LIVE'}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onNavigateView('daily_mock');
+                  onClose();
+                }}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-[11px] font-semibold cursor-pointer"
+              >
+                <span>
+                  {todayMockAttempt?.status === 'submitted'
+                    ? 'View Daily Results'
+                    : todayMockAttempt?.status === 'in_progress'
+                    ? 'Resume 60m Mock'
+                    : 'Take Daily Mock'}
+                </span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+              <button
+                type="button"
+                onClick={handleEmailDailyMockAction}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-rose-300 dark:border-rose-800 bg-white dark:bg-slate-900 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-[11px] font-semibold text-rose-800 dark:text-rose-300 cursor-pointer"
+              >
+                <Mail className="w-3 h-3" />
+                <span>
+                  {todayMockAttempt?.status === 'submitted'
+                    ? 'Email Summary'
+                    : 'Email Reminder'}
+                </span>
+              </button>
+            </div>
+          </div>
+
           {tab === 'missing' ? (
             <>
               {audit.missingOrIncompleteItems.length === 0 ? (
@@ -476,6 +641,10 @@ export const NotificationCenterDrawer: React.FC<NotificationCenterDrawerProps> =
                         className={`font-bold ${
                           n.kind === 'credential_emailed'
                             ? 'text-emerald-700 dark:text-emerald-400'
+                            : n.kind === 'daily_mock_launch'
+                            ? 'text-rose-700 dark:text-rose-400'
+                            : n.kind === 'daily_mock_result'
+                            ? 'text-emerald-700 dark:text-emerald-400'
                             : n.kind === 'admin_reminder'
                             ? 'text-violet-700 dark:text-violet-400'
                             : n.kind === 'section_completed'
@@ -483,7 +652,7 @@ export const NotificationCenterDrawer: React.FC<NotificationCenterDrawerProps> =
                             : 'text-amber-700 dark:text-amber-400'
                         }`}
                       >
-                        {n.kind.replace('_', ' ')} · {n.channel.replace('_', ' ')}
+                        {n.kind.replace(/_/g, ' ')} · {n.channel.replace(/_/g, ' ')}
                       </span>
                       <span className="text-slate-500">
                         {formatTimeAgo(n.createdAtMs)}

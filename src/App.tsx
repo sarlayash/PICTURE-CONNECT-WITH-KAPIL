@@ -94,6 +94,16 @@ import { AdvancedTrackStudio } from './components/AdvancedTrackStudio';
 import { ShoppingNegotiationStudio } from './components/ShoppingNegotiationStudio';
 import { CareerSkillsStudio } from './components/CareerSkillsStudio';
 import { MasterUniverseStudio } from './components/MasterUniverseStudio';
+import {
+  computeDailyMockStreak,
+  DailyMockAttemptDoc,
+  subscribeMyDailyMockAttempts,
+} from './services/dailyMockFirestoreService';
+import {
+  generateDailyMockPaper,
+  getTodayDateKey,
+} from './data/dailyMockData';
+import { DailyMockStudio } from './components/DailyMockStudio';
 import { FinalAssessmentStudio } from './components/FinalAssessmentStudio';
 import { AdminDashboard } from './components/AdminDashboard';
 import { SectionFeedbackBar } from './components/SectionFeedbackBar';
@@ -161,7 +171,13 @@ function PictureConnectWorkspace() {
   const [masterProgress, setMasterProgress] = useState<MasterSkillsProgressDoc>(() =>
     createDefaultMasterProgress('pending')
   );
+  const [dailyMockAttempts, setDailyMockAttempts] = useState<
+    DailyMockAttemptDoc[]
+  >([]);
+  const [dailyMockLoaded, setDailyMockLoaded] = useState(false);
+  const [notificationsLoaded, setNotificationsLoaded] = useState(false);
   const reminderCheckedUidRef = useRef<string>('');
+  const dailyMockNotifiedKeyRef = useRef<string>('');
 
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     try {
@@ -188,6 +204,10 @@ function PictureConnectWorkspace() {
         setNotifDrawerOpen(false);
         setEmailRequest(null);
         reminderCheckedUidRef.current = '';
+        dailyMockNotifiedKeyRef.current = '';
+        setDailyMockAttempts([]);
+        setDailyMockLoaded(false);
+        setNotificationsLoaded(false);
         setUserProfile(createDefaultUserProfile('pending'));
         setNotifications([]);
         setConnections([]);
@@ -288,8 +308,13 @@ function PictureConnectWorkspace() {
   useEffect(() => {
     if (!authReady || !user) return;
 
+    setDailyMockLoaded(false);
+    setNotificationsLoaded(false);
     const unsubProfile = subscribeUserProfile(user, setUserProfile);
-    const unsubNotifications = subscribeMyNotifications(user.uid, setNotifications);
+    const unsubNotifications = subscribeMyNotifications(user.uid, (items) => {
+      setNotifications(items);
+      setNotificationsLoaded(true);
+    });
     const unsubConnections = subscribeConnections(setConnections);
     const unsubWorkspace = subscribeLearnerWorkspace(user.uid, setWorkspace);
     const unsubProgress = subscribeLearnerProgress(user.uid, setProgress);
@@ -302,6 +327,10 @@ function PictureConnectWorkspace() {
     const unsubShopping = subscribeShoppingProgress(user, setShoppingProgress);
     const unsubCareer = subscribeCareerSkillsProgress(user, setCareerProgress);
     const unsubMaster = subscribeMasterProgress(user, setMasterProgress);
+    const unsubDailyMock = subscribeMyDailyMockAttempts(user.uid, (items) => {
+      setDailyMockAttempts(items);
+      setDailyMockLoaded(true);
+    });
 
     return () => {
       unsubProfile();
@@ -315,6 +344,7 @@ function PictureConnectWorkspace() {
       unsubShopping();
       unsubCareer();
       unsubMaster();
+      unsubDailyMock();
     };
   }, [authReady, user]);
 
@@ -387,6 +417,73 @@ function PictureConnectWorkspace() {
       }
     })();
   }, [user, userProfile, sectionAudit]);
+
+  // Automatic once-per-day Daily 60-Min Mock portal + browser push launch notification
+  useEffect(() => {
+    if (!user || userProfile.uid !== user.uid) return;
+    if (!dailyMockLoaded || !notificationsLoaded) return;
+
+    const todayKey = getTodayDateKey();
+    const dedupKey = `${user.uid}_${todayKey}`;
+    if (dailyMockNotifiedKeyRef.current === dedupKey) return;
+
+    const todayAttempt = dailyMockAttempts.find((a) => a.dateKey === todayKey);
+    if (todayAttempt?.status === 'submitted') {
+      dailyMockNotifiedKeyRef.current = dedupKey;
+      return;
+    }
+
+    const todayPaper = generateDailyMockPaper(todayKey);
+    const alreadyLoggedToday = notifications.some(
+      (n) =>
+        n.kind === 'daily_mock_launch' &&
+        (n.title.includes(todayPaper.paperCode) ||
+          n.body.includes(todayPaper.paperCode))
+    );
+    if (alreadyLoggedToday) {
+      dailyMockNotifiedKeyRef.current = dedupKey;
+      return;
+    }
+
+    dailyMockNotifiedKeyRef.current = dedupKey;
+    const title = `Daily 60-Min Mock Live (${todayPaper.paperCode})`;
+    const body = `40 MCQs across all 7 topics (20 Hard / 50%). Complete in 60 min to receive your daily results summary on portal & email.`;
+
+    (async () => {
+      let deliveredPush = false;
+      if (userProfile.pushEnabled) {
+        const res = await showBrowserPushNotification({
+          title,
+          body,
+          targetView: 'daily_mock',
+          tag: `euwk-daily-mock-${todayKey}`,
+        });
+        deliveredPush = res.delivered;
+      }
+      try {
+        await logLearnerNotification({
+          user,
+          kind: 'daily_mock_launch',
+          title,
+          body,
+          targetView: 'daily_mock',
+          credentialType: 'daily_mock_invite',
+          channel: deliveredPush ? 'push' : 'in_app',
+          sentBy: 'system',
+        });
+      } catch (err) {
+        console.error('Daily mock launch notification log failed:', err);
+      }
+    })();
+  }, [
+    user,
+    userProfile.uid,
+    userProfile.pushEnabled,
+    dailyMockLoaded,
+    notificationsLoaded,
+    dailyMockAttempts,
+    notifications,
+  ]);
 
   if (!authReady) {
     return (
@@ -490,6 +587,16 @@ function PictureConnectWorkspace() {
   const isFinalLocked =
     finalAssessment.status === 'not_started' && !finalPrereq.eligible;
 
+  const todayDateKey = getTodayDateKey();
+  const todayDailyPaper = generateDailyMockPaper(todayDateKey);
+  const todayDailyAttempt = dailyMockAttempts.find(
+    (a) => a.dateKey === todayDateKey
+  );
+  const dailyMockStreak = computeDailyMockStreak(
+    dailyMockAttempts,
+    todayDateKey
+  );
+
   const navItems: { id: AppView; label: string; locked?: boolean }[] = [
     { id: 'journey', label: 'Journey' },
     { id: 'levels', label: 'Levels 1–10' },
@@ -498,6 +605,13 @@ function PictureConnectWorkspace() {
     { id: 'career', label: 'Career MCQs' },
     { id: 'universe', label: 'Tech & DSA' },
     { id: 'advanced', label: 'AI Track' },
+    {
+      id: 'daily_mock',
+      label:
+        todayDailyAttempt?.status === 'submitted'
+          ? `Daily Mock (${todayDailyAttempt.scorePercent}%)`
+          : 'Daily 60m',
+    },
     { id: 'final', label: 'Final 1000 XP', locked: isFinalLocked },
   ];
 
@@ -708,6 +822,11 @@ function PictureConnectWorkspace() {
             finalAttemptCount={finalAssessment.attemptCount}
             finalEligible={finalPrereq.eligible}
             finalPrereqLabel={`${finalPrereq.completedSections}/${finalPrereq.totalSections}`}
+            dailyMockStatus={todayDailyAttempt?.status || 'not_started'}
+            dailyMockScorePct={todayDailyAttempt?.scorePercent || 0}
+            dailyMockHardPct={todayDailyAttempt?.hardAccuracyPercent || 0}
+            dailyMockStreak={dailyMockStreak}
+            dailyMockPaperCode={todayDailyPaper.paperCode}
             onNavigateView={handleNavigateView}
             learnerConnections={conceptConnections}
             onAddConnection={async (picture, concept, explanation) => {
@@ -858,6 +977,18 @@ function PictureConnectWorkspace() {
           />
         )}
 
+        {view === 'daily_mock' && (
+          <DailyMockStudio
+            user={user}
+            learnerName={learnerName}
+            learnerEmail={user.email || ''}
+            pushEnabled={userProfile.pushEnabled}
+            attempts={dailyMockAttempts}
+            onRequestEmail={setEmailRequest}
+            onOpenRemindersDrawer={() => setNotifDrawerOpen(true)}
+          />
+        )}
+
         {view === 'final' && (
           <FinalAssessmentStudio
             user={user}
@@ -947,6 +1078,7 @@ function PictureConnectWorkspace() {
         profile={userProfile}
         audit={sectionAudit}
         notifications={notifications}
+        dailyMockAttempts={dailyMockAttempts}
         onNavigateView={(target, lvl) =>
           handleNavigateView(target as AppView, lvl)
         }

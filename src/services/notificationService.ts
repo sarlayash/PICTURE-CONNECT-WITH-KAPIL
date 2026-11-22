@@ -26,13 +26,16 @@ export type NotificationTargetView =
   | 'advanced'
   | 'final'
   | 'achievements'
-  | 'profile';
+  | 'profile'
+  | 'daily_mock';
 
 export type NotificationKind =
   | 'missing_reminder'
   | 'section_completed'
   | 'credential_emailed'
-  | 'admin_reminder';
+  | 'admin_reminder'
+  | 'daily_mock_launch'
+  | 'daily_mock_result';
 
 export type NotificationChannel =
   | 'in_app'
@@ -45,7 +48,9 @@ export type CredentialEmailType =
   | 'badge'
   | 'certificate'
   | 'lor'
-  | 'reminder_digest';
+  | 'reminder_digest'
+  | 'daily_mock_invite'
+  | 'daily_mock_summary';
 
 export type ReminderFrequency = 'daily' | 'every_3_days' | 'weekly' | 'off';
 
@@ -491,17 +496,22 @@ export async function adminSendReminderNotification(params: {
   body: string;
   targetView: NotificationTargetView;
   channel?: NotificationChannel;
+  kind?: NotificationKind;
+  credentialType?: CredentialEmailType;
 }): Promise<string> {
   const path = 'learnerNotifications';
   try {
     const docRef = await addDoc(collection(db, 'learnerNotifications'), {
       ownerId: params.targetUid,
       recipientEmail: clip(params.recipientEmail, 160) || 'learner@unknown.local',
-      kind: 'admin_reminder',
+      kind: params.kind || 'admin_reminder',
       title: clip(params.title, 120) || 'Mentor Kapil Reminder',
       body: clip(params.body, 600) || 'Complete your remaining sections to unlock badges and certificates.',
       targetView: params.targetView,
-      credentialType: 'reminder_digest',
+      credentialType:
+        params.credentialType !== undefined
+          ? params.credentialType
+          : 'reminder_digest',
       channel: params.channel || 'in_app',
       read: false,
       sentBy: 'admin',

@@ -21,7 +21,8 @@ export type FeedbackSectionId =
   | 'universe'
   | 'advanced'
   | 'final'
-  | 'achievements';
+  | 'achievements'
+  | 'daily_mock';
 
 export type FeedbackCategory =
   | 'content_depth'
@@ -60,6 +61,7 @@ export const FEEDBACK_SECTION_LABELS: Record<FeedbackSectionId, string> = {
   advanced: 'AI-Powered Visual Reasoning Lab',
   final: 'Final Assessment & Placement LOR',
   achievements: 'Badges & Certificates Vault',
+  daily_mock: 'Daily 60-Min Mock Test (50% Hard MCQs)',
 };
 
 export const FEEDBACK_CATEGORY_META: {
