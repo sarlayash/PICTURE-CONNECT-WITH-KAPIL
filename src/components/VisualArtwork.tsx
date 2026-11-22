@@ -23,7 +23,9 @@ import {
 import {
   ArtworkId,
   BOARDROOM_CLUES,
+  BoardroomClue,
   WORKPLACE_MISTAKES,
+  WorkplaceMistake,
 } from '../data/workshopData';
 import { PHOTO_ASSETS, PhotoAssetKey } from '../data/imageAssets';
 
@@ -33,8 +35,10 @@ interface VisualArtworkProps {
   className?: string;
   discoveredMistakes?: string[];
   onSelectMistake?: (mistakeId: string) => void;
+  customMistakes?: WorkplaceMistake[];
   discoveredClues?: string[];
   onSelectClue?: (clueId: string) => void;
+  customClues?: BoardroomClue[];
 }
 
 const DIRECT_PHOTO_MAP: Record<ArtworkId, PhotoAssetKey> = {
@@ -296,8 +300,10 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
   className = 'w-full h-full',
   discoveredMistakes = [],
   onSelectMistake,
+  customMistakes,
   discoveredClues = [],
   onSelectClue,
+  customClues,
 }) => {
   const [imgError, setImgError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -313,9 +319,10 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
     }
   }, [id, photoKey]);
 
-  // Interactive Workplace Audit Photo (Level 6)
+  // Interactive Workplace & Placement Audit Photo (Level 6)
   if (id === 'workplace_detective' && !imgError) {
-    const asset = PHOTO_ASSETS.workplace_detective;
+    const asset = PHOTO_ASSETS[photoKey ?? 'workplace_detective'];
+    const mistakesList = customMistakes ?? WORKPLACE_MISTAKES;
     return (
       <div
         className={`relative select-none overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-950 ${className}`}
@@ -337,7 +344,7 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
           className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/35 via-transparent to-slate-950/15"
           aria-hidden="true"
         />
-        {WORKPLACE_MISTAKES.map((mistake) => {
+        {mistakesList.map((mistake) => {
           const found = discoveredMistakes.includes(mistake.id);
           return (
             <button
@@ -361,9 +368,10 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
     );
   }
 
-  // Interactive Boardroom Turnaround Photo (Level 9)
+  // Interactive Boardroom & Placement Case Photo (Level 9)
   if (id === 'boardroom_decline' && !imgError) {
-    const asset = PHOTO_ASSETS.boardroom_decline;
+    const asset = PHOTO_ASSETS[photoKey ?? 'boardroom_decline'];
+    const cluesList = customClues ?? BOARDROOM_CLUES;
     return (
       <div
         className={`relative select-none overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-950 ${className}`}
@@ -385,7 +393,7 @@ export const VisualArtwork: React.FC<VisualArtworkProps> = ({
           className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent"
           aria-hidden="true"
         />
-        {BOARDROOM_CLUES.map((clue, idx) => {
+        {cluesList.map((clue, idx) => {
           const found = discoveredClues.includes(clue.id);
           return (
             <button

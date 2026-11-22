@@ -12,17 +12,29 @@ import {
 import {
   ACTIVITY_1_DEFAULT_INTERPRETATIONS,
   ArtworkId,
-  BOARDROOM_CLUES,
   FINALE_SIX_PICTURES,
   IMPOSSIBLE_PAIRS,
   LEVELS,
-  MEMORY_OBJECTS_HARD,
-  MEMORY_OBJECTS_STANDARD,
   PROFESSION_CARDS,
   SELL_OBJECTS,
   STORY_ARCHITECT_CARDS,
-  WORKPLACE_MISTAKES,
 } from '../data/workshopData';
+import {
+  LEVEL1_PLACEMENT_SCENES,
+  LEVEL2_PLACEMENT_EXTRA_PAIRS,
+  LEVEL3_PLACEMENT_LAUNCH_CARDS,
+  LEVEL3_PLACEMENT_STAR_CARDS,
+  LEVEL4_FLASH_SCENES,
+  LEVEL5_PLACEMENT_EXTRA_PROFESSIONS,
+  LEVEL6_AUDIT_SCENES,
+  LEVEL7_PLACEMENT_EXTRA_SELL_OBJECTS,
+  LEVEL8_EMPATHY_SCENES,
+  LEVEL9_CASE_SCENES,
+  LEVEL10_PLACEMENT_BONUS_CARDS,
+  PlacementImpossiblePair,
+  PlacementProfessionCard,
+  PlacementSellObject,
+} from '../data/placementPictureConnectData';
 import { PhotoAssetKey } from '../data/imageAssets';
 import {
   ConnectionPostDoc,
@@ -47,11 +59,25 @@ interface ActivitiesStudioProps {
   onSaveWorkspace: (patch: Partial<Omit<LearnerWorkspaceDoc, 'ownerId'>>) => Promise<void>;
 }
 
-const ACT1_PICTURES: { title: string; artwork: ArtworkId; photoKey?: PhotoAssetKey }[] = [
-  { title: 'A Person Standing at a Crossroads', artwork: 'crossroads', photoKey: 'crossroads' },
-  { title: 'A Broken Pencil', artwork: 'broken_pencil', photoKey: 'broken_pencil' },
-  { title: 'A Titanium Paperclip', artwork: 'paperclip', photoKey: 'paperclip' },
-  { title: 'A Rain-Streaked Window Reflection', artwork: 'emotion_scene', photoKey: 'emotion_scene' },
+const ALL_IMPOSSIBLE_PAIRS: PlacementImpossiblePair[] = [
+  ...IMPOSSIBLE_PAIRS.map((p) => ({
+    ...p,
+    placementRound: 'Lateral & Creative Thinking',
+  })),
+  ...LEVEL2_PLACEMENT_EXTRA_PAIRS,
+];
+
+const ALL_PROFESSION_CARDS: PlacementProfessionCard[] = [
+  ...PROFESSION_CARDS,
+  ...LEVEL5_PLACEMENT_EXTRA_PROFESSIONS,
+];
+
+const ALL_SELL_OBJECTS: PlacementSellObject[] = [
+  ...SELL_OBJECTS.map((s) => ({
+    ...s,
+    photoKey: (s.photoKey ?? 'umbrella') as PhotoAssetKey,
+  })),
+  ...LEVEL7_PLACEMENT_EXTRA_SELL_OBJECTS,
 ];
 
 export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
@@ -94,14 +120,17 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
   const [randomPair, setRandomPair] = useState<{
     leftTitle: string;
     leftArtwork: ArtworkId;
+    leftPhotoKey?: PhotoAssetKey;
     rightTitle: string;
     rightArtwork: ArtworkId;
+    rightPhotoKey?: PhotoAssetKey;
     photoKey?: PhotoAssetKey;
   } | null>(null);
   const [showPairAnswer, setShowPairAnswer] = useState(false);
   const [act2Pitch, setAct2Pitch] = useState(workspace.act2Pitch || '');
 
-  // Level 3 State (Solo 5-Picture Story Architect)
+  // Level 3 State (Solo 5-Picture Story Architect — Classic 5 + STAR 5 + PPO Launch 5 = 15 Images)
+  const [storyDeckMode, setStoryDeckMode] = useState<'classic' | 'placement' | 'launch'>('launch');
   const [storyTitle, setStoryTitle] = useState(workspace.act3StoryTitle || '');
   const [storyBeats, setStoryBeats] = useState<string[]>(() => {
     try {
@@ -113,7 +142,8 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
     return ['', '', '', '', ''];
   });
 
-  // Level 4 State (15s Visual Flash Memory)
+  // Level 4 State (15s Visual Flash Memory — 6 Scenes: 1 Classic + 5 Placement)
+  const [memorySceneIdx, setMemorySceneIdx] = useState(0);
   const [memoryVisible, setMemoryVisible] = useState(false);
   const [memoryHardMode, setMemoryHardMode] = useState(false);
   const [memoryShowAnswers, setMemoryShowAnswers] = useState(false);
@@ -121,17 +151,18 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
   const [memoryMissing, setMemoryMissing] = useState(workspace.act4Missing || '');
   const [memoryBeforeAfter, setMemoryBeforeAfter] = useState(workspace.act4BeforeAfter || '');
 
-  // Level 5 State (Picture to Profession + CEO Mindset)
+  // Level 5 State (Picture to Profession + CEO Mindset — 6 Classic + 5 Placement)
   const [profIdx, setProfIdx] = useState(0);
   const [profRevealed, setProfRevealed] = useState(false);
   const [ceoSolution, setCeoSolution] = useState(workspace.act5CeoSolution || '');
   const [showCeoSample, setShowCeoSample] = useState(false);
 
-  // Level 6 State (Workplace Detective)
+  // Level 6 State (Workplace & Placement Detective — 1 Classic + 5 Placement Scenes)
+  const [auditSceneIdx, setAuditSceneIdx] = useState(0);
   const [discoveredMistakes, setDiscoveredMistakes] = useState<string[]>([]);
   const [selectedMistakeId, setSelectedMistakeId] = useState<string | null>(null);
 
-  // Level 7 State (Sell Me This Picture)
+  // Level 7 State (Sell Me This Picture — 3 Classic + 5 Placement)
   const parsePitchUsps = (raw?: string): [string, string, string] => {
     if (!raw) return ['', '', ''];
     try {
@@ -159,7 +190,8 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
     script: workspace.act7PitchScript || '',
   });
 
-  // Level 8 State (Emotion Behind Picture)
+  // Level 8 State (Emotion Behind Picture — 1 Classic + 5 Placement EQ Scenes)
+  const [empathySceneIdx, setEmpathySceneIdx] = useState(0);
   const [empathyData, setEmpathyData] = useState({
     emotion: workspace.act8Emotion || '',
     situation: workspace.act8Situation || '',
@@ -167,12 +199,14 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
     response: workspace.act8Response || '',
   });
 
-  // Level 9 State (Boardroom Turnaround)
+  // Level 9 State (Boardroom & Placement Case Turnaround — 1 Classic + 5 Placement Cases)
+  const [caseSceneIdx, setCaseSceneIdx] = useState(0);
   const [discoveredClues, setDiscoveredClues] = useState<string[]>([]);
-  const [activeClueId, setActiveClueId] = useState<string>(BOARDROOM_CLUES[0].id);
+  const [activeClueId, setActiveClueId] = useState<string>(LEVEL9_CASE_SCENES[0].clues[0].id);
   const [boardroomProposal, setBoardroomProposal] = useState(workspace.act9Proposal || '');
 
-  // Level 10 State (Six Pictures One Vision Capstone)
+  // Level 10 State (Grand Capstone — Original 6 + 5 Placement Vision Cards = 11)
+  const [finaleDeckFilter, setFinaleDeckFilter] = useState<'all' | 'classic' | 'placement'>('all');
   const [finaleTheme, setFinaleTheme] = useState(workspace.act10Theme || '');
   const [finaleNotes, setFinaleNotes] = useState(workspace.act10Notes || '');
 
@@ -286,7 +320,10 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
     setSavingPerspective(true);
     setActionError(null);
     try {
-      await onAddPerspective(ACT1_PICTURES[act1PicIdx].title, newPerspective.trim());
+      await onAddPerspective(
+        LEVEL1_PLACEMENT_SCENES[act1PicIdx].title,
+        newPerspective.trim()
+      );
       setNewPerspective('');
       flashNotice('Perspective added to Learner Wall');
     } catch (err) {
@@ -299,15 +336,24 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
   };
 
   const generateRandomPair = () => {
-    const pool: { title: string; artwork: ArtworkId }[] = [
-      { title: 'Broken Pencil', artwork: 'broken_pencil' },
-      { title: 'Lighthouse', artwork: 'lighthouse' },
-      { title: 'Espresso Cup', artwork: 'coffee_cup' },
-      { title: 'Compass', artwork: 'compass' },
-      { title: 'Mountain Peak', artwork: 'mountain_peak' },
-      { title: 'Umbrella', artwork: 'umbrella' },
-      { title: 'Camera', artwork: 'camera' },
-      { title: 'Titanium Clip', artwork: 'paperclip' },
+    const pool: { title: string; artwork: ArtworkId; photoKey: PhotoAssetKey }[] = [
+      { title: 'ATS Resume Desk', artwork: 'notebook', photoKey: 'placement_resume_desk' },
+      { title: 'DSA Whiteboard', artwork: 'keyboard', photoKey: 'placement_whiteboard_dsa' },
+      { title: 'Offer Envelope', artwork: 'business', photoKey: 'placement_offer_envelope' },
+      { title: 'Virtual Interview', artwork: 'interview', photoKey: 'placement_virtual_interview' },
+      { title: 'GD Roundtable', artwork: 'teamwork', photoKey: 'placement_gd_roundtable' },
+      { title: 'BI Dashboard', artwork: 'calculator', photoKey: 'placement_bi_analytics' },
+      { title: 'Career Fair', artwork: 'business', photoKey: 'placement_career_fair' },
+      { title: 'Code Review', artwork: 'keyboard', photoKey: 'placement_code_review' },
+      { title: 'Hackathon Sprint', artwork: 'teamwork', photoKey: 'placement_hackathon_sprint' },
+      { title: 'Mentor Coffee', artwork: 'coffee_cup', photoKey: 'placement_networking_coffee' },
+      { title: 'Day-1 Desk', artwork: 'ladder', photoKey: 'placement_onboarding_day1' },
+      { title: 'Broken Pencil', artwork: 'broken_pencil', photoKey: 'broken_pencil' },
+      { title: 'Lighthouse', artwork: 'lighthouse', photoKey: 'lighthouse' },
+      { title: 'Compass', artwork: 'compass', photoKey: 'compass' },
+      { title: 'Mountain Peak', artwork: 'mountain_peak', photoKey: 'mountain_peak' },
+      { title: 'Camera', artwork: 'camera', photoKey: 'camera' },
+      { title: 'Titanium Clip', artwork: 'paperclip', photoKey: 'paperclip' },
     ];
     const a = pool[Math.floor(Math.random() * pool.length)];
     let b = pool[Math.floor(Math.random() * pool.length)];
@@ -317,17 +363,46 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
     setRandomPair({
       leftTitle: a.title,
       leftArtwork: a.artwork,
+      leftPhotoKey: a.photoKey,
       rightTitle: b.title,
       rightArtwork: b.artwork,
+      rightPhotoKey: b.photoKey,
     });
     setShowPairAnswer(false);
   };
 
-  const activePair = IMPOSSIBLE_PAIRS[pairIdx];
-  const activeProf = PROFESSION_CARDS[profIdx];
-  const activeSell = SELL_OBJECTS[sellIdx];
-  const activeClue = BOARDROOM_CLUES.find((c) => c.id === activeClueId) ?? BOARDROOM_CLUES[0];
-  const activeMistake = WORKPLACE_MISTAKES.find((m) => m.id === selectedMistakeId);
+  const activeAct1Scene = LEVEL1_PLACEMENT_SCENES[act1PicIdx] ?? LEVEL1_PLACEMENT_SCENES[0];
+  const activePair = ALL_IMPOSSIBLE_PAIRS[pairIdx] ?? ALL_IMPOSSIBLE_PAIRS[0];
+  const activeStoryCards =
+    storyDeckMode === 'launch'
+      ? LEVEL3_PLACEMENT_LAUNCH_CARDS
+      : storyDeckMode === 'placement'
+      ? LEVEL3_PLACEMENT_STAR_CARDS
+      : STORY_ARCHITECT_CARDS;
+  const activeMemoryScene = LEVEL4_FLASH_SCENES[memorySceneIdx] ?? LEVEL4_FLASH_SCENES[0];
+  const activeProf = ALL_PROFESSION_CARDS[profIdx] ?? ALL_PROFESSION_CARDS[0];
+  const activeAuditScene = LEVEL6_AUDIT_SCENES[auditSceneIdx] ?? LEVEL6_AUDIT_SCENES[0];
+  const activeSell = ALL_SELL_OBJECTS[sellIdx] ?? ALL_SELL_OBJECTS[0];
+  const activeEmpathyScene = LEVEL8_EMPATHY_SCENES[empathySceneIdx] ?? LEVEL8_EMPATHY_SCENES[0];
+  const activeCaseScene = LEVEL9_CASE_SCENES[caseSceneIdx] ?? LEVEL9_CASE_SCENES[0];
+  const activeClue =
+    activeCaseScene.clues.find((c) => c.id === activeClueId) ?? activeCaseScene.clues[0];
+  const activeMistake = activeAuditScene.mistakes.find((m) => m.id === selectedMistakeId);
+  const sceneFoundMistakesCount = activeAuditScene.mistakes.filter((m) =>
+    discoveredMistakes.includes(m.id)
+  ).length;
+  const sceneFoundCluesCount = activeCaseScene.clues.filter((c) =>
+    discoveredClues.includes(c.id)
+  ).length;
+  const visibleFinaleCards =
+    finaleDeckFilter === 'classic'
+      ? FINALE_SIX_PICTURES.map((c) => ({ ...c, placementPillar: 'Core Leadership' }))
+      : finaleDeckFilter === 'placement'
+      ? LEVEL10_PLACEMENT_BONUS_CARDS
+      : [
+          ...FINALE_SIX_PICTURES.map((c) => ({ ...c, placementPillar: 'Core Leadership' })),
+          ...LEVEL10_PLACEMENT_BONUS_CARDS,
+        ];
 
   const activeLevelTheme = getLevelTheme(levelDef.level);
 
@@ -458,36 +533,55 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
         </div>
       </div>
 
-      {/* LEVEL 1: One Picture, 50 Perspectives */}
+      {/* LEVEL 1: One Picture, 50 Perspectives (4 Classic + 5 Placement Images = 9) */}
       {activeLevel === 1 && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
-            <div className="flex items-center justify-between gap-2">
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  <span>{activeAct1Scene.placementContext}</span>
+                  <span className="mx-1.5" aria-hidden="true">·</span>
+                  <span>
+                    Image {String(act1PicIdx + 1).padStart(2, '0')} of {LEVEL1_PLACEMENT_SCENES.length}
+                  </span>
+                </div>
+              </div>
               <h2 className="font-display text-lg font-semibold text-slate-950 dark:text-white">
-                {ACT1_PICTURES[act1PicIdx].title}
+                {activeAct1Scene.title}
               </h2>
-              <div className="flex items-center gap-1.5">
-                {ACT1_PICTURES.map((p, idx) => (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {LEVEL1_PLACEMENT_SCENES.map((p, idx) => (
                   <button
-                    key={p.title}
+                    key={p.id}
                     type="button"
                     onClick={() => setAct1PicIdx(idx)}
-                    className={`px-2.5 py-1 rounded text-xs font-mono cursor-pointer ${
+                    title={p.title}
+                    className={`px-2.5 py-1 rounded text-xs font-mono whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
                       idx === act1PicIdx
-                        ? 'bg-blue-700 text-white'
-                        : 'border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                        ? 'bg-blue-700 text-white font-semibold'
+                        : p.isPlacementNew
+                        ? 'border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-800 dark:text-indigo-300 hover:border-indigo-400'
+                        : 'border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-400'
                     }`}
                   >
-                    0{idx + 1}
+                    {String(idx + 1).padStart(2, '0')}
+                    {p.isPlacementNew ? ' · Placement' : ''}
                   </button>
                 ))}
               </div>
             </div>
             <div className="aspect-[16/10] w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
               <VisualArtwork
-                id={ACT1_PICTURES[act1PicIdx].artwork}
-                photoKey={ACT1_PICTURES[act1PicIdx].photoKey}
+                id={activeAct1Scene.artwork}
+                photoKey={activeAct1Scene.photoKey}
               />
+            </div>
+            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+              <span className="font-semibold text-slate-950 dark:text-white">
+                Placement Interview Prompt:
+              </span>{' '}
+              {activeAct1Scene.interviewAngle}
             </div>
           </div>
 
@@ -557,12 +651,12 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
         </div>
       )}
 
-      {/* LEVEL 2: The Impossible Connection */}
+      {/* LEVEL 2: The Impossible Connection (6 Classic + 5 Placement Pairs = 11) */}
       {activeLevel === 2 && (
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              {IMPOSSIBLE_PAIRS.map((p, idx) => (
+              {ALL_IMPOSSIBLE_PAIRS.map((p, idx) => (
                 <button
                   key={p.id}
                   type="button"
@@ -571,9 +665,11 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
                     setRandomPair(null);
                     setShowPairAnswer(false);
                   }}
-                  className={`px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
                     !randomPair && pairIdx === idx
                       ? 'bg-blue-700 border-blue-700 text-white'
+                      : p.isPlacementNew
+                      ? 'border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-800 dark:text-indigo-300'
                       : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                   }`}
                 >
@@ -584,7 +680,7 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
             <button
               type="button"
               onClick={generateRandomPair}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Shuffle className="w-3.5 h-3.5" />
               <span>Random Pair</span>
@@ -602,7 +698,10 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
                   IMAGE A · {(randomPair ?? activePair).leftTitle}
                 </div>
                 <div className="aspect-[16/10] w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
-                  <VisualArtwork id={(randomPair ?? activePair).leftArtwork} />
+                  <VisualArtwork
+                    id={(randomPair ?? activePair).leftArtwork}
+                    photoKey={(randomPair ?? activePair).leftPhotoKey}
+                  />
                 </div>
               </div>
               <div className="space-y-2">
@@ -610,7 +709,10 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
                   IMAGE B · {(randomPair ?? activePair).rightTitle}
                 </div>
                 <div className="aspect-[16/10] w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
-                  <VisualArtwork id={(randomPair ?? activePair).rightArtwork} />
+                  <VisualArtwork
+                    id={(randomPair ?? activePair).rightArtwork}
+                    photoKey={(randomPair ?? activePair).rightPhotoKey}
+                  />
                 </div>
               </div>
             </div>
@@ -619,8 +721,12 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
           {!randomPair && (
             <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
               <div>
-                <div className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                  Sample Logical Connection
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  <span>Sample Logical Connection</span>
+                  <span className="mx-1.5" aria-hidden="true">·</span>
+                  <span className="font-medium text-indigo-700 dark:text-indigo-400">
+                    {activePair.placementRound}
+                  </span>
                 </div>
                 <div className="text-base font-display font-semibold text-slate-950 dark:text-white mt-0.5">
                   {showPairAnswer ? activePair.possibleConnection : 'Draft your own bridge first'}
@@ -634,7 +740,7 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
               <button
                 type="button"
                 onClick={() => setShowPairAnswer((s) => !s)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 dark:bg-blue-700 text-white text-xs font-semibold cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 dark:bg-blue-700 text-white text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer"
               >
                 {showPairAnswer ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 <span>{showPairAnswer ? 'Hide Hint' : 'Reveal Sample Bridge'}</span>
@@ -669,11 +775,52 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
         </div>
       )}
 
-      {/* LEVEL 3: Five-Picture Story Architect (100% Solo Learner) */}
+      {/* LEVEL 3: Five-Picture Story Architect (Classic 5 + STAR 5 + PPO Launch 5 = 15 Images) */}
       {activeLevel === 3 && (
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-xs text-slate-600 dark:text-slate-300">
+              Choose from three 5-card visual decks: PPO Career Launch, Campus-to-Offer STAR, or Classic Leadership (15 total images).
+            </div>
+            <div className="flex flex-wrap items-center gap-1 p-1 rounded-lg bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setStoryDeckMode('launch')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
+                  storyDeckMode === 'launch'
+                    ? 'bg-blue-700 text-white'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                PPO Launch Arc (+5 New)
+              </button>
+              <button
+                type="button"
+                onClick={() => setStoryDeckMode('placement')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
+                  storyDeckMode === 'placement'
+                    ? 'bg-blue-700 text-white'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                Placement STAR Arc (5)
+              </button>
+              <button
+                type="button"
+                onClick={() => setStoryDeckMode('classic')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
+                  storyDeckMode === 'classic'
+                    ? 'bg-blue-700 text-white'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                Classic Leadership (5)
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            {STORY_ARCHITECT_CARDS.map((card, idx) => (
+            {activeStoryCards.map((card, idx) => (
               <div
                 key={card.id}
                 className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 space-y-2.5 flex flex-col justify-between"
@@ -689,6 +836,11 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
                   <div className="text-xs font-semibold text-slate-900 dark:text-white">
                     {card.title}
                   </div>
+                  {'placementTip' in card && typeof card.placementTip === 'string' && card.placementTip && (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                      {card.placementTip}
+                    </p>
+                  )}
                 </div>
                 <textarea
                   rows={3}
@@ -739,24 +891,48 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
         </div>
       )}
 
-      {/* LEVEL 4: What Is Missing? (15s Visual Flash) */}
+      {/* LEVEL 4: What Is Missing? (15s Visual Flash — 1 Classic + 5 Placement Scenes = 6) */}
       {activeLevel === 4 && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-7 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {LEVEL4_FLASH_SCENES.map((scene, idx) => (
+                <button
+                  key={scene.id}
+                  type="button"
+                  onClick={() => {
+                    if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+                    setMemorySceneIdx(idx);
+                    setMemoryVisible(false);
+                    setMemoryShowAnswers(false);
+                  }}
+                  className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
+                    idx === memorySceneIdx
+                      ? 'bg-blue-700 border-blue-700 text-white font-semibold'
+                      : scene.isPlacementNew
+                      ? 'border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-800 dark:text-indigo-300'
+                      : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {scene.shortLabel}
+                </button>
+              ))}
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="font-display text-lg font-semibold text-slate-950 dark:text-white">
-                  15-Second Visual Memory Drill
+                  {activeMemoryScene.label}
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Observe every detail on the desk for 15 seconds before it hides.
+                  {activeMemoryScene.promptHint}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setMemoryHardMode((m) => !m)}
-                  className={`px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer ${
                     memoryHardMode
                       ? 'bg-slate-900 dark:bg-blue-700 text-white border-transparent'
                       : 'border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'
@@ -767,7 +943,7 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
                 <button
                   type="button"
                   onClick={startMemoryFlash}
-                  className="px-4 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold cursor-pointer"
+                  className="px-4 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer"
                 >
                   {memoryVisible ? 'Restart 15s Flash' : 'Flash Photo (15s)'}
                 </button>
@@ -776,15 +952,18 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
 
             <div className="aspect-[16/9] w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
               {memoryVisible ? (
-                <VisualArtwork id="memory_scene" photoKey="memory_scene" />
+                <VisualArtwork
+                  id={activeMemoryScene.artwork}
+                  photoKey={activeMemoryScene.photoKey}
+                />
               ) : (
                 <div className="w-full h-full bg-slate-950 text-slate-300 flex flex-col items-center justify-center p-8 text-center space-y-3">
                   <EyeOff className="w-8 h-8 text-blue-400" />
                   <div className="font-display text-lg font-semibold text-white">
-                    Photo Hidden — Recall From Memory
+                    Photo Hidden — Recall {activeMemoryScene.label}
                   </div>
                   <p className="text-xs text-slate-400 max-w-md">
-                    Click &ldquo;Flash Photo (15s)&rdquo; to reveal the executive desk scene for 15 seconds, then list everything you observed and what essential accessory is missing.
+                    Click &ldquo;Flash Photo (15s)&rdquo; to reveal this scene for 15 seconds, then list every detail you noticed and what placement-critical item is missing.
                   </p>
                   <button
                     type="button"
@@ -800,10 +979,13 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
             {memoryShowAnswers && (
               <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 space-y-2">
                 <div className="text-xs font-semibold text-slate-900 dark:text-white">
-                  Visual Audit Key ({memoryHardMode ? '10' : '6'} Items)
+                  Visual Audit Key — {activeMemoryScene.label} ({memoryHardMode ? '10' : '6'} Items)
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
-                  {(memoryHardMode ? MEMORY_OBJECTS_HARD : MEMORY_OBJECTS_STANDARD).map((obj) => (
+                  {(memoryHardMode
+                    ? activeMemoryScene.hardItems
+                    : activeMemoryScene.standardItems
+                  ).map((obj) => (
                     <div
                       key={obj.id}
                       className={
@@ -881,12 +1063,12 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
         </div>
       )}
 
-      {/* LEVEL 5: Picture to Profession + CEO Mindset */}
+      {/* LEVEL 5: Picture to Profession + CEO Mindset (6 Classic + 5 Placement Roles = 11) */}
       {activeLevel === 5 && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
             <div className="flex flex-wrap gap-2">
-              {PROFESSION_CARDS.map((card, idx) => (
+              {ALL_PROFESSION_CARDS.map((card, idx) => (
                 <button
                   key={card.id}
                   type="button"
@@ -895,9 +1077,11 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
                     setProfRevealed(false);
                     setShowCeoSample(false);
                   }}
-                  className={`px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
                     idx === profIdx
                       ? 'bg-blue-700 border-blue-700 text-white'
+                      : card.isPlacementNew
+                      ? 'border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-800 dark:text-indigo-300'
                       : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                   }`}
                 >
@@ -907,22 +1091,28 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
             </div>
 
             <div className="aspect-[16/10] w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
-              <VisualArtwork id={activeProf.artwork} />
+              <VisualArtwork id={activeProf.artwork} photoKey={activeProf.photoKey} />
             </div>
 
-            <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
               <div>
                 <div className="text-xs text-slate-500 dark:text-slate-400">
-                  Connected Profession
+                  <span>Connected Placement Role</span>
+                  {activeProf.targetCompanies && (
+                    <>
+                      <span className="mx-1.5" aria-hidden="true">·</span>
+                      <span>{activeProf.targetCompanies}</span>
+                    </>
+                  )}
                 </div>
                 <div className="font-display text-lg font-semibold text-slate-950 dark:text-white">
-                  {profRevealed ? activeProf.profession : 'Guess first, then reveal'}
+                  {profRevealed ? activeProf.profession : 'Guess the role first, then reveal'}
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setProfRevealed((r) => !r)}
-                className="px-4 py-2 rounded-lg bg-slate-900 dark:bg-blue-700 text-white text-xs font-semibold cursor-pointer"
+                className="px-4 py-2 rounded-lg bg-slate-900 dark:bg-blue-700 text-white text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer"
               >
                 {profRevealed ? 'Hide Role' : 'Reveal Profession'}
               </button>
@@ -971,22 +1161,50 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
         </div>
       )}
 
-      {/* LEVEL 6: Workplace Detective */}
+      {/* LEVEL 6: Workplace & Placement Detective (1 Classic + 5 Placement Scenes = 6) */}
       {activeLevel === 6 && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {LEVEL6_AUDIT_SCENES.map((scene, idx) => (
+                <button
+                  key={scene.id}
+                  type="button"
+                  onClick={() => {
+                    setAuditSceneIdx(idx);
+                    setSelectedMistakeId(null);
+                  }}
+                  className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
+                    idx === auditSceneIdx
+                      ? 'bg-blue-700 border-blue-700 text-white font-semibold'
+                      : scene.isPlacementNew
+                      ? 'border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-800 dark:text-indigo-300'
+                      : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {scene.shortLabel}
+                </button>
+              ))}
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="text-xs text-slate-600 dark:text-slate-300">
-                Inspect the corporate office photo and click numbered hotspots to flag workplace violations.
+              <div>
+                <div className="font-display text-base font-bold text-slate-950 dark:text-white">
+                  {activeAuditScene.title}
+                </div>
+                <div className="text-xs text-slate-600 dark:text-slate-300">
+                  {activeAuditScene.subtitle}
+                </div>
               </div>
               <div className="flex items-center gap-3 text-xs font-mono tabular-nums">
                 <span className="font-bold text-blue-700 dark:text-blue-400">
-                  {discoveredMistakes.length} / 10 Flagged
+                  {sceneFoundMistakesCount} / {activeAuditScene.mistakes.length} Scene · {discoveredMistakes.length} Total
                 </span>
                 <button
                   type="button"
                   onClick={() => {
-                    setDiscoveredMistakes([]);
+                    const sceneIds = new Set(activeAuditScene.mistakes.map((m) => m.id));
+                    setDiscoveredMistakes((prev) => prev.filter((id) => !sceneIds.has(id)));
                     setSelectedMistakeId(null);
                   }}
                   className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer"
@@ -1000,6 +1218,8 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
             <div className="aspect-[16/9] w-full">
               <VisualArtwork
                 id="workplace_detective"
+                photoKey={activeAuditScene.photoKey}
+                customMistakes={activeAuditScene.mistakes}
                 discoveredMistakes={discoveredMistakes}
                 onSelectMistake={(id) => {
                   setSelectedMistakeId(id);
@@ -1028,10 +1248,10 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
           <div className="lg:col-span-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 flex flex-col justify-between space-y-4">
             <div className="space-y-3">
               <h2 className="font-display text-lg font-semibold text-slate-950 dark:text-white">
-                Audit Log ({discoveredMistakes.length}/10)
+                Audit Log ({sceneFoundMistakesCount}/{activeAuditScene.mistakes.length})
               </h2>
               <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
-                {WORKPLACE_MISTAKES.map((m) => {
+                {activeAuditScene.mistakes.map((m) => {
                   const found = discoveredMistakes.includes(m.id);
                   return (
                     <button
@@ -1081,12 +1301,12 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
         </div>
       )}
 
-      {/* LEVEL 7: Sell Me This Picture! */}
+      {/* LEVEL 7: Sell Me This Picture! (3 Classic + 5 Placement Pitches = 8) */}
       {activeLevel === 7 && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
             <div className="flex flex-wrap gap-2">
-              {SELL_OBJECTS.map((obj, idx) => (
+              {ALL_SELL_OBJECTS.map((obj, idx) => (
                 <button
                   key={obj.id}
                   type="button"
@@ -1094,9 +1314,11 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
                     setSellIdx(idx);
                     setShowSellSample(false);
                   }}
-                  className={`px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
                     idx === sellIdx
                       ? 'bg-blue-700 border-blue-700 text-white'
+                      : obj.isPlacementNew
+                      ? 'border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-800 dark:text-indigo-300'
                       : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                   }`}
                 >
@@ -1114,7 +1336,7 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
               onClick={() => setShowSellSample((s) => !s)}
               className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white cursor-pointer"
             >
-              {showSellSample ? 'Hide ConnectPro Reference' : `Reveal Reference (${activeSell.sampleName})`}
+              {showSellSample ? 'Hide Pitch Reference' : `Reveal Reference (${activeSell.sampleName})`}
             </button>
 
             {showSellSample && (
@@ -1122,7 +1344,15 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
                 <div className="font-display font-bold text-sm text-slate-950 dark:text-white">
                   {activeSell.sampleName} — {activeSell.sampleTagline}
                 </div>
-                <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Target Audience: {activeSell.sampleAudience}
+                </div>
+                <ul className="space-y-1 text-slate-700 dark:text-slate-300 list-disc pl-4">
+                  {activeSell.sampleUsps.map((usp, i) => (
+                    <li key={i}>{usp}</li>
+                  ))}
+                </ul>
+                <p className="text-slate-600 dark:text-slate-300 leading-relaxed pt-1 border-t border-slate-200 dark:border-slate-800">
                   {activeSell.samplePitch}
                 </p>
               </div>
@@ -1249,16 +1479,48 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
         </div>
       )}
 
-      {/* LEVEL 8: Emotion Behind the Picture */}
+      {/* LEVEL 8: Emotion Behind the Picture (1 Classic + 5 Placement EQ Scenes = 6) */}
       {activeLevel === 8 && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-3">
-            <div className="aspect-[4/3] w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
-              <VisualArtwork id="emotion_scene" photoKey="emotion_scene" />
+          <div className="lg:col-span-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {LEVEL8_EMPATHY_SCENES.map((scene, idx) => (
+                <button
+                  key={scene.id}
+                  type="button"
+                  onClick={() => setEmpathySceneIdx(idx)}
+                  className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
+                    idx === empathySceneIdx
+                      ? 'bg-blue-700 border-blue-700 text-white font-semibold'
+                      : scene.isPlacementNew
+                      ? 'border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-800 dark:text-indigo-300'
+                      : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {scene.shortLabel}
+                </button>
+              ))}
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Notice the gaze, hand posture, rain-streaked glass, and quiet evening workspace. Base your empathy on visible evidence.
-            </p>
+
+            <div className="font-display text-base font-bold text-slate-950 dark:text-white">
+              {activeEmpathyScene.title}
+            </div>
+
+            <div className="aspect-[4/3] w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
+              <VisualArtwork
+                id={activeEmpathyScene.artwork}
+                photoKey={activeEmpathyScene.photoKey}
+              />
+            </div>
+
+            <div className="space-y-1.5 text-xs">
+              <p className="text-slate-600 dark:text-slate-300">
+                {activeEmpathyScene.cuePrompt}
+              </p>
+              <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 font-medium">
+                {activeEmpathyScene.placementQuestion}
+              </div>
+            </div>
           </div>
 
           <div className="lg:col-span-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
@@ -1335,21 +1597,50 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
         </div>
       )}
 
-      {/* LEVEL 9: Corporate Boardroom Turnaround */}
+      {/* LEVEL 9: Corporate Boardroom & Placement Case Turnaround (1 Classic + 5 Placement Cases = 6) */}
       {activeLevel === 9 && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-7 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-600 dark:text-slate-300">
-                Click all 5 strategic clue tags on the boardroom photograph.
-              </span>
-              <span className="font-mono font-bold text-blue-700 dark:text-blue-400 tabular-nums">
-                {discoveredClues.length} / 5 Clues Audited
+            <div className="flex flex-wrap items-center gap-1.5">
+              {LEVEL9_CASE_SCENES.map((scene, idx) => (
+                <button
+                  key={scene.id}
+                  type="button"
+                  onClick={() => {
+                    setCaseSceneIdx(idx);
+                    setActiveClueId(scene.clues[0].id);
+                  }}
+                  className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
+                    idx === caseSceneIdx
+                      ? 'bg-blue-700 border-blue-700 text-white font-semibold'
+                      : scene.isPlacementNew
+                      ? 'border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-800 dark:text-indigo-300'
+                      : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {scene.shortLabel}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div>
+                <div className="font-display text-base font-bold text-slate-950 dark:text-white">
+                  {activeCaseScene.title}
+                </div>
+                <span className="text-slate-600 dark:text-slate-300">
+                  {activeCaseScene.subtitle}
+                </span>
+              </div>
+              <span className="font-mono font-bold text-blue-700 dark:text-blue-400 tabular-nums shrink-0">
+                {sceneFoundCluesCount} / {activeCaseScene.clues.length} Clues Audited
               </span>
             </div>
             <div className="aspect-[16/9] w-full">
               <VisualArtwork
                 id="boardroom_decline"
+                photoKey={activeCaseScene.photoKey}
+                customClues={activeCaseScene.clues}
                 discoveredClues={discoveredClues}
                 onSelectClue={(id) => {
                   setActiveClueId(id);
@@ -1386,7 +1677,7 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
                 rows={9}
                 value={boardroomProposal}
                 onChange={(e) => setBoardroomProposal(e.target.value)}
-                placeholder="1. Immediate 14-day quality & customer stabilisation...&#10;2. Team alignment & accountability...&#10;3. Differentiation vs rival..."
+                placeholder={activeCaseScene.placeholderBrief}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
             </div>
@@ -1404,23 +1695,69 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
         </div>
       )}
 
-      {/* LEVEL 10: Six Pictures, One Vision Capstone */}
+      {/* LEVEL 10: Grand Capstone Synthesis (6 Classic + 10 Placement Vision Cards = 16) */}
       {activeLevel === 10 && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {FINALE_SIX_PICTURES.map((card, idx) => (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-xs text-slate-600 dark:text-slate-300">
+              Unite your leadership and placement journey across 6 classic visuals and {LEVEL10_PLACEMENT_BONUS_CARDS.length} placement mastery visuals.
+            </div>
+            <div className="flex flex-wrap items-center gap-1 p-1 rounded-lg bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setFinaleDeckFilter('all')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
+                  finaleDeckFilter === 'all'
+                    ? 'bg-blue-700 text-white'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                All {FINALE_SIX_PICTURES.length + LEVEL10_PLACEMENT_BONUS_CARDS.length} Vision Cards
+              </button>
+              <button
+                type="button"
+                onClick={() => setFinaleDeckFilter('placement')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
+                  finaleDeckFilter === 'placement'
+                    ? 'bg-blue-700 text-white'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                Placement Mastery ({LEVEL10_PLACEMENT_BONUS_CARDS.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFinaleDeckFilter('classic')}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
+                  finaleDeckFilter === 'classic'
+                    ? 'bg-blue-700 text-white'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                Classic 6 Cards
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {visibleFinaleCards.map((card, idx) => (
               <div
                 key={card.id}
                 className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 space-y-2"
               >
-                <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                  CARD 0{idx + 1}
+                <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                  <span>CARD {String(idx + 1).padStart(2, '0')}</span>
                 </div>
                 <div className="aspect-[4/3] w-full overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
                   <VisualArtwork id={card.artwork} photoKey={card.photoKey} />
                 </div>
-                <div className="text-xs font-semibold text-slate-900 dark:text-white">
-                  {card.title}
+                <div className="space-y-0.5">
+                  <div className="text-xs font-semibold text-slate-900 dark:text-white">
+                    {card.title}
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {card.placementPillar}
+                  </div>
                 </div>
               </div>
             ))}
@@ -1433,7 +1770,7 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
                   Grand Capstone Blueprint
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Example theme: &ldquo;The Journey of a Leader — From Reflection Desk to Boardroom Vision.&rdquo;
+                  Example theme: &ldquo;From ATS Resume &amp; DSA Whiteboard to Sealed Offer &amp; Boardroom Leadership.&rdquo;
                 </p>
               </div>
               <button
@@ -1455,19 +1792,19 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
                   type="text"
                   value={finaleTheme}
                   onChange={(e) => setFinaleTheme(e.target.value)}
-                  placeholder="Enter your single unifying theme connecting all 6 photographs..."
+                  placeholder="Enter your unifying theme connecting your selected placement & leadership photographs..."
                   className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  3-Part Keynote Narrative (Connecting All 6 Images)
+                  3-Part Placement &amp; Leadership Keynote Narrative ({visibleFinaleCards.length} Active Cards)
                 </label>
                 <textarea
                   rows={5}
                   value={finaleNotes}
                   onChange={(e) => setFinaleNotes(e.target.value)}
-                  placeholder="Opening Hook (Desk & Crossroads) -> Core Turning Point (Broken Pencil & Titanium Clip) -> Leadership Resolution (Empathy & Boardroom Vision)..."
+                  placeholder="Opening Hook (ATS Resume & Prep Desk) -> Core Turning Point (DSA Whiteboard, GD Roundtable & Virtual Presence) -> Career Resolution (Sealed Offer & Boardroom Vision)..."
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
               </div>
