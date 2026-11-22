@@ -17,7 +17,7 @@ import {
   DailyMockPaper,
   gradeDailyMockAttempt,
 } from '../data/dailyMockData';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 
 export interface DailyMockAttemptDoc {
   id: string;
@@ -124,8 +124,10 @@ export function subscribeMyDailyMockAttempts(
         .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
       onData(list);
     },
-    (error) =>
-      handleFirestoreError(error, OperationType.LIST, 'dailyMockAttempts')
+    (error) => {
+      if (!auth.currentUser) return;
+      handleFirestoreError(error, OperationType.LIST, 'dailyMockAttempts');
+    }
   );
 }
 
@@ -146,6 +148,7 @@ export function subscribeAllDailyMockAttempts(
       onData(list);
     },
     (error) => {
+      if (!auth.currentUser) return;
       if (onError) {
         onError(
           error instanceof Error
@@ -184,9 +187,9 @@ export async function startOrResumeDailyMock(
     );
     const payload = {
       ownerId: user.uid,
-      authorName: (displayName || user.displayName || 'Verified Learner')
-        .trim()
-        .slice(0, 100),
+      authorName:
+        (displayName || user.displayName || '').trim().slice(0, 100) ||
+        'Verified Learner',
       authorEmail: (user.email || '').trim().slice(0, 160),
       dateKey: paper.dateKey,
       paperCode: paper.paperCode.slice(0, 40),
@@ -293,7 +296,8 @@ export async function submitDailyMockAttempt(params: {
 
   try {
     await updateDoc(ref, {
-      authorName: (params.authorName || 'Verified Learner').trim().slice(0, 100),
+      authorName:
+        (params.authorName || '').trim().slice(0, 100) || 'Verified Learner',
       status: 'submitted',
       submittedAtMs,
       timeUsedSeconds: clampedTime,

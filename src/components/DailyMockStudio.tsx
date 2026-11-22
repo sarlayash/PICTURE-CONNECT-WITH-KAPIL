@@ -123,6 +123,9 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
   const [justSubmittedPrompt, setJustSubmittedPrompt] = useState(false);
 
   const autoSubmittedRef = useRef(false);
+  const finalizeSubmitRef = useRef<(autoExpired?: boolean) => Promise<void>>(
+    async () => {}
+  );
   const answersRef = useRef(answers);
   const flaggedRef = useRef(flagged);
   answersRef.current = answers;
@@ -131,9 +134,12 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
   // Hydrate live in-progress attempt when Firestore updates or reloads
   useEffect(() => {
     if (todayAttempt?.status === 'in_progress') {
+      answersRef.current = todayAttempt.answers;
+      flaggedRef.current = todayAttempt.flaggedIndices;
       setAnswers(todayAttempt.answers);
       setFlagged(todayAttempt.flaggedIndices);
       const elapsedSec = Math.max(
+        0,
         todayAttempt.timeUsedSeconds,
         Math.floor((Date.now() - todayAttempt.startedAtMs) / 1000)
       );
@@ -150,12 +156,15 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
   useEffect(() => {
     if (!examStarted || todayAttempt?.status !== 'in_progress') return;
     const timer = window.setInterval(() => {
-      const elapsed = Math.floor((Date.now() - todayAttempt.startedAtMs) / 1000);
+      const elapsed = Math.max(
+        0,
+        Math.floor((Date.now() - todayAttempt.startedAtMs) / 1000)
+      );
       const left = Math.max(0, DAILY_MOCK_CONFIG.durationSeconds - elapsed);
       setRemainingSeconds(left);
       if (left <= 0 && !autoSubmittedRef.current) {
         autoSubmittedRef.current = true;
-        void handleFinalizeSubmit(true);
+        void finalizeSubmitRef.current(true);
       }
     }, 1000);
     return () => window.clearInterval(timer);
@@ -169,7 +178,7 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
     const interval = window.setInterval(() => {
       const elapsed = Math.min(
         DAILY_MOCK_CONFIG.durationSeconds,
-        Math.floor((Date.now() - todayAttempt.startedAtMs) / 1000)
+        Math.max(0, Math.floor((Date.now() - todayAttempt.startedAtMs) / 1000))
       );
       void saveDailyMockProgress(
         todayAttempt.id,
@@ -193,9 +202,15 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
         learnerName,
         todayPaper
       );
+      answersRef.current = docAttempt.answers;
+      flaggedRef.current = docAttempt.flaggedIndices;
       setAnswers(docAttempt.answers);
       setFlagged(docAttempt.flaggedIndices);
-      const elapsed = Math.floor((Date.now() - docAttempt.startedAtMs) / 1000);
+      const elapsed = Math.max(
+        0,
+        docAttempt.timeUsedSeconds,
+        Math.floor((Date.now() - docAttempt.startedAtMs) / 1000)
+      );
       setRemainingSeconds(
         Math.max(0, DAILY_MOCK_CONFIG.durationSeconds - elapsed)
       );
@@ -219,10 +234,11 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
     if (!todayAttempt || todayAttempt.status !== 'in_progress') return;
     const next = [...answers];
     next[currentIdx] = optionIdx;
+    answersRef.current = next;
     setAnswers(next);
     const elapsed = Math.min(
       DAILY_MOCK_CONFIG.durationSeconds,
-      Math.floor((Date.now() - todayAttempt.startedAtMs) / 1000)
+      Math.max(0, Math.floor((Date.now() - todayAttempt.startedAtMs) / 1000))
     );
     void saveDailyMockProgress(todayAttempt.id, next, flagged, elapsed).catch(
       () => {
@@ -237,10 +253,11 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
     const nextFlagged = exists
       ? flagged.filter((v) => v !== idx)
       : [...flagged, idx];
+    flaggedRef.current = nextFlagged;
     setFlagged(nextFlagged);
     const elapsed = Math.min(
       DAILY_MOCK_CONFIG.durationSeconds,
-      Math.floor((Date.now() - todayAttempt.startedAtMs) / 1000)
+      Math.max(0, Math.floor((Date.now() - todayAttempt.startedAtMs) / 1000))
     );
     void saveDailyMockProgress(
       todayAttempt.id,
@@ -349,29 +366,38 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
       setSelectedHistoryDate(todayKey);
       setJustSubmittedPrompt(true);
 
+      // Post-submission alerts run in an isolated block so a notification/push warning
+      // never reports a false submission failure after Firestore has already graded & locked the exam.
       const notifTitle = `Daily Mock Result: ${grade.scorePercent}% (${grade.correctCount}/${grade.totalQuestions}) · ${grade.gradeLabel}`;
       const notifBody = `Paper ${todayPaper.paperCode}: Hard MCQs ${grade.hardCorrectCount}/${grade.hardQuestionCount} (${grade.hardAccuracyPercent}%), +${grade.xpAwarded} XP. Strongest: ${grade.strongestTopic} · Focus: ${grade.weakestTopic}.`;
 
-      if (pushEnabled) {
-        await showBrowserPushNotification({
+      try {
+        let deliveredPush = false;
+        if (pushEnabled) {
+          const delivery = await showBrowserPushNotification({
+            title: notifTitle,
+            body: notifBody,
+            targetView: 'daily_mock',
+            tag: `euwk-daily-mock-result-${todayKey}`,
+          });
+          deliveredPush = delivery.delivered;
+        }
+
+        await logLearnerNotification({
+          user,
+          kind: 'daily_mock_result',
           title: notifTitle,
           body: notifBody,
           targetView: 'daily_mock',
-          tag: `euwk-daily-mock-result-${todayKey}`,
+          credentialType: 'daily_mock_summary',
+          channel: deliveredPush ? 'push' : 'in_app',
+          sentBy: 'system',
         });
+      } catch (notifErr) {
+        console.warn('Daily Mock post-submit notification warning:', notifErr);
       }
-
-      await logLearnerNotification({
-        user,
-        kind: 'daily_mock_result',
-        title: notifTitle,
-        body: notifBody,
-        targetView: 'daily_mock',
-        credentialType: 'daily_mock_summary',
-        channel: pushEnabled ? 'push' : 'in_app',
-        sentBy: 'system',
-      });
     } catch (err) {
+      autoSubmittedRef.current = false;
       setActionError(
         err instanceof Error
           ? err.message
@@ -381,6 +407,7 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
       setSubmittingBusy(false);
     }
   };
+  finalizeSubmitRef.current = handleFinalizeSubmit;
 
   const handleDownloadSummaryTxt = (attemptDoc: DailyMockAttemptDoc) => {
     const paper = generateDailyMockPaper(attemptDoc.dateKey);
@@ -1043,6 +1070,17 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5">
+                {selectedHistoryDate !== todayKey && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedHistoryDate(todayKey)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-xs font-semibold hover:bg-rose-100 dark:hover:bg-rose-900/40 cursor-pointer whitespace-nowrap shrink-0"
+                  >
+                    <CalendarDays className="w-3.5 h-3.5" />
+                    <span>Return to Today</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => triggerEmailSummaryForAttempt(inspectedAttempt)}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
 import {
   AlertTriangle,
@@ -63,6 +63,12 @@ export const EmailCredentialModal: React.FC<EmailCredentialModalProps> = ({
   const [sending, setSending] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [sentId, setSentId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSentId(null);
+    setErrorMsg(null);
+    setSending(false);
+  }, [request]);
 
   if (!request) return null;
 

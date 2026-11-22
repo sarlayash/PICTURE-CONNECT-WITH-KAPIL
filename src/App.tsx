@@ -649,7 +649,7 @@ function PictureConnectWorkspace() {
 
           <nav
             aria-label="Primary navigation"
-            className="hidden md:flex items-center gap-3 lg:gap-4 text-xs lg:text-[13px] font-medium"
+            className="hidden xl:flex items-center gap-3.5 text-[13px] font-medium"
           >
             {navItems.map((item) => {
               const active = view === item.id;
@@ -684,7 +684,7 @@ function PictureConnectWorkspace() {
           </div>
         </div>
 
-        <div className="md:hidden border-t border-slate-100 dark:border-slate-900 px-3 py-1.5 flex items-center gap-1 overflow-x-auto">
+        <div className="xl:hidden border-t border-slate-100 dark:border-slate-900 px-3 py-1.5 flex items-center gap-1 overflow-x-auto">
           {navItems.map((item) => {
             const active = view === item.id;
             const itemTheme = getNavSectionTheme(item.id);

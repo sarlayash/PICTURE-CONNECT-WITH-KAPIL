@@ -942,7 +942,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleEmailLearnerDailyInvite = (learner: AdminUserRecord) => {
-    if (!onRequestEmail) return;
+    if (!onRequestEmail || !learner.email.includes('@')) return;
     const streak = computeDailyMockStreak(
       dailyAttemptsByUid[learner.uid] || [],
       todayDateKey
@@ -964,6 +964,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       htmlBody: invite.htmlBody,
       textFallback: invite.textFallback,
       targetView: 'daily_mock',
+      sentByAdmin: true,
+      targetUid: learner.uid,
     });
   };
 
@@ -971,8 +973,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     learner: AdminUserRecord,
     attempt: DailyMockAttemptDoc
   ) => {
-    if (!onRequestEmail) return;
-    const graded = gradeDailyMockAttempt(selectedDailyPaper, attempt.answers);
+    if (!onRequestEmail || !learner.email.includes('@')) return;
+    const paper =
+      attempt.dateKey === selectedDailyPaper.dateKey
+        ? selectedDailyPaper
+        : generateDailyMockPaper(attempt.dateKey);
+    const graded = gradeDailyMockAttempt(paper, attempt.answers);
     const standardTotal = Math.max(
       1,
       attempt.totalQuestions - attempt.hardQuestionCount
@@ -984,8 +990,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const summary = buildDailyMockResultSummaryEmail({
       learnerName: learner.displayName,
       learnerEmail: learner.email,
-      displayDate: selectedDailyPaper.displayDate,
-      paperCode: selectedDailyPaper.paperCode,
+      displayDate: paper.displayDate,
+      paperCode: paper.paperCode,
       correctCount: attempt.correctCount,
       totalQuestions: attempt.totalQuestions,
       scorePercent: attempt.scorePercent,
@@ -1020,6 +1026,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       htmlBody: summary.htmlBody,
       textFallback: summary.textFallback,
       targetView: 'daily_mock',
+      sentByAdmin: true,
+      targetUid: learner.uid,
       onAfterSent: async () => {
         await markDailyMockResultEmailed(attempt.id);
       },
@@ -1055,6 +1063,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       htmlBody: digest.htmlBody,
       textFallback: digest.textFallback,
       targetView: 'daily_mock',
+      sentByAdmin: true,
     });
   };
 
@@ -1929,7 +1938,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   <div className="flex flex-wrap items-center justify-end gap-1.5">
                                     {attempt?.status === 'submitted' ? (
                                       <>
-                                        {onRequestEmail && (
+                                        {onRequestEmail && r.email.includes('@') && (
                                           <button
                                             type="button"
                                             onClick={() =>
@@ -1944,19 +1953,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                         <button
                                           type="button"
                                           onClick={async () => {
-                                            await adminSendReminderNotification({
-                                              targetUid: r.uid,
-                                              recipientEmail: r.email,
-                                              kind: 'daily_mock_result',
-                                              credentialType: 'daily_mock_summary',
-                                              title: `Daily Mock Results (${selectedDailyPaper.displayDate}): ${attempt.scorePercent}%`,
-                                              body: `Mentor Kapil shared your scorecard: ${attempt.correctCount}/${attempt.totalQuestions} (${attempt.scorePercent}%) · Hard 50%: ${attempt.hardAccuracyPercent}%. Priority revision: ${attempt.weakestTopic}.`,
-                                              targetView: 'daily_mock',
-                                              channel: 'in_app',
-                                            });
-                                            setDailyBroadcastNote(
-                                              `Sent portal results notification to ${r.displayName}.`
-                                            );
+                                            setStreamError(null);
+                                            try {
+                                              await adminSendReminderNotification({
+                                                targetUid: r.uid,
+                                                recipientEmail: r.email,
+                                                kind: 'daily_mock_result',
+                                                credentialType: 'daily_mock_summary',
+                                                title: `Daily Mock Results (${selectedDailyPaper.displayDate}): ${attempt.scorePercent}%`,
+                                                body: `Mentor Kapil shared your scorecard: ${attempt.correctCount}/${attempt.totalQuestions} (${attempt.scorePercent}%) · Hard 50%: ${attempt.hardAccuracyPercent}%. Priority revision: ${attempt.weakestTopic}.`,
+                                                targetView: 'daily_mock',
+                                                channel: 'in_app',
+                                              });
+                                              setDailyBroadcastNote(
+                                                `Sent portal results notification to ${r.displayName}.`
+                                              );
+                                            } catch (err) {
+                                              setStreamError(
+                                                err instanceof Error
+                                                  ? err.message
+                                                  : `Failed to send portal notification to ${r.displayName}.`
+                                              );
+                                            }
                                           }}
                                           className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                                         >
@@ -1989,7 +2007,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                             onClick={() =>
                                               setDailyResetConfirmId(attempt.id)
                                             }
-                                            className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-amber-300 dark:border-amber-800 text-[11px] font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30 cursor-pointer"
+                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-amber-300 dark:border-amber-800 text-[11px] font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30 cursor-pointer"
                                           >
                                             <RotateCcw className="w-3 h-3" />
                                             <span>Reset</span>
@@ -1998,7 +2016,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                       </>
                                     ) : (
                                       <>
-                                        {onRequestEmail && (
+                                        {onRequestEmail && r.email.includes('@') && (
                                           <button
                                             type="button"
                                             onClick={() =>
@@ -2013,19 +2031,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                         <button
                                           type="button"
                                           onClick={async () => {
-                                            await adminSendReminderNotification({
-                                              targetUid: r.uid,
-                                              recipientEmail: r.email,
-                                              kind: 'daily_mock_launch',
-                                              credentialType: 'daily_mock_invite',
-                                              title: `Reminder: Daily 60-Min Mock (${selectedDailyPaper.paperCode})`,
-                                              body: `Mentor Kapil reminder: Take ${selectedDailyPaper.displayDate}’s 40-MCQ Daily Mock Test (50% Hard MCQs) across all 7 topics.`,
-                                              targetView: 'daily_mock',
-                                              channel: 'in_app',
-                                            });
-                                            setDailyBroadcastNote(
-                                              `Sent Daily Mock portal reminder to ${r.displayName}.`
-                                            );
+                                            setStreamError(null);
+                                            try {
+                                              await adminSendReminderNotification({
+                                                targetUid: r.uid,
+                                                recipientEmail: r.email,
+                                                kind: 'daily_mock_launch',
+                                                credentialType: 'daily_mock_invite',
+                                                title: `Reminder: Daily 60-Min Mock (${selectedDailyPaper.paperCode})`,
+                                                body: `Mentor Kapil reminder: Take ${selectedDailyPaper.displayDate}’s 40-MCQ Daily Mock Test (50% Hard MCQs) across all 7 topics.`,
+                                                targetView: 'daily_mock',
+                                                channel: 'in_app',
+                                              });
+                                              setDailyBroadcastNote(
+                                                `Sent Daily Mock portal reminder to ${r.displayName}.`
+                                              );
+                                            } catch (err) {
+                                              setStreamError(
+                                                err instanceof Error
+                                                  ? err.message
+                                                  : `Failed to send Daily Mock reminder to ${r.displayName}.`
+                                              );
+                                            }
                                           }}
                                           className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                                         >
@@ -2952,6 +2979,57 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             {masterByUid[inspectedUser.uid].dataCloudCorrect}/40 Correct
                           </div>
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {(dailyAttemptsByUid[inspectedUser.uid]?.length ?? 0) > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                      <div className="text-xs font-semibold text-rose-700 dark:text-rose-400">
+                        Daily 60-Min Mock Tests (50% Hard MCQs) ·{' '}
+                        {
+                          dailyAttemptsByUid[inspectedUser.uid].filter(
+                            (a) => a.status === 'submitted'
+                          ).length
+                        }{' '}
+                        Submitted · Streak{' '}
+                        {computeDailyMockStreak(
+                          dailyAttemptsByUid[inspectedUser.uid],
+                          todayDateKey
+                        )}
+                        d
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        {dailyAttemptsByUid[inspectedUser.uid]
+                          .slice(0, 4)
+                          .map((att) => (
+                            <div
+                              key={att.id}
+                              className="p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-white dark:bg-slate-900 space-y-0.5"
+                            >
+                              <div className="flex items-center justify-between font-mono text-[11px]">
+                                <span className="font-bold text-slate-900 dark:text-white">
+                                  {formatDateKeyReadable(att.dateKey)}
+                                </span>
+                                <span
+                                  className={
+                                    att.status === 'submitted'
+                                      ? 'font-bold text-emerald-700 dark:text-emerald-400'
+                                      : 'font-semibold text-amber-700 dark:text-amber-400'
+                                  }
+                                >
+                                  {att.status === 'submitted'
+                                    ? `${att.scorePercent}% (Hard ${att.hardAccuracyPercent}%)`
+                                    : `In Progress (${att.answeredCount}/${att.totalQuestions})`}
+                                </span>
+                              </div>
+                              {att.status === 'submitted' && (
+                                <div className="text-[11px] text-slate-600 dark:text-slate-400 truncate">
+                                  Focus: {att.weakestTopic || '—'} · +{att.xpAwarded} XP
+                                </div>
+                              )}
+                            </div>
+                          ))}
                       </div>
                     </div>
                   )}

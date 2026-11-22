@@ -28,15 +28,20 @@ export const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
 // In-memory only (never localStorage or sessionStorage)
 let cachedGmailAccessToken: string | null = null;
 let cachedGmailTokenExpiresAtMs = 0;
+let cachedGmailTokenUid: string | null = null;
 
 export function clearCachedGmailToken(): void {
   cachedGmailAccessToken = null;
   cachedGmailTokenExpiresAtMs = 0;
+  cachedGmailTokenUid = null;
 }
 
 export function getCachedGmailToken(): string | null {
   if (!cachedGmailAccessToken) return null;
-  if (Date.now() >= cachedGmailTokenExpiresAtMs) {
+  if (
+    Date.now() >= cachedGmailTokenExpiresAtMs ||
+    (cachedGmailTokenUid && auth.currentUser?.uid !== cachedGmailTokenUid)
+  ) {
     clearCachedGmailToken();
     return null;
   }
@@ -44,7 +49,7 @@ export function getCachedGmailToken(): string | null {
 }
 
 onAuthStateChanged(auth, (u) => {
-  if (!u) {
+  if (!u || (cachedGmailTokenUid && u.uid !== cachedGmailTokenUid)) {
     clearCachedGmailToken();
   }
 });
@@ -117,6 +122,7 @@ export async function requestGmailSendToken(
   }
 
   cachedGmailAccessToken = token;
+  cachedGmailTokenUid = result.user.uid;
   // Google OAuth access tokens typically live 60 minutes; refresh proactively at 50m
   cachedGmailTokenExpiresAtMs = Date.now() + 50 * 60 * 1000;
   return token;
