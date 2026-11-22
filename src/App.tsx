@@ -1088,17 +1088,17 @@ function PictureConnectWorkspace() {
         }}
       />
 
-      <EmailCredentialModal
-        user={user}
-        request={emailRequest}
-        onClose={() => setEmailRequest(null)}
-      />
-
       <AdminDashboard
         open={adminOpen}
         onClose={() => setAdminOpen(false)}
         currentUser={user}
         onRequestEmail={setEmailRequest}
+      />
+
+      <EmailCredentialModal
+        user={user}
+        request={emailRequest}
+        onClose={() => setEmailRequest(null)}
       />
     </div>
   );

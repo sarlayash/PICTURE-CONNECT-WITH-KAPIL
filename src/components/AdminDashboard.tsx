@@ -494,6 +494,63 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   }, [feedbackItems]);
 
+  const todayDateKey = getTodayDateKey();
+  const availableDailyDates = useMemo(() => {
+    const set = new Set<string>([todayDateKey]);
+    for (const a of dailyMockAttempts) {
+      if (a.dateKey) set.add(a.dateKey);
+    }
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [dailyMockAttempts, todayDateKey]);
+
+  const dailyAttemptsByUid = useMemo(() => {
+    const map: Record<string, DailyMockAttemptDoc[]> = {};
+    for (const a of dailyMockAttempts) {
+      if (!map[a.ownerId]) map[a.ownerId] = [];
+      map[a.ownerId].push(a);
+    }
+    return map;
+  }, [dailyMockAttempts]);
+
+  const selectedDailyPaper = useMemo(
+    () => generateDailyMockPaper(dailyMockDateFilter),
+    [dailyMockDateFilter]
+  );
+
+  const selectedDateAttemptsByUid = useMemo(() => {
+    const map: Record<string, DailyMockAttemptDoc> = {};
+    for (const a of dailyMockAttempts) {
+      if (a.dateKey === dailyMockDateFilter) {
+        map[a.ownerId] = a;
+      }
+    }
+    return map;
+  }, [dailyMockAttempts, dailyMockDateFilter]);
+
+  const dailySubmittedForDate = useMemo(
+    () =>
+      Object.values(selectedDateAttemptsByUid).filter(
+        (a) => a.status === 'submitted'
+      ),
+    [selectedDateAttemptsByUid]
+  );
+
+  const dailyTodaySubmittedCount = useMemo(
+    () =>
+      dailyMockAttempts.filter(
+        (a) => a.dateKey === todayDateKey && a.status === 'submitted'
+      ).length,
+    [dailyMockAttempts, todayDateKey]
+  );
+
+  const dailyPendingLearners = useMemo(
+    () =>
+      records.filter(
+        (r) => selectedDateAttemptsByUid[r.uid]?.status !== 'submitted'
+      ),
+    [records, selectedDateAttemptsByUid]
+  );
+
   if (!open) return null;
 
   const handleCredentialLogin = (e: React.FormEvent) => {
@@ -822,63 +879,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
-
-  const todayDateKey = getTodayDateKey();
-  const availableDailyDates = useMemo(() => {
-    const set = new Set<string>([todayDateKey]);
-    for (const a of dailyMockAttempts) {
-      if (a.dateKey) set.add(a.dateKey);
-    }
-    return Array.from(set).sort((a, b) => b.localeCompare(a));
-  }, [dailyMockAttempts, todayDateKey]);
-
-  const dailyAttemptsByUid = useMemo(() => {
-    const map: Record<string, DailyMockAttemptDoc[]> = {};
-    for (const a of dailyMockAttempts) {
-      if (!map[a.ownerId]) map[a.ownerId] = [];
-      map[a.ownerId].push(a);
-    }
-    return map;
-  }, [dailyMockAttempts]);
-
-  const selectedDailyPaper = useMemo(
-    () => generateDailyMockPaper(dailyMockDateFilter),
-    [dailyMockDateFilter]
-  );
-
-  const selectedDateAttemptsByUid = useMemo(() => {
-    const map: Record<string, DailyMockAttemptDoc> = {};
-    for (const a of dailyMockAttempts) {
-      if (a.dateKey === dailyMockDateFilter) {
-        map[a.ownerId] = a;
-      }
-    }
-    return map;
-  }, [dailyMockAttempts, dailyMockDateFilter]);
-
-  const dailySubmittedForDate = useMemo(
-    () =>
-      Object.values(selectedDateAttemptsByUid).filter(
-        (a) => a.status === 'submitted'
-      ),
-    [selectedDateAttemptsByUid]
-  );
-
-  const dailyTodaySubmittedCount = useMemo(
-    () =>
-      dailyMockAttempts.filter(
-        (a) => a.dateKey === todayDateKey && a.status === 'submitted'
-      ).length,
-    [dailyMockAttempts, todayDateKey]
-  );
-
-  const dailyPendingLearners = useMemo(
-    () =>
-      records.filter(
-        (r) => selectedDateAttemptsByUid[r.uid]?.status !== 'submitted'
-      ),
-    [records, selectedDateAttemptsByUid]
-  );
 
   const dailyAvgOverall =
     dailySubmittedForDate.length > 0
