@@ -7,7 +7,11 @@ import {
   Sparkles,
   Trophy,
 } from 'lucide-react';
-import { VIDEO_CASE_STUDIES, VideoCaseStudy } from '../data/workshopData';
+import {
+  PROMOTIONAL_SHORT_VIDEOS,
+  VIDEO_CASE_STUDIES,
+  VideoCaseStudy,
+} from '../data/workshopData';
 import { ConnectionPostDoc } from '../services/firestoreService';
 
 interface VideoChallengesSectionProps {
@@ -70,47 +74,175 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
   const isLanding = mode === 'landing';
 
   return (
-    <section
-      id="video-case-challenges"
-      className="space-y-5"
-      aria-labelledby="video-challenges-heading"
-    >
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
-        <div>
-          <div
-            className={`text-xs font-mono font-semibold ${
-              isLanding ? 'text-sky-400' : 'text-blue-700 dark:text-blue-400'
-            }`}
-          >
-            WATCH DIRECTLY IN PORTAL · REAL-WORLD FILM CHALLENGES
-          </div>
-          <h2
-            id="video-challenges-heading"
-            className={`font-display text-2xl sm:text-3xl font-bold mt-1 ${
-              isLanding ? 'text-white' : 'text-slate-950 dark:text-white'
-            }`}
-          >
-            Video Case Studies &amp; Leadership Challenges
-          </h2>
-          <p
-            className={`text-sm mt-1 max-w-3xl ${
-              isLanding ? 'text-slate-300' : 'text-slate-600 dark:text-slate-400'
-            }`}
-          >
-            Watch both curated films directly inside the workspace, observe the human details others overlook, and complete each leadership challenge.
-          </p>
-        </div>
-        <span
-          className={`text-xs font-mono shrink-0 tabular-nums ${
-            isLanding ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'
-          }`}
+    <div id="video-case-challenges" className="space-y-14">
+      {isLanding && (
+        <section
+          id="promotional-videos"
+          className="space-y-5"
+          aria-labelledby="promo-videos-heading"
         >
-          2 Case Films · +150 Bonus XP
-        </span>
-      </div>
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+            <div>
+              <div className="text-xs font-mono font-semibold text-amber-400">
+                WATCH DIRECTLY ON LANDING PAGE · SARLAYASH MISSION | POWERED BY KAPIL
+              </div>
+              <h2
+                id="promo-videos-heading"
+                className="font-display text-2xl sm:text-3xl font-bold text-white mt-1"
+              >
+                Official Promotional Reels — EMPLOYABILITY UNIVERSE
+              </h2>
+              <p className="text-sm text-slate-300 mt-1 max-w-3xl">
+                Preview the mission, placement tracks, AI labs, and recruiter-ready credentials in 4 quick official reels right here before signing in.
+              </p>
+            </div>
+            <span className="text-xs font-mono text-slate-400 shrink-0 tabular-nums">
+              {PROMOTIONAL_SHORT_VIDEOS.length} Official Reels · YouTube Shorts
+            </span>
+          </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-        {VIDEO_CASE_STUDIES.map((video) => {
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
+            {PROMOTIONAL_SHORT_VIDEOS.map((promo) => (
+              <article
+                key={promo.id}
+                className="rounded-2xl border border-[#1E3563] bg-[#0B1733] overflow-hidden flex flex-col justify-between"
+              >
+                <div
+                  className={`h-1 w-full bg-gradient-to-r ${promo.accentGradient}`}
+                  aria-hidden="true"
+                />
+                <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
+                  <div className="space-y-3.5">
+                    {/* Unboxed Metadata Strip */}
+                    <div className="flex items-center justify-between gap-2 text-xs text-slate-400">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-mono font-bold text-amber-400 shrink-0">
+                          REEL {promo.number}
+                        </span>
+                        <span aria-hidden="true">·</span>
+                        <span className="truncate">{promo.category}</span>
+                      </div>
+                      <a
+                        href={promo.youtubeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-slate-400 hover:text-white transition-colors whitespace-nowrap shrink-0"
+                      >
+                        <span>Shorts</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+
+                    <div>
+                      <h3 className="font-display text-base font-bold text-white leading-snug">
+                        {promo.title}
+                      </h3>
+                      <p className="text-[11px] text-slate-300 mt-0.5">
+                        {promo.subtitle}
+                      </p>
+                    </div>
+
+                    {/* Inline Vertical 9:16 YouTube Shorts Player */}
+                    <div className="aspect-[9/16] w-full overflow-hidden rounded-xl border border-[#1E335C] bg-slate-950">
+                      <iframe
+                        src={`https://www.youtube.com/embed/${promo.youtubeId}?rel=0&modestbranding=1`}
+                        title={`${promo.title} — EMPLOYABILITY UNIVERSE With Kapil Promotional Reel`}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        allowFullScreen
+                        className="w-full h-full border-0 block"
+                      />
+                    </div>
+
+                    {/* Matching Brief & Key Highlights */}
+                    <div className="rounded-xl border border-[#1E335C] bg-[#071127] p-3.5 space-y-2.5">
+                      <div className="font-display text-xs font-bold text-white">
+                        {promo.highlightTitle}
+                      </div>
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        {promo.summary}
+                      </p>
+                      <div className="space-y-1.5 pt-2 border-t border-[#1E335C]/80">
+                        {promo.keyPoints.map((pt, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-start gap-2 text-[11px] text-slate-200 leading-relaxed"
+                          >
+                            <span className="font-mono font-bold text-sky-400 shrink-0">
+                              0{idx + 1}
+                            </span>
+                            <span>{pt}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="text-[11px] font-medium text-slate-400 pt-1">
+                        Takeaway: {promo.takeaway}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Matching Action Footer */}
+                  <div className="pt-1 flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-slate-400 flex items-center gap-1.5 min-w-0">
+                      <Play className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span className="truncate">Official Preview</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={onRequestSignIn}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                    >
+                      <Trophy className="w-3.5 h-3.5" />
+                      <span>Join Free</span>
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section
+        className="space-y-5"
+        aria-labelledby="video-challenges-heading"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+          <div>
+            <div
+              className={`text-xs font-mono font-semibold ${
+                isLanding ? 'text-sky-400' : 'text-blue-700 dark:text-blue-400'
+              }`}
+            >
+              WATCH DIRECTLY IN PORTAL · REAL-WORLD FILM CHALLENGES
+            </div>
+            <h2
+              id="video-challenges-heading"
+              className={`font-display text-2xl sm:text-3xl font-bold mt-1 ${
+                isLanding ? 'text-white' : 'text-slate-950 dark:text-white'
+              }`}
+            >
+              Video Case Studies &amp; Leadership Challenges
+            </h2>
+            <p
+              className={`text-sm mt-1 max-w-3xl ${
+                isLanding ? 'text-slate-300' : 'text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              Watch both curated films directly inside the workspace, observe the human details others overlook, and complete each leadership challenge.
+            </p>
+          </div>
+          <span
+            className={`text-xs font-mono shrink-0 tabular-nums ${
+              isLanding ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'
+            }`}
+          >
+            2 Case Films · +150 Bonus XP
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+          {VIDEO_CASE_STUDIES.map((video) => {
           const isDone = completedVideoIds.includes(video.id);
           const videoPosts = sharedVideoPosts.filter(
             (post) => post.promptRef === video.id
@@ -383,7 +515,8 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
             </article>
           );
         })}
-      </div>
-    </section>
+        </div>
+      </section>
+    </div>
   );
 };

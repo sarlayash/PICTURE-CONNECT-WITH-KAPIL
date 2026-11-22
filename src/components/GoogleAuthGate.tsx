@@ -149,7 +149,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-400/40 bg-rose-500/15 hover:bg-rose-500/25 text-xs font-semibold text-rose-200 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                   >
                     <Play className="w-3.5 h-3.5" />
-                    <span>Watch 2 Films</span>
+                    <span>Watch 6 Videos</span>
                   </button>
                 </div>
               </div>

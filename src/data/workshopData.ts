@@ -220,6 +220,96 @@ export const VIDEO_CASE_STUDIES: VideoCaseStudy[] = [
   },
 ];
 
+export interface PromotionalShortVideo {
+  id: string;
+  number: string;
+  title: string;
+  subtitle: string;
+  category: string;
+  youtubeId: string;
+  youtubeUrl: string;
+  accentGradient: string;
+  highlightTitle: string;
+  summary: string;
+  keyPoints: string[];
+  takeaway: string;
+}
+
+export const PROMOTIONAL_SHORT_VIDEOS: PromotionalShortVideo[] = [
+  {
+    id: 'promo_short_01',
+    number: '01',
+    title: 'Employability Universe Spotlight',
+    subtitle: 'Powered By SarlaYash Mission · Official Promo',
+    category: 'Mission Preview',
+    youtubeId: '2h3wZldXcYo',
+    youtubeUrl: 'https://www.youtube.com/shorts/2h3wZldXcYo',
+    accentGradient: 'from-sky-400 via-blue-500 to-indigo-500',
+    highlightTitle: 'One Portal · Complete Career Readiness',
+    summary:
+      'Discover how EMPLOYABILITY UNIVERSE With Kapil brings visual thinking, communication, coding, and proctored assessments under one roof.',
+    keyPoints: [
+      '10 Progressive Picture Connect Levels with placement scenarios',
+      'Live Daily 60-Min Hard Mock & Final 1000 XP Capstone',
+    ],
+    takeaway: 'Built to turn campus learners into confident, placement-ready professionals.',
+  },
+  {
+    id: 'promo_short_02',
+    number: '02',
+    title: 'Skill Ecosystem & Placement Edge',
+    subtitle: 'Powered By SarlaYash Mission · Official Promo',
+    category: 'Placement Tracks',
+    youtubeId: 'XZFsrTkoRoI',
+    youtubeUrl: 'https://www.youtube.com/shorts/XZFsrTkoRoI',
+    accentGradient: 'from-violet-500 via-fuchsia-500 to-pink-500',
+    highlightTitle: '16 Core Technical & Verbal Tracks',
+    summary:
+      'Master Aptitude, Global English, C, C++, Java, Python, DSA, Excel, Power BI, DBMS & Cloud with crisp notes and FAANG/MNC solved problems.',
+    keyPoints: [
+      '255+ graded MCQs with structured mentor explanations',
+      'Instant progress tracking and automatic completed-section focus',
+    ],
+    takeaway: 'Structured daily practice outperforms last-minute interview cramming.',
+  },
+  {
+    id: 'promo_short_03',
+    number: '03',
+    title: 'See Beyond. Think Beyond.',
+    subtitle: 'Powered By SarlaYash Mission · Official Promo',
+    category: 'Visual & AI Thinking',
+    youtubeId: 't__XYoIySLw',
+    youtubeUrl: 'https://www.youtube.com/shorts/t__XYoIySLw',
+    accentGradient: 'from-emerald-400 via-teal-500 to-cyan-500',
+    highlightTitle: 'Communication, Negotiation & AI Lab',
+    summary:
+      'Go beyond rote theory with Indianism fixes, STAR Interview & GD labs, Smart Buyer Negotiation cases, and AI Picture Connect briefs.',
+    keyPoints: [
+      '25 AI visual challenges scored on a 100-mark SCARE rubric',
+      'Real-world negotiation role-plays and 50 buyer-psychology MCQs',
+    ],
+    takeaway: 'Clarity of thought and executive presence win interviews and boardrooms.',
+  },
+  {
+    id: 'promo_short_04',
+    number: '04',
+    title: 'Badges, Certificates & LOR',
+    subtitle: 'Powered By SarlaYash Mission · Official Promo',
+    category: 'Verified Credentials',
+    youtubeId: '5bgJKhPEqzg',
+    youtubeUrl: 'https://www.youtube.com/shorts/5bgJKhPEqzg',
+    accentGradient: 'from-amber-400 via-orange-500 to-rose-500',
+    highlightTitle: 'Proof of Mastery for Recruiters',
+    summary:
+      'Earn downloadable 1200×1200 PNG badges, 6 verified certificates, and a personalized Placement Letter of Recommendation (PDF).',
+    keyPoints: [
+      'One-click email delivery of badges, certificates & LOR',
+      'Verified Certificate IDs linked to your Google learner profile',
+    ],
+    takeaway: 'Start free with Google Sign-In and showcase verifiable employability credentials.',
+  },
+];
+
 export interface AcademyCategory {
   id:
     | 'picture-connect'
