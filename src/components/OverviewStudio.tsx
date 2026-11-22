@@ -1,13 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ArrowRight,
   Award,
   CheckCircle2,
   Clock,
-  Compass,
   Eye,
   EyeOff,
-  FileCheck2,
   Flame,
   Lock,
   Plus,
@@ -20,6 +18,7 @@ import {
   CENTRAL_CONCEPT_PAIRS,
   getLearnerRank,
   LEVELS,
+  VIDEO_CASE_STUDIES,
   VideoCaseStudy,
   WORKSHOP_META,
 } from '../data/workshopData';
@@ -32,18 +31,16 @@ import { LiveClock } from './LiveClock';
 import { SmartImage } from './SmartImage';
 import { VisualArtwork } from './VisualArtwork';
 import { VideoChallengesSection } from './VideoChallengesSection';
-
 import { CareerCategoryId } from '../data/careerSkillsData';
-import {
-  getCategoryTheme,
-  getLevelTheme,
-  getTrackTheme,
-} from '../data/themeColors';
+import { getLevelTheme, getTrackTheme } from '../data/themeColors';
 import {
   MASTER_TRACKS,
   MasterPillarId,
   MasterTrackId,
 } from '../data/masterUniverseTypes';
+import { MasterTrackScoreSummary } from '../data/masterUniverseData';
+import { SectionAuditReport } from '../services/notificationService';
+import { LANDING_SHOWCASE_IMAGES, PHOTO_ASSETS } from '../data/imageAssets';
 
 export type AppView =
   | 'journey'
@@ -57,6 +54,21 @@ export type AppView =
   | 'final'
   | 'achievements'
   | 'profile';
+
+type HubCategoryFilter =
+  | 'all'
+  | 'visual_ai'
+  | 'communication'
+  | 'aptitude_verbal'
+  | 'coding_cloud'
+  | 'assessments';
+
+interface CareerCategoryStat {
+  answered: number;
+  correct: number;
+  total: number;
+  accuracyPct: number;
+}
 
 interface OverviewStudioProps {
   learnerName: string;
@@ -91,6 +103,10 @@ interface OverviewStudioProps {
   dailyMockHardPct?: number;
   dailyMockStreak?: number;
   dailyMockPaperCode?: string;
+  careerCategoryStats?: Record<CareerCategoryId, CareerCategoryStat>;
+  masterTrackStats?: Record<MasterTrackId, MasterTrackScoreSummary>;
+  sectionAudit?: SectionAuditReport;
+  totalCombinedXp?: number;
   onNavigateView: (
     view: AppView,
     levelNum?: number,
@@ -105,13 +121,36 @@ interface OverviewStudioProps {
     explanation: string;
     authorName?: string;
   }[];
-  onAddConnection: (picture: string, concept: string, explanation: string) => Promise<void>;
+  onAddConnection: (
+    picture: string,
+    concept: string,
+    explanation: string
+  ) => Promise<void>;
   sharedVideoPosts: ConnectionPostDoc[];
   onSubmitVideoChallenge: (
     video: VideoCaseStudy,
     reflection: string
   ) => Promise<{ newlyAwardedXp: number; newlyUnlockedBadges: string[] }>;
 }
+
+interface HubSectionCard {
+  id: string;
+  code: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  progressText: string;
+  percent: number;
+  completed: boolean;
+  locked?: boolean;
+  accentBar: string;
+  accentText: string;
+  image?: string;
+  imageAlt?: string;
+  onOpen: () => void;
+}
+
+const VIDEO_IDS_SET = new Set(VIDEO_CASE_STUDIES.map((v) => v.id));
 
 export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   learnerName,
@@ -124,17 +163,12 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   shopXp = 0,
   shopRoleplayScore = 0,
   careerAnswered = 0,
-  careerCorrect = 0,
   careerXp = 0,
-  indianismScore = '0/15 MCQs',
-  interviewScore = '0/15 MCQs',
-  gdScore = '0/15 MCQs',
+  indianismScore = '0/15 Correct',
+  interviewScore = '0/15 Correct',
+  gdScore = '0/15 Correct',
   masterAnswered = 0,
-  masterCorrect = 0,
   masterXp = 0,
-  aptitudeGrammarScore = '0/70 Correct',
-  codingDsaScore = '0/50 Correct',
-  dataCloudScore = '0/40 Correct',
   finalStatus = 'not_started',
   finalXp = 0,
   finalPassed = false,
@@ -146,14 +180,26 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   dailyMockHardPct = 0,
   dailyMockStreak = 0,
   dailyMockPaperCode = '',
+  careerCategoryStats,
+  masterTrackStats,
+  sectionAudit,
+  totalCombinedXp,
   onNavigateView,
   learnerConnections,
   onAddConnection,
   sharedVideoPosts,
   onSubmitVideoChallenge,
 }) => {
-  const [selectedPairId, setSelectedPairId] = useState(CENTRAL_CONCEPT_PAIRS[1].id);
-  const [revealedIds, setRevealedIds] = useState<string[]>([CENTRAL_CONCEPT_PAIRS[1].id]);
+  const [selectedPairId, setSelectedPairId] = useState(
+    CENTRAL_CONCEPT_PAIRS[1].id
+  );
+  const [revealedIds, setRevealedIds] = useState<string[]>([
+    CENTRAL_CONCEPT_PAIRS[1].id,
+  ]);
+  const [categoryFilter, setCategoryFilter] =
+    useState<HubCategoryFilter>('all');
+  const [hideCompleted, setHideCompleted] = useState(false);
+
   const [customPicture, setCustomPicture] = useState('');
   const [customConcept, setCustomConcept] = useState('');
   const [customReason, setCustomReason] = useState('');
@@ -161,15 +207,343 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
   const activePair =
-    CENTRAL_CONCEPT_PAIRS.find((p) => p.id === selectedPairId) ?? CENTRAL_CONCEPT_PAIRS[0];
+    CENTRAL_CONCEPT_PAIRS.find((p) => p.id === selectedPairId) ??
+    CENTRAL_CONCEPT_PAIRS[0];
   const isRevealed = revealedIds.includes(activePair.id);
 
   const rank = getLearnerRank(progress.xp);
   const nextLevel =
-    LEVELS.find((lvl) => !progress.completedLevels.includes(lvl.level))?.level ?? 1;
+    LEVELS.find((lvl) => !progress.completedLevels.includes(lvl.level))?.level ??
+    1;
   const completedCount = progress.completedLevels.length;
   const maxLevelXp = LEVELS.reduce((acc, l) => acc + l.xpReward, 0);
-  const completionPct = Math.round((completedCount / LEVELS.length) * 100);
+
+  const combinedXp =
+    totalCombinedXp ??
+    progress.xp + advXp + shopXp + careerXp + masterXp + finalXp;
+
+  const overallPct =
+    sectionAudit?.overallCompletionPct ??
+    Math.round((completedCount / LEVELS.length) * 100);
+  const nextRecommendedSection = sectionAudit?.missingOrIncompleteItems[0];
+
+  const videoDoneCount = progress.completedWheelPrompts.filter((id) =>
+    VIDEO_IDS_SET.has(id)
+  ).length;
+  const wheelTotalDone = progress.completedWheelPrompts.length;
+
+  const findCategoryImage = (catId: string): { src: string; alt: string } => {
+    const found = ACADEMY_CATEGORIES.find((c) => c.id === catId);
+    return found
+      ? { src: found.image, alt: found.imageAlt }
+      : {
+          src: PHOTO_ASSETS.crossroads.src,
+          alt: PHOTO_ASSETS.crossroads.alt,
+        };
+  };
+
+  // Build the 5 cleanly organized category groups with exact live completion status
+  const visualAiCards: HubSectionCard[] = useMemo(() => {
+    const pcImg = findCategoryImage('picture-connect');
+    const levelsPct = Math.round((completedCount / 10) * 100);
+    const advPct = Math.round((Math.min(25, advCompletedCount) / 25) * 100);
+    const wheelPct = Math.min(100, Math.round((wheelTotalDone / 5) * 100));
+    const videoPct = Math.round(
+      (videoDoneCount / Math.max(1, VIDEO_CASE_STUDIES.length)) * 100
+    );
+
+    return [
+      {
+        id: 'sec-picture-connect',
+        code: '01 · CORE STUDIO',
+        title: 'Picture Connect (Levels 1–10)',
+        subtitle: '100+ Placement Visual Scenarios · 10 Progressive Levels',
+        description:
+          'Sharpen executive observation, STAR storytelling, DSA whiteboard framing, workplace detective audits, and boardroom case analysis.',
+        progressText: `${completedCount}/10 Levels`,
+        percent: levelsPct,
+        completed: completedCount >= 10,
+        accentBar: 'from-blue-600 to-indigo-600',
+        accentText: 'text-blue-700 dark:text-blue-400',
+        image: pcImg.src,
+        imageAlt: pcImg.alt,
+        onOpen: () => onNavigateView('levels', nextLevel),
+      },
+      {
+        id: 'sec-ai-advanced',
+        code: '02 · AI STUDIO',
+        title: 'AI Picture Connect — Advanced Track',
+        subtitle: '5 Themes · 25 Visual Prompts · 100-Mark Auto-Scoring',
+        description:
+          'Generate and critique domain visuals across Products, Values, Abstract Thinking, Placements & Services with SCARE defense scoring.',
+        progressText: `${advCompletedCount}/25 Scored · ${advXp} XP`,
+        percent: advPct,
+        completed: advCompletedCount >= 25,
+        accentBar: 'from-violet-600 to-fuchsia-600',
+        accentText: 'text-violet-700 dark:text-violet-400',
+        image: PHOTO_ASSETS.placement_whiteboard_dsa.src,
+        imageAlt: PHOTO_ASSETS.placement_whiteboard_dsa.alt,
+        onOpen: () => onNavigateView('advanced'),
+      },
+      {
+        id: 'sec-wheel',
+        code: '03 · RAPID THINK',
+        title: 'Spinning Wheel Quick-Think Lab',
+        subtitle: 'Spontaneous Framing · Final Exam Prerequisite (5+)',
+        description:
+          'Spin real-time career prompts and publish crisp 60-second reflections to build spontaneous interview agility.',
+        progressText: `${Math.min(5, wheelTotalDone)}/5 Reflections`,
+        percent: wheelPct,
+        completed: wheelTotalDone >= 5,
+        accentBar: 'from-cyan-600 to-blue-600',
+        accentText: 'text-cyan-700 dark:text-cyan-400',
+        image: PHOTO_ASSETS.placement_career_fair.src,
+        imageAlt: PHOTO_ASSETS.placement_career_fair.alt,
+        onOpen: () => onNavigateView('wheel'),
+      },
+      {
+        id: 'sec-videos',
+        code: '04 · CASE FILMS',
+        title: 'Video Case Studies & Reflections',
+        subtitle: `${VIDEO_CASE_STUDIES.length} Curated Leadership Films · In-Portal Player`,
+        description:
+          'Watch curated real-world leadership films right inside the hub, spot unspoken human cues, and post your reflection.',
+        progressText: `${videoDoneCount}/${VIDEO_CASE_STUDIES.length} Films Done`,
+        percent: videoPct,
+        completed: videoDoneCount >= VIDEO_CASE_STUDIES.length,
+        accentBar: 'from-sky-600 to-indigo-500',
+        accentText: 'text-sky-700 dark:text-sky-400',
+        image: PHOTO_ASSETS.placement_waiting_corridor.src,
+        imageAlt: PHOTO_ASSETS.placement_waiting_corridor.alt,
+        onOpen: () => {
+          const el = document.getElementById('video-case-studies');
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        },
+      },
+    ];
+  }, [
+    completedCount,
+    advCompletedCount,
+    advXp,
+    wheelTotalDone,
+    videoDoneCount,
+    nextLevel,
+    onNavigateView,
+  ]);
+
+  const communicationCards: HubSectionCard[] = useMemo(() => {
+    const indStat = careerCategoryStats?.indianism;
+    const intStat = careerCategoryStats?.interview;
+    const gdStat = careerCategoryStats?.gd;
+    const indImg = findCategoryImage('indianism');
+    const intImg = findCategoryImage('interview-skills');
+    const gdImg = findCategoryImage('gd-skills');
+    const shopImg = findCategoryImage('shopping-negotiation');
+
+    const shopComplete = shopCompletedMcqs >= 50 && shopRoleplayScore >= 60;
+    const shopPct = Math.min(
+      100,
+      Math.round(
+        (Math.min(50, shopCompletedMcqs) / 50) * 80 +
+          (shopRoleplayScore >= 60 ? 20 : (shopRoleplayScore / 60) * 20)
+      )
+    );
+
+    return [
+      {
+        id: 'sec-indianism',
+        code: '01 · GLOBAL ENGLISH',
+        title: 'Indianism & Global Business English',
+        subtitle: '15 Graded MCQs · Executive Replacement Playbooks',
+        description:
+          'Replace regional filler habits with crisp international corporate English for MNC interviews and client calls.',
+        progressText: indStat
+          ? `${indStat.answered}/${indStat.total} MCQs · ${indStat.correct} Correct`
+          : indianismScore,
+        percent: indStat
+          ? Math.round((indStat.answered / indStat.total) * 100)
+          : 0,
+        completed: Boolean(indStat && indStat.answered >= indStat.total),
+        accentBar: 'from-sky-600 to-cyan-500',
+        accentText: 'text-sky-700 dark:text-sky-400',
+        image: indImg.src,
+        imageAlt: indImg.alt,
+        onOpen: () => onNavigateView('career', undefined, 'indianism'),
+      },
+      {
+        id: 'sec-interview',
+        code: '02 · INTERVIEW PREP',
+        title: 'Interview Skills & STAR Mastery',
+        subtitle: '15 Graded MCQs · Behavioral & Salary Playbooks',
+        description:
+          'Structure high-conviction HR, behavioral STAR, weakness, and compensation responses with mentor-tested frameworks.',
+        progressText: intStat
+          ? `${intStat.answered}/${intStat.total} MCQs · ${intStat.correct} Correct`
+          : interviewScore,
+        percent: intStat
+          ? Math.round((intStat.answered / intStat.total) * 100)
+          : 0,
+        completed: Boolean(intStat && intStat.answered >= intStat.total),
+        accentBar: 'from-indigo-600 to-blue-600',
+        accentText: 'text-indigo-700 dark:text-indigo-400',
+        image: intImg.src,
+        imageAlt: intImg.alt,
+        onOpen: () => onNavigateView('career', undefined, 'interview'),
+      },
+      {
+        id: 'sec-gd',
+        code: '03 · GROUP DISCUSSION',
+        title: 'Group Discussion (GD) Leadership',
+        subtitle: '15 Graded MCQs · PESTLE & Consensus Playbooks',
+        description:
+          'Master structured opening frames, respectful rebuttals, inclusive moderation, and crisp 30-second closing summaries.',
+        progressText: gdStat
+          ? `${gdStat.answered}/${gdStat.total} MCQs · ${gdStat.correct} Correct`
+          : gdScore,
+        percent: gdStat
+          ? Math.round((gdStat.answered / gdStat.total) * 100)
+          : 0,
+        completed: Boolean(gdStat && gdStat.answered >= gdStat.total),
+        accentBar: 'from-teal-600 to-emerald-500',
+        accentText: 'text-teal-700 dark:text-teal-400',
+        image: gdImg.src,
+        imageAlt: gdImg.alt,
+        onOpen: () => onNavigateView('career', undefined, 'gd'),
+      },
+      {
+        id: 'sec-shopping',
+        code: '04 · NEGOTIATION',
+        title: 'Shopping, Smart Buyer & Negotiation',
+        subtitle: '50 MCQs · 25 Domain Cases · 6 Buyer Types · Role-Play Lab',
+        description:
+          'Learn buyer psychology, annual deal-timing calendars, 8-layer deal stacking, anti-scam audits, and live negotiation role-plays.',
+        progressText: `${shopCompletedMcqs}/50 MCQs (${shopCorrectMcqs} Correct) · Lab ${shopRoleplayScore}/100`,
+        percent: shopPct,
+        completed: shopComplete,
+        accentBar: 'from-emerald-600 to-teal-500',
+        accentText: 'text-emerald-700 dark:text-emerald-400',
+        image: shopImg.src,
+        imageAlt: shopImg.alt,
+        onOpen: () => onNavigateView('shopping'),
+      },
+    ];
+  }, [
+    careerCategoryStats,
+    indianismScore,
+    interviewScore,
+    gdScore,
+    shopCompletedMcqs,
+    shopCorrectMcqs,
+    shopRoleplayScore,
+    onNavigateView,
+  ]);
+
+  const aptitudeVerbalTracks = useMemo(
+    () => MASTER_TRACKS.filter((t) => t.pillarId === 'aptitude_grammar'),
+    []
+  );
+
+  const codingCloudTracks = useMemo(
+    () =>
+      MASTER_TRACKS.filter(
+        (t) => t.pillarId === 'coding_dsa' || t.pillarId === 'data_cloud'
+      ),
+    []
+  );
+
+  const assessmentCards: HubSectionCard[] = useMemo(() => {
+    const dailyDone = dailyMockStatus === 'submitted';
+    const finalPct = finalPassed
+      ? 100
+      : finalStatus === 'submitted'
+      ? 60
+      : finalStatus === 'in_progress'
+      ? 50
+      : 0;
+
+    return [
+      {
+        id: 'sec-daily-mock',
+        code: dailyMockPaperCode
+          ? `01 · DAILY MOCK · ${dailyMockPaperCode}`
+          : '01 · DAILY MOCK',
+        title: 'Daily 60-Min All-Topics Mock Test',
+        subtitle: '40 MCQs · 50% Hard FAANG/MNC · Portal & Email Summary',
+        description:
+          'Daily rotating 60-minute exam covering all 7 Employability Universe pillars with instant topic analytics and email results.',
+        progressText: dailyDone
+          ? `Done Today · ${dailyMockScorePct}% (Hard ${dailyMockHardPct}%)`
+          : dailyMockStatus === 'in_progress'
+          ? 'Timer Running · Resume Now'
+          : `Ready · Streak ${dailyMockStreak}d`,
+        percent: dailyDone ? 100 : dailyMockStatus === 'in_progress' ? 50 : 0,
+        completed: dailyDone,
+        accentBar: 'from-rose-600 to-orange-500',
+        accentText: 'text-rose-700 dark:text-rose-400',
+        image: PHOTO_ASSETS.placement_aptitude_desk.src,
+        imageAlt: PHOTO_ASSETS.placement_aptitude_desk.alt,
+        onOpen: () => onNavigateView('daily_mock'),
+      },
+      {
+        id: 'sec-final-capstone',
+        code: '02 · PROCTORED CAPSTONE',
+        title: 'Final Capstone Assessment (1000 XP) & LOR',
+        subtitle: '90 Min · 10 Hard MCQs + 5 Visual Cases + Placement LOR PDF',
+        description:
+          'Proctored flagship evaluation unlocking the Official Final PNG Certificate and personalized Placement Letter of Recommendation.',
+        progressText:
+          finalStatus === 'submitted'
+            ? finalPassed
+              ? `Passed · ${finalXp}/1000 XP`
+              : `Attempt ${finalAttemptCount}/2 (${finalXp} XP)`
+            : finalEligible
+            ? 'Unlocked · Ready (90 Min)'
+            : `Locked · ${finalPrereqLabel} Prereqs`,
+        percent: finalPct,
+        completed: finalPassed,
+        locked: finalStatus === 'not_started' && !finalEligible,
+        accentBar: 'from-amber-600 to-orange-600',
+        accentText: 'text-amber-700 dark:text-amber-400',
+        image: LANDING_SHOWCASE_IMAGES.capstoneArena.src,
+        imageAlt: LANDING_SHOWCASE_IMAGES.capstoneArena.alt,
+        onOpen: () => onNavigateView('final'),
+      },
+      {
+        id: 'sec-credentials',
+        code: '03 · CREDENTIAL VAULT',
+        title: 'Badges, PNG Certificates & Email Delivery',
+        subtitle: `${progress.unlockedBadges.length}/${BADGES.length} Core Badges · ${shopBadgesCount}/10 Shop Badges · Direct Gmail`,
+        description:
+          'Download high-resolution PNG badges, verified certificates, and send credentials or LOR straight to your registered email.',
+        progressText: `${combinedXp.toLocaleString()} Total XP`,
+        percent: Math.round(
+          (progress.unlockedBadges.length / Math.max(1, BADGES.length)) * 100
+        ),
+        completed: false,
+        accentBar: 'from-slate-800 to-blue-700',
+        accentText: 'text-slate-800 dark:text-slate-200',
+        image: LANDING_SHOWCASE_IMAGES.credentialsShowcase.src,
+        imageAlt: LANDING_SHOWCASE_IMAGES.credentialsShowcase.alt,
+        onOpen: () => onNavigateView('achievements'),
+      },
+    ];
+  }, [
+    dailyMockStatus,
+    dailyMockPaperCode,
+    dailyMockScorePct,
+    dailyMockHardPct,
+    dailyMockStreak,
+    finalStatus,
+    finalPassed,
+    finalXp,
+    finalAttemptCount,
+    finalEligible,
+    finalPrereqLabel,
+    progress.unlockedBadges.length,
+    shopBadgesCount,
+    combinedXp,
+    onNavigateView,
+  ]);
 
   const toggleReveal = (id: string) => {
     setRevealedIds((prev) =>
@@ -179,7 +553,8 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
 
   const handleSaveCustom = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customPicture.trim() || !customConcept.trim() || !customReason.trim()) return;
+    if (!customPicture.trim() || !customConcept.trim() || !customReason.trim())
+      return;
     setSubmittingConnection(true);
     setConnectionError(null);
     try {
@@ -193,17 +568,265 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
       setCustomReason('');
     } catch (err) {
       setConnectionError(
-        err instanceof Error ? err.message : 'Unable to save connection. Please try again.'
+        err instanceof Error
+          ? err.message
+          : 'Unable to save connection. Please try again.'
       );
     } finally {
       setSubmittingConnection(false);
     }
   };
 
+  const renderSectionCard = (card: HubSectionCard) => {
+    const done = card.completed;
+    return (
+      <button
+        key={card.id}
+        type="button"
+        onClick={card.onOpen}
+        className={`text-left rounded-2xl border overflow-hidden flex flex-col justify-between transition-all duration-200 cursor-pointer group ${
+          done
+            ? 'border-slate-200 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-900/45 opacity-70 hover:opacity-95'
+            : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-400 dark:hover:border-slate-600 hover:shadow-sm'
+        }`}
+      >
+        <div>
+          <div
+            className={`h-1 w-full ${
+              done
+                ? 'bg-slate-300 dark:bg-slate-700'
+                : `bg-gradient-to-r ${card.accentBar}`
+            }`}
+            aria-hidden="true"
+          />
+          {card.image && (
+            <div className="aspect-[16/9] w-full overflow-hidden border-b border-slate-100 dark:border-slate-800 bg-slate-100 dark:bg-slate-950">
+              <SmartImage
+                src={card.image}
+                alt={card.imageAlt || card.title}
+                fallbackTitle={card.title}
+                fallbackSubtitle={card.subtitle}
+                className={`w-full h-full object-cover transition-all duration-300 ${
+                  done
+                    ? 'grayscale opacity-55 group-hover:grayscale-0 group-hover:opacity-85'
+                    : 'group-hover:scale-[1.02]'
+                }`}
+              />
+            </div>
+          )}
+
+          <div className="p-5 space-y-2.5">
+            <div className="flex items-center justify-between gap-2 text-[11px] font-mono">
+              <span
+                className={
+                  done
+                    ? 'font-semibold text-slate-400 dark:text-slate-500'
+                    : `font-bold ${card.accentText}`
+                }
+              >
+                {card.code}
+              </span>
+              {done ? (
+                <span className="inline-flex items-center gap-1 font-semibold text-slate-500 dark:text-slate-400">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Completed</span>
+                </span>
+              ) : card.locked ? (
+                <span className="inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-400">
+                  <Lock className="w-3 h-3" />
+                  <span>Prerequisites</span>
+                </span>
+              ) : (
+                <span className="text-slate-500 dark:text-slate-400 tabular-nums">
+                  {card.percent}%
+                </span>
+              )}
+            </div>
+
+            <h3
+              className={`font-display text-base font-bold leading-snug ${
+                done
+                  ? 'text-slate-500 dark:text-slate-400 line-through decoration-slate-400/70'
+                  : 'text-slate-950 dark:text-white'
+              }`}
+            >
+              {card.title}
+            </h3>
+
+            <p
+              className={`text-xs leading-relaxed ${
+                done
+                  ? 'text-slate-500 dark:text-slate-500'
+                  : 'text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              {card.description}
+            </p>
+          </div>
+        </div>
+
+        <div className="px-5 pb-4 pt-2 space-y-2.5">
+          <div className="h-1.5 w-full rounded-full bg-slate-200/80 dark:bg-slate-800 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${
+                done
+                  ? 'bg-slate-400 dark:bg-slate-600'
+                  : `bg-gradient-to-r ${card.accentBar}`
+              }`}
+              style={{ width: `${Math.min(100, Math.max(0, card.percent))}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 tabular-nums truncate">
+              {card.progressText}
+            </span>
+            <span
+              className={`inline-flex items-center gap-1 font-semibold whitespace-nowrap shrink-0 ${
+                done
+                  ? 'text-slate-500 dark:text-slate-400'
+                  : card.accentText
+              }`}
+            >
+              <span>{done ? 'Review' : 'Open'}</span>
+              <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </div>
+        </div>
+      </button>
+    );
+  };
+
+  const renderMasterTrackCard = (track: (typeof MASTER_TRACKS)[number]) => {
+    const stat = masterTrackStats?.[track.id];
+    const done = Boolean(stat?.completed);
+    const answered = stat?.answered ?? 0;
+    const correct = stat?.correct ?? 0;
+    const total = stat?.total ?? 10;
+    const pct = Math.round((answered / Math.max(1, total)) * 100);
+    const tTheme = getTrackTheme(track.id);
+
+    if (hideCompleted && done) return null;
+
+    return (
+      <button
+        key={track.id}
+        type="button"
+        onClick={() =>
+          onNavigateView(
+            'universe',
+            undefined,
+            undefined,
+            track.pillarId,
+            track.id
+          )
+        }
+        className={`text-left rounded-xl border overflow-hidden flex flex-col justify-between transition-all cursor-pointer group ${
+          done
+            ? 'border-slate-200 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-900/45 opacity-70 hover:opacity-95'
+            : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-400 dark:hover:border-slate-600'
+        }`}
+      >
+        <div
+          className={`h-1 w-full ${
+            done
+              ? 'bg-slate-300 dark:bg-slate-700'
+              : `bg-gradient-to-r ${tTheme.topBar}`
+          }`}
+          aria-hidden="true"
+        />
+        <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2 text-[11px] font-mono">
+              <span
+                className={
+                  done
+                    ? 'font-semibold text-slate-400 dark:text-slate-500'
+                    : `font-bold ${tTheme.text}`
+                }
+              >
+                {track.number}
+              </span>
+              {done ? (
+                <span className="inline-flex items-center gap-1 font-semibold text-slate-500 dark:text-slate-400">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Done</span>
+                </span>
+              ) : (
+                <span className="text-slate-500 dark:text-slate-400 tabular-nums">
+                  {answered}/{total} MCQs
+                </span>
+              )}
+            </div>
+            <div
+              className={`font-display text-sm font-bold leading-snug ${
+                done
+                  ? 'text-slate-500 dark:text-slate-400 line-through decoration-slate-400/70'
+                  : 'text-slate-950 dark:text-white'
+              }`}
+            >
+              {track.shortTitle}
+            </div>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+              Live Notes · 10 FAANG/MNC Problems · 10 MCQs
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="h-1.5 w-full rounded-full bg-slate-200/80 dark:bg-slate-800 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  done ? 'bg-slate-400 dark:bg-slate-600' : tTheme.progressBar
+                }`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-400 tabular-nums">
+              <span>
+                {correct}/{total} Correct
+              </span>
+              <span className={done ? 'text-slate-400' : `${tTheme.text} font-semibold`}>
+                {done ? 'Review' : 'Study →'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </button>
+    );
+  };
+
+  const countCompleted = (items: { completed: boolean }[]) =>
+    items.filter((i) => i.completed).length;
+
+  const aptDoneCount = aptitudeVerbalTracks.filter(
+    (t) => masterTrackStats?.[t.id]?.completed
+  ).length;
+  const codeDoneCount = codingCloudTracks.filter(
+    (t) => masterTrackStats?.[t.id]?.completed
+  ).length;
+
+  const visibleVisualCards = hideCompleted
+    ? visualAiCards.filter((c) => !c.completed)
+    : visualAiCards;
+  const visibleCommCards = hideCompleted
+    ? communicationCards.filter((c) => !c.completed)
+    : communicationCards;
+  const visibleAssessCards = hideCompleted
+    ? assessmentCards.filter((c) => !c.completed)
+    : assessmentCards;
+
+  const categoryTabs: { id: HubCategoryFilter; label: string }[] = [
+    { id: 'all', label: 'All Categories (5)' },
+    { id: 'visual_ai', label: 'Visual & AI' },
+    { id: 'communication', label: 'Communication' },
+    { id: 'aptitude_verbal', label: 'Aptitude & Verbal' },
+    { id: 'coding_cloud', label: 'Coding & Cloud' },
+    { id: 'assessments', label: 'Assessments' },
+  ];
+
   return (
     <div className="space-y-12">
-      {/* Hero Split */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch pt-2">
+      {/* Executive Hero Split */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch pt-1">
         <div className="lg:col-span-7 flex flex-col justify-between space-y-6">
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -224,32 +847,31 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
             </h1>
 
             <p className="text-base text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
-              Welcome, <span className="font-semibold text-slate-900 dark:text-white">{learnerName}</span>.{' '}
-              Your one-stop mastery portal for{' '}
+              Welcome back,{' '}
               <span className="font-semibold text-slate-900 dark:text-white">
-                Picture Connect, Shopping &amp; Negotiation, Indianism, Interview &amp; GD, Aptitude, Grammar, Tenses, Punctuation, Idioms, C/C++/Java/Python/DSA, Excel, Power BI, DBMS &amp; Cloud Computing
-              </span>{' '}
-              — with Live Crisp Notes, 160 FAANG/MNC solved problems, 25 Smart Buyer domain cases, 42 PNG badges, certificates &amp; Placement LOR PDF.
+                {learnerName}
+              </span>
+              . Every topic is organized into 5 clear career categories below—completed sections automatically gray out so you always know what to tackle next without losing any scores, XP, or certificates.
             </p>
           </div>
 
-          {/* Learner Progress Strip */}
+          {/* Unified Readiness & Resume Strip */}
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Current Rank
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  Learner Rank · Core &amp; Universe Mastery
                 </div>
                 <div className="font-display text-lg font-bold text-slate-950 dark:text-white">
                   {rank.title}
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Total Earned XP
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  Combined Universe XP
                 </div>
                 <div className="font-mono text-xl font-bold tabular-nums text-blue-700 dark:text-blue-400">
-                  {progress.xp} XP
+                  {combinedXp.toLocaleString()} XP
                 </div>
               </div>
             </div>
@@ -257,18 +879,18 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
             <div className="space-y-1.5">
               <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-blue-600 dark:bg-blue-500 transition-all duration-500"
-                  style={{ width: `${Math.max(4, completionPct)}%` }}
+                  className="h-full rounded-full bg-blue-700 dark:bg-blue-500 transition-all duration-500"
+                  style={{ width: `${Math.max(4, overallPct)}%` }}
                 />
               </div>
-              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums">
                 <span>
-                  {completedCount}/10 Levels Complete ({completionPct}%)
+                  Portal Readiness: {overallPct}% ({sectionAudit?.completedCount ?? 0}/
+                  {sectionAudit?.totalCount ?? 8} Pillars Complete)
                 </span>
                 <span>
-                  {rank.nextTitle
-                    ? `${Math.max(0, (rank.nextXp ?? 0) - progress.xp)} XP to ${rank.nextTitle}`
-                    : 'Peak Scholar Rank Achieved'}
+                  {completedCount}/10 Visual Levels · {masterAnswered}/160 Tech MCQs ·{' '}
+                  {careerAnswered}/45 Career MCQs
                 </span>
               </div>
             </div>
@@ -276,31 +898,50 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <button
                 type="button"
-                onClick={() => onNavigateView('levels', nextLevel)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                onClick={() => {
+                  if (nextRecommendedSection) {
+                    onNavigateView(
+                      nextRecommendedSection.targetView as AppView,
+                      nextRecommendedSection.nextLevelNum
+                    );
+                  } else {
+                    onNavigateView('levels', nextLevel);
+                  }
+                }}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
                 <span>
-                  {completedCount === 10
-                    ? 'Review Levels 1–10'
-                    : `Start Level ${nextLevel}`}
+                  {nextRecommendedSection
+                    ? `Resume: ${nextRecommendedSection.title.split('(')[0].trim()}`
+                    : `Review Level ${nextLevel}`}
                 </span>
                 <ArrowRight className="w-4 h-4" />
               </button>
+
               <button
                 type="button"
-                onClick={() => onNavigateView('wheel')}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                onClick={() => onNavigateView('daily_mock')}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                  dailyMockStatus === 'submitted'
+                    ? 'border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400'
+                    : 'border-rose-300 dark:border-rose-800 bg-rose-50/70 dark:bg-rose-950/30 hover:bg-rose-100/70 dark:hover:bg-rose-950/60 text-rose-800 dark:text-rose-300'
+                }`}
               >
-                <Compass className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                <span>Spin the Wheel</span>
+                <Clock className="w-4 h-4" />
+                <span>
+                  {dailyMockStatus === 'submitted'
+                    ? `Daily Mock Done (${dailyMockScorePct}%)`
+                    : 'Daily 60m Mock'}
+                </span>
               </button>
+
               <button
                 type="button"
                 onClick={() => onNavigateView('achievements')}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
                 <Award className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                <span>PNG Certificate</span>
+                <span>Certificates</span>
               </button>
             </div>
           </div>
@@ -309,34 +950,44 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
         {/* Visual Concept Spotlight Card */}
         <div className="lg:col-span-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 flex flex-col justify-between space-y-4">
           <div className="aspect-[16/10] w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
-            <VisualArtwork id={activePair.artwork} photoKey={activePair.photoKey} />
+            <VisualArtwork
+              id={activePair.artwork}
+              photoKey={activePair.photoKey}
+            />
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
               <span>Central Concept Spotlight</span>
               <span className="font-mono tabular-nums">
-                {maxLevelXp} Level XP Available
+                {maxLevelXp} Core Level XP
               </span>
             </div>
             <div className="text-xl font-display font-bold text-slate-950 dark:text-white">
-              {activePair.pictureTitle} + {isRevealed ? activePair.abstractConcept : '???'}
+              {activePair.pictureTitle} +{' '}
+              {isRevealed ? activePair.abstractConcept : '???'}
             </div>
             <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
               {isRevealed
                 ? activePair.explanation
-                : 'Before revealing the answer, pause for 10 seconds: what deep leadership or career principle does this visual unlock?'}
+                : 'Before revealing the answer, pause for 10 seconds: what deep leadership or placement principle does this visual unlock?'}
             </p>
-            <div className="pt-1 flex items-center justify-between">
+            <div className="pt-1 flex items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={() => toggleReveal(activePair.id)}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-400 hover:underline cursor-pointer"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-400 hover:underline cursor-pointer whitespace-nowrap shrink-0"
               >
-                {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                <span>{isRevealed ? 'Hide Concept Meaning' : 'Reveal Concept Meaning'}</span>
+                {isRevealed ? (
+                  <EyeOff className="w-3.5 h-3.5" />
+                ) : (
+                  <Eye className="w-3.5 h-3.5" />
+                )}
+                <span>
+                  {isRevealed ? 'Hide Concept Meaning' : 'Reveal Concept Meaning'}
+                </span>
               </button>
-              <span className="text-xs text-slate-400 font-mono">
-                {activePair.reflectionPrompt.slice(0, 42)}...
+              <span className="text-xs text-slate-400 font-mono truncate">
+                {activePair.reflectionPrompt}
               </span>
             </div>
           </div>
@@ -346,434 +997,278 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
       {/* 4-Column Learner Snapshot */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 border-y border-slate-200 dark:border-slate-800 py-5">
         <div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">Levels Completed</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            Visual Levels Complete
+          </div>
           <div className="font-mono tabular-nums text-2xl font-bold text-slate-950 dark:text-white mt-1">
             {completedCount} / 10
           </div>
         </div>
         <div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">Badges Unlocked</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            MCQs Completed (All Tracks)
+          </div>
           <div className="font-mono tabular-nums text-2xl font-bold text-slate-950 dark:text-white mt-1">
-            {progress.unlockedBadges.length} / {BADGES.length}
+            {masterAnswered + careerAnswered + shopCompletedMcqs} / 255
           </div>
         </div>
         <div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">Wheel Spins</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+            <Flame className="w-3.5 h-3.5 text-amber-500" />
+            <span>Daily Mock Streak</span>
+          </div>
           <div className="font-mono tabular-nums text-2xl font-bold text-slate-950 dark:text-white mt-1">
-            {progress.wheelSpins}
+            {dailyMockStreak} day{dailyMockStreak === 1 ? '' : 's'}
           </div>
         </div>
         <div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">Certificate ID</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            Verified Certificate ID
+          </div>
           <div className="font-mono tabular-nums text-sm sm:text-base font-bold text-blue-700 dark:text-blue-400 mt-2">
             {progress.certificateId}
           </div>
         </div>
       </section>
 
-      {/* Daily 60-Min Mock Test Callout Banner */}
-      <section className="rounded-2xl border border-rose-200 dark:border-rose-900/60 bg-gradient-to-r from-rose-50 via-white to-indigo-50/70 dark:from-rose-950/30 dark:via-slate-900 dark:to-indigo-950/30 p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-        <div className="space-y-1.5 max-w-2xl">
-          <div className="flex flex-wrap items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">
-            <Clock className="w-3.5 h-3.5" />
-            <span>Daily 60-Min Mock Test · 50% Hard FAANG/MNC MCQs</span>
-            {dailyMockPaperCode && (
-              <>
-                <span aria-hidden="true">·</span>
-                <span>{dailyMockPaperCode}</span>
-              </>
-            )}
-          </div>
-          <h2 className="font-display text-xl sm:text-2xl font-bold text-slate-950 dark:text-white">
-            {dailyMockStatus === 'submitted'
-              ? `Today’s Daily Mock Completed — ${dailyMockScorePct}% Overall (Hard 50%: ${dailyMockHardPct}%)`
-              : dailyMockStatus === 'in_progress'
-              ? 'Today’s 60-Min Daily Mock Is In Progress — Resume Before Timer Ends'
-              : 'Take Today’s 60-Minute All-Topics Daily Mock Test (40 MCQs)'}
-          </h2>
-          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            Covers all 7 Employability Universe pillars — Aptitude, Grammar/Tenses/Punctuation/Idioms, C/C++/Java/Python/DSA, Excel/Power BI/DBMS/Cloud, Indianism/Interview/GD, Shopping/Negotiation, and Picture Connect/AI — with instant portal &amp; email results summary.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-4 shrink-0">
-          <div className="text-right font-mono tabular-nums">
-            <div className="text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center justify-end gap-1">
-              <Flame className="w-3.5 h-3.5 text-amber-500" />
-              <span>Daily Streak</span>
-            </div>
-            <div className="text-xl font-bold text-slate-950 dark:text-white">
-              {dailyMockStreak} day{dailyMockStreak === 1 ? '' : 's'}
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => onNavigateView('daily_mock')}
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap"
-          >
-            <span>
-              {dailyMockStatus === 'submitted'
-                ? 'View Results & Email Summary'
-                : dailyMockStatus === 'in_progress'
-                ? 'Resume 60-Min Mock'
-                : 'Launch Daily 60m Mock'}
-            </span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      </section>
-
-      {/* Interactive 9-Category Employability Universe Directory */}
-      <section className="space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+      {/* RE-ORGANIZED 5-CATEGORY EMPLOYABILITY DIRECTORY */}
+      <section className="space-y-8">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div>
-            <h2 className="font-display text-2xl font-bold text-slate-950 dark:text-white">
-              EMPLOYABILITY UNIVERSE — Choose Your Track
+            <h2 className="font-display text-2xl sm:text-3xl font-bold text-slate-950 dark:text-white">
+              Curriculum Organized by Category
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-              One-stop placement mastery across Communication, Aptitude, Grammar/Tenses/Punctuation/Idioms, C/C++/Java/Python/DSA, Excel, Power BI, DBMS, Cloud &amp; Capstone.
-            </p>
-          </div>
-          <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
-            9 Master Categories · Live Progress Sync
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {ACADEMY_CATEGORIES.map((cat) => {
-            const liveStatus =
-              cat.id === 'picture-connect'
-                ? `${completedCount}/10 Levels · ${advCompletedCount}/25 AI`
-                : cat.id === 'shopping-negotiation'
-                ? `${shopCompletedMcqs}/50 MCQs · ${shopBadgesCount}/10 Badges`
-                : cat.id === 'indianism'
-                ? indianismScore
-                : cat.id === 'interview-skills'
-                ? interviewScore
-                : cat.id === 'gd-skills'
-                ? gdScore
-                : cat.id === 'aptitude-grammar'
-                ? aptitudeGrammarScore
-                : cat.id === 'coding-dsa'
-                ? codingDsaScore
-                : cat.id === 'data-cloud'
-                ? dataCloudScore
-                : finalStatus === 'submitted'
-                ? finalPassed
-                  ? `Passed · ${finalXp} XP`
-                  : `Attempt ${finalAttemptCount}/2 (${finalXp} XP)`
-                : finalEligible
-                ? 'Capstone Ready · 90 Min'
-                : `${finalPrereqLabel} Prereqs · Video Films`;
-
-            const theme = getCategoryTheme(cat.id);
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() =>
-                  onNavigateView(
-                    cat.targetView,
-                    undefined,
-                    cat.careerTab,
-                    cat.masterPillar
-                  )
-                }
-                className={`text-left rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 ${theme.ringHover} overflow-hidden flex flex-col justify-between transition-all duration-200 cursor-pointer group hover:shadow-md`}
-              >
-                <div>
-                  <div
-                    className={`h-1 w-full bg-gradient-to-r ${theme.topBar}`}
-                    aria-hidden="true"
-                  />
-                  <div className="aspect-[16/9] w-full overflow-hidden border-b border-slate-100 dark:border-slate-800 bg-slate-100 dark:bg-slate-950">
-                    <SmartImage
-                      src={cat.image}
-                      alt={cat.imageAlt}
-                      fallbackTitle={cat.title}
-                      fallbackSubtitle={cat.subtitle}
-                      className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
-                    />
-                  </div>
-                  <div className="p-5 space-y-2">
-                    <div className="flex items-center justify-between gap-2 text-xs font-mono">
-                      <span className={`font-bold ${theme.text}`}>
-                        {cat.number}
-                      </span>
-                      <span className="text-slate-500 dark:text-slate-400 tabular-nums">
-                        {liveStatus}
-                      </span>
-                    </div>
-                    <h3 className="font-display text-lg font-bold text-slate-950 dark:text-white transition-colors">
-                      {cat.title}
-                    </h3>
-                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                      {cat.description}
-                    </p>
-                  </div>
-                </div>
-
-                <div className={`mx-5 mb-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-semibold ${theme.text}`}>
-                  <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 font-normal">
-                    {cat.highlights}
-                  </span>
-                  <ArrowRight className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Isolated 16-Track Master Tech, Data, Aptitude & Verbal Universe Launch Strip */}
-      <section className="rounded-2xl border border-blue-300 dark:border-blue-800/80 bg-gradient-to-r from-[#0B1733] via-[#10224A] to-[#172C5E] text-white p-5 sm:p-6 space-y-5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-          <div className="space-y-1.5 max-w-2xl">
-            <div className="text-xs font-mono font-bold text-sky-400">
-              ONE-STOP MASTER HUB · 16 TRACKS · LIVE NOTES · 160 FAANG/MNC PROBLEMS · 160 MCQS · 10 BADGES + PNG CERT
-            </div>
-            <h2 className="font-display text-xl sm:text-2xl font-bold text-white">
-              Aptitude, Grammar, Tenses, Punctuation, Idioms, C, C++, Java, Python, DSA, Excel, Power BI, DBMS &amp; Cloud
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Every core technical, coding &amp; verbal subject recruiters test — complete with Live Crisp Notes, Mentor Kapil’s Placement Tips, 10 real FAANG/TCS/Wipro/Capgemini/Amazon/Cognizant/TechM solved problems per topic, Hinted MCQs, PNG Badges &amp; Official Certificate without impacting your existing progress.
+              Completed sections and tracks are grayed out automatically for clear focus—click any card anytime to review notes, retake tests, or verify scores.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 shrink-0">
-            <div className="text-left sm:text-right font-mono">
-              <div className="text-[11px] text-slate-300">
-                UNIVERSE TECH PROGRESS
-              </div>
-              <div className="text-sm font-bold text-sky-300 tabular-nums">
-                {masterAnswered}/160 MCQs ({masterCorrect} Correct) · {masterXp} XP
-              </div>
-            </div>
+          {/* Hide/Show Completed Switcher */}
+          <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 self-start lg:self-auto shrink-0">
             <button
               type="button"
-              onClick={() => onNavigateView('universe', undefined, undefined, 'aptitude_grammar')}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-950 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              onClick={() => setHideCompleted(false)}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                !hideCompleted
+                  ? 'bg-white dark:bg-slate-800 text-slate-950 dark:text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
             >
-              <Sparkles className="w-4 h-4 text-blue-700" />
-              <span>Open 16-Track Master Studio</span>
-              <ArrowRight className="w-4 h-4" />
+              Show All (Gray Out Done)
+            </button>
+            <button
+              type="button"
+              onClick={() => setHideCompleted(true)}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                hideCompleted
+                  ? 'bg-white dark:bg-slate-800 text-slate-950 dark:text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Focus Incomplete Only
             </button>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/15">
-          {MASTER_TRACKS.map((track) => {
-            const tTheme = getTrackTheme(track.id);
+        {/* Category Filter Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+          {categoryTabs.map((tab) => {
+            const active = categoryFilter === tab.id;
             return (
               <button
-                key={track.id}
+                key={tab.id}
                 type="button"
-                onClick={() =>
-                  onNavigateView(
-                    'universe',
-                    undefined,
-                    undefined,
-                    track.pillarId,
-                    track.id
-                  )
-                }
-                className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-mono font-semibold text-slate-100 transition-colors cursor-pointer whitespace-nowrap"
+                onClick={() => setCategoryFilter(tab.id)}
+                className={`px-3.5 py-2 rounded-lg border text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                  active
+                    ? 'bg-slate-900 dark:bg-blue-700 border-slate-900 dark:border-blue-700 text-white'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-400 dark:hover:border-slate-600'
+                }`}
               >
-                <span className={tTheme.textDarkLanding}>{track.number}</span>{' '}
-                {track.shortTitle}
+                {tab.label}
               </button>
             );
           })}
         </div>
-      </section>
 
-      {/* Isolated Career & Placement MCQ Academy (Indianism · Interview Skills · GD Skills) */}
-      <section className="rounded-2xl border border-sky-200 dark:border-sky-900/70 bg-gradient-to-r from-[#F4F9FF] via-white to-violet-50/60 dark:from-slate-900 dark:via-slate-950 dark:to-sky-950/30 p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-        <div className="space-y-1.5 max-w-2xl">
-          <div className="text-xs font-mono font-bold text-sky-700 dark:text-sky-400">
-            NEW MCQ ACADEMY · 45 GRADED MCQS + 28 PLAYBOOKS + 6 BADGES + PNG CERT
-          </div>
-          <h2 className="font-display text-xl sm:text-2xl font-bold text-slate-950 dark:text-white">
-            Indianism, Interview Skills &amp; GD Skills Studio
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            Eliminate Indianisms with global business English, ace behavioral STAR interviews &amp; salary rounds, and lead structured Group Discussions across 3 interactive MCQ tests with hints, explanations, retakes &amp; downloadable PNG credentials.
-          </p>
-        </div>
+        {/* CATEGORY 01: Visual Thinking & AI Studio */}
+        {(categoryFilter === 'all' || categoryFilter === 'visual_ai') && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <h3 className="font-display text-lg font-bold text-slate-950 dark:text-white">
+                  01. Visual Thinking &amp; AI Studio
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Placement Picture Connect Levels 1–10, AI Visual Prompting Track, Spinning Wheel &amp; Film Case Studies.
+                </p>
+              </div>
+              <span className="font-mono text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+                {countCompleted(visualAiCards)}/{visualAiCards.length} Completed
+              </span>
+            </div>
 
-        <div className="flex flex-wrap items-center gap-4 shrink-0">
-          <div className="text-left sm:text-right font-mono">
-            <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              CAREER MCQ PROGRESS
-            </div>
-            <div className="text-sm font-bold text-sky-700 dark:text-sky-400 tabular-nums">
-              {careerAnswered}/45 MCQs ({careerCorrect} Correct) · {careerXp} XP
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => onNavigateView('career', undefined, 'indianism')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-700 hover:bg-sky-800 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>Open Career MCQ Studio</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      </section>
-
-      {/* Isolated AI-Powered Advanced Track Launch Strip */}
-      <section className="rounded-2xl border border-indigo-200 dark:border-indigo-900/70 bg-gradient-to-r from-[#FDFBF5] via-white to-indigo-50/70 dark:from-slate-900 dark:via-slate-950 dark:to-indigo-950/30 p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-        <div className="space-y-1.5 max-w-2xl">
-          <div className="text-xs font-mono font-bold text-indigo-700 dark:text-indigo-400">
-            NEW SEPARATE JOURNEY · ZERO IMPACT ON CORE XP OR LEVELS
-          </div>
-          <h2 className="font-display text-xl sm:text-2xl font-bold text-slate-950 dark:text-white">
-            AI-Powered Picture Connect — Advanced Track
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            5 Themes (Products, Values, Abstract Thinking, Placements, Services), 25 visual prompt briefs, image upload, 125 questions, instant 100-mark auto-scoring, and dedicated Advanced PNG Badges &amp; Certificate.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-4 shrink-0">
-          <div className="text-left sm:text-right font-mono">
-            <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              ADVANCED PROGRESS
-            </div>
-            <div className="text-sm font-bold text-indigo-700 dark:text-indigo-400 tabular-nums">
-              {advCompletedCount}/25 Challenges · {advXp} Adv XP
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => onNavigateView('advanced')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>Open AI Advanced Track</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      </section>
-
-      {/* Isolated Shopping, Smart Buyer & Negotiation Skills Module */}
-      <section className="rounded-2xl border border-emerald-200 dark:border-emerald-900/70 bg-gradient-to-r from-[#F7FDF9] via-white to-blue-50/70 dark:from-slate-900 dark:via-slate-950 dark:to-emerald-950/20 p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-        <div className="space-y-1.5 max-w-2xl">
-          <div className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400">
-            SMART BUYER &amp; NEGOTIATION · LIVE NOTES + 6 BUYER TYPES + 25 DOMAIN CASES + 50 MCQS + 10 BADGES
-          </div>
-          <h2 className="font-display text-xl sm:text-2xl font-bold text-slate-950 dark:text-white">
-            Shopping &amp; Negotiation Skills Studio
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            Master 6 visual Buyer Archetypes, annual When-to-Buy calendars across every domain, 8-layer deal stacking, anti-scam tips, 25 real-world solved buyer cases + 38 Konfi-07 riddles, 50 hint-assisted MCQs, Role-Play Lab, 10 PNG Badges &amp; Live-Scored Certificates.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-4 shrink-0">
-          <div className="text-left sm:text-right font-mono">
-            <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              SMART BUYER PROGRESS
-            </div>
-            <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
-              {shopCompletedMcqs}/50 MCQs ({shopCorrectMcqs} Correct) · Lab {shopRoleplayScore}/100 · {shopXp} XP
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => onNavigateView('shopping')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>Open Shopping &amp; Negotiation</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      </section>
-
-      {/* Isolated 90-Minute 1000 XP Proctored Final Capstone Assessment */}
-      <section className="rounded-2xl border border-amber-300/80 dark:border-amber-800/70 bg-gradient-to-r from-[#FFFDF7] via-white to-blue-50/70 dark:from-slate-900 dark:via-slate-950 dark:to-blue-950/30 p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-        <div className="space-y-1.5 max-w-2xl">
-          <div className="text-xs font-mono font-bold text-amber-700 dark:text-amber-400">
-            1000 XP PROCTORED CAPSTONE · 90 MINUTES · 50% ELEVATED RIGOR
-          </div>
-          <h2 className="font-display text-xl sm:text-2xl font-bold text-slate-950 dark:text-white">
-            Final Capstone Assessment &amp; Placement LOR (PDF)
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            10 non-repeated hard MCQs (400 XP), 5 new visual case studies across FinTech, EV, Healthcare, SaaS &amp; Placement Panel (500 XP), SCARE defense (100 XP), automatic scoring, Final PNG Certificate, and personalized Placement Letter of Recommendation (PDF).
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-4 shrink-0">
-          <div className="text-left sm:text-right font-mono">
-            <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              FINAL ASSESSMENT STATUS
-            </div>
-            <div className="text-sm font-bold text-blue-700 dark:text-blue-400 tabular-nums">
-              {finalStatus === 'submitted'
-                ? finalPassed
-                  ? `Passed · ${finalXp}/1000 XP`
-                  : finalAttemptCount < 2
-                  ? `Attempt 1/2 (${finalXp} XP) · Retake Open`
-                  : `Attempt ${finalAttemptCount}/2 (${finalXp} XP) · Contact Admin`
-                : finalStatus === 'in_progress'
-                ? `Attempt ${Math.max(1, finalAttemptCount)} Clock Active`
-                : finalEligible
-                ? 'Ready to Begin · 90:00 Min'
-                : `Locked · ${finalPrereqLabel} Prerequisites`}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => onNavigateView('final')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-950 dark:bg-blue-700 hover:bg-slate-800 dark:hover:bg-blue-600 text-white text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
-          >
-            {finalStatus === 'not_started' && !finalEligible ? (
-              <Lock className="w-4 h-4" />
+            {visibleVisualCards.length === 0 ? (
+              <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/40 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>
+                  All Visual Thinking &amp; AI sections are completed. Switch to &ldquo;Show All&rdquo; to review them anytime.
+                </span>
+              </div>
             ) : (
-              <FileCheck2 className="w-4 h-4" />
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+                {visibleVisualCards.map(renderSectionCard)}
+              </div>
             )}
-            <span>
-              {finalStatus === 'submitted'
-                ? finalPassed
-                  ? 'View Score, Cert & LOR PDF'
-                  : finalAttemptCount < 2
-                  ? 'Review & Start Attempt 2/2'
-                  : 'View Score & Mentor Guidance'
-                : finalStatus === 'in_progress'
-                ? 'Resume 90-Min Exam'
-                : finalEligible
-                ? 'Open 90-Min Final Assessment'
-                : 'View Prerequisite Checklist'}
-            </span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
+          </div>
+        )}
+
+        {/* CATEGORY 02: Communication & Placement Readiness */}
+        {(categoryFilter === 'all' || categoryFilter === 'communication') && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <h3 className="font-display text-lg font-bold text-slate-950 dark:text-white">
+                  02. Communication, Interview &amp; Negotiation Readiness
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Global Business English, STAR Interview Mastery, Group Discussion Leadership &amp; Smart Buyer Negotiation Lab.
+                </p>
+              </div>
+              <span className="font-mono text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+                {countCompleted(communicationCards)}/{communicationCards.length}{' '}
+                Completed
+              </span>
+            </div>
+
+            {visibleCommCards.length === 0 ? (
+              <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/40 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>
+                  All Communication &amp; Negotiation sections are completed.
+                </span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+                {visibleCommCards.map(renderSectionCard)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* CATEGORY 03: Aptitude & Verbal Foundation (7 Direct Tracks) */}
+        {(categoryFilter === 'all' || categoryFilter === 'aptitude_verbal') && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <h3 className="font-display text-lg font-bold text-slate-950 dark:text-white">
+                  03. Aptitude &amp; Verbal Foundation (7 Tracks)
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Quantitative Aptitude, Core Grammar, Parts of Speech, Syntax, Tenses, Punctuation &amp; Idioms — each with Live Notes, 10 FAANG/MNC Solved Problems &amp; 10 MCQs.
+                </p>
+              </div>
+              <span className="font-mono text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+                {aptDoneCount}/{aptitudeVerbalTracks.length} Tracks Completed
+              </span>
+            </div>
+
+            {hideCompleted && aptDoneCount === aptitudeVerbalTracks.length ? (
+              <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/40 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>All 7 Aptitude &amp; Verbal tracks are completed.</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                {aptitudeVerbalTracks.map(renderMasterTrackCard)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* CATEGORY 04: Programming, DSA, Data & Cloud (9 Direct Tracks) */}
+        {(categoryFilter === 'all' || categoryFilter === 'coding_cloud') && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <h3 className="font-display text-lg font-bold text-slate-950 dark:text-white">
+                  04. Programming, DSA, Data Analytics &amp; Cloud (9 Tracks)
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  C, C++, Java, Python, Data Structures &amp; Algorithms, Excel, Power BI, DBMS &amp; SQL, and Cloud Computing with real FAANG/MNC solved questions.
+                </p>
+              </div>
+              <span className="font-mono text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+                {codeDoneCount}/{codingCloudTracks.length} Tracks Completed
+              </span>
+            </div>
+
+            {hideCompleted && codeDoneCount === codingCloudTracks.length ? (
+              <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/40 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>All 9 Coding, Data &amp; Cloud tracks are completed.</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
+                {codingCloudTracks.map(renderMasterTrackCard)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* CATEGORY 05: Timed Assessments & Credentials */}
+        {(categoryFilter === 'all' || categoryFilter === 'assessments') && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <h3 className="font-display text-lg font-bold text-slate-950 dark:text-white">
+                  05. Timed Assessments &amp; Verified Credentials
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Daily 60-Min Hard Mock Test, 90-Min Proctored Final Capstone (1000 XP), Placement LOR PDF &amp; Verified PNG Certificates.
+                </p>
+              </div>
+              <span className="font-mono text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+                {countCompleted(assessmentCards)}/2 Exams Completed
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {visibleAssessCards.map(renderSectionCard)}
+            </div>
+          </div>
+        )}
       </section>
 
-      {/* Levels 1 to 10 Progression Grid */}
+      {/* 10-Level Visual Mastery Path (Completed Levels Grayed Out) */}
       <section className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
           <div>
             <h2 className="font-display text-2xl font-bold text-slate-950 dark:text-white">
-              Your 10-Level Visual Mastery Path
+              Picture Connect — 10-Level Visual Mastery Path
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-              Every level builds a sharper workplace communication habit. Jump into any stage below.
+              Each level now includes +10 placement-oriented scenarios. Completed levels gray out automatically while remaining open for review.
             </p>
           </div>
           <span className="text-xs font-mono text-slate-500 dark:text-slate-400 tabular-nums">
-            {WORKSHOP_META.pillars.join(' · ')}
+            {completedCount}/10 Levels Completed
           </span>
         </div>
 
+        {hideCompleted && completedCount >= LEVELS.length ? (
+          <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/40 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>
+              All 10 Picture Connect levels are completed. Switch to &ldquo;Show All&rdquo; above to revisit any level.
+            </span>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
           {LEVELS.map((lvl) => {
             const done = progress.completedLevels.includes(lvl.level);
             const lvlTheme = getLevelTheme(lvl.level);
+            if (hideCompleted && done) return null;
             return (
               <button
                 key={lvl.level}
@@ -781,32 +1276,53 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
                 onClick={() => onNavigateView('levels', lvl.level)}
                 className={`text-left rounded-xl border overflow-hidden transition-all cursor-pointer flex flex-col justify-between ${
                   done
-                    ? 'border-emerald-300 dark:border-emerald-800/70 bg-emerald-50/50 dark:bg-emerald-950/20 hover:border-emerald-500'
+                    ? 'border-slate-200 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-900/45 opacity-65 hover:opacity-95'
                     : `${lvlTheme.softBorder} ${lvlTheme.softSurface} ${lvlTheme.ringHover}`
                 }`}
               >
                 <div
-                  className={`h-1 w-full bg-gradient-to-r ${lvlTheme.topBar}`}
+                  className={`h-1 w-full ${
+                    done
+                      ? 'bg-slate-300 dark:bg-slate-700'
+                      : `bg-gradient-to-r ${lvlTheme.topBar}`
+                  }`}
                   aria-hidden="true"
                 />
                 <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className={`font-mono text-xs font-bold ${lvlTheme.text}`}>
+                    <span
+                      className={`font-mono text-xs font-bold ${
+                        done
+                          ? 'text-slate-400 dark:text-slate-500'
+                          : lvlTheme.text
+                      }`}
+                    >
                       LEVEL {String(lvl.level).padStart(2, '0')}
                     </span>
                     {done ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span className="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        <span>Done</span>
+                      </span>
                     ) : (
-                      <span className={`font-mono text-[11px] font-semibold ${lvlTheme.text} tabular-nums`}>
+                      <span
+                        className={`font-mono text-[11px] font-semibold ${lvlTheme.text} tabular-nums`}
+                      >
                         +{lvl.xpReward} XP
                       </span>
                     )}
                   </div>
                   <div>
-                    <div className="font-display font-semibold text-sm text-slate-950 dark:text-white leading-snug">
+                    <div
+                      className={`font-display font-semibold text-sm leading-snug ${
+                        done
+                          ? 'text-slate-500 dark:text-slate-400 line-through decoration-slate-400/70'
+                          : 'text-slate-950 dark:text-white'
+                      }`}
+                    >
                       {lvl.title}
                     </div>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                       {lvl.skillTag}
                     </div>
                   </div>
@@ -815,6 +1331,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
             );
           })}
         </div>
+        )}
       </section>
 
       {/* Founder's Note from Employability Universe Architect — Kapil */}
@@ -867,7 +1384,11 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
                       }}
                       className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 dark:text-blue-400 hover:underline cursor-pointer shrink-0"
                     >
-                      {revealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      {revealed ? (
+                        <EyeOff className="w-3.5 h-3.5" />
+                      ) : (
+                        <Eye className="w-3.5 h-3.5" />
+                      )}
                       <span>{revealed ? 'Hide' : 'Reveal'}</span>
                     </button>
                   </div>
@@ -950,7 +1471,9 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 dark:bg-blue-700 hover:bg-slate-800 dark:hover:bg-blue-600 text-white text-xs font-semibold transition-colors cursor-pointer disabled:opacity-60"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>{submittingConnection ? 'Publishing...' : 'Add to Learner Wall'}</span>
+              <span>
+                {submittingConnection ? 'Publishing...' : 'Add to Learner Wall'}
+              </span>
             </button>
           </form>
 
@@ -999,13 +1522,15 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
         </div>
       </section>
 
-      {/* Portal Video Case Studies & Challenges (Watch Directly Inside Portal) */}
-      <VideoChallengesSection
-        mode="portal"
-        completedVideoIds={progress.completedWheelPrompts}
-        sharedVideoPosts={sharedVideoPosts}
-        onSubmitChallenge={onSubmitVideoChallenge}
-      />
+      {/* Portal Video Case Studies & Challenges */}
+      <div id="video-case-studies">
+        <VideoChallengesSection
+          mode="portal"
+          completedVideoIds={progress.completedWheelPrompts}
+          sharedVideoPosts={sharedVideoPosts}
+          onSubmitChallenge={onSubmitVideoChallenge}
+        />
+      </div>
     </div>
   );
 };

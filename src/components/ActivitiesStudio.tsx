@@ -424,14 +424,24 @@ export const ActivitiesStudio: React.FC<ActivitiesStudioProps> = ({
                   active
                     ? `${itemTheme.activeButton} font-semibold shadow-sm`
                     : done
-                    ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 hover:border-emerald-500'
+                    ? 'bg-slate-100/90 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 opacity-70 hover:opacity-100'
                     : `${itemTheme.softSurface} ${itemTheme.softBorder} text-slate-800 dark:text-slate-200 ${itemTheme.ringHover}`
                 }`}
               >
-                <span className={`font-mono font-bold ${active ? 'text-white' : itemTheme.text}`}>
+                <span
+                  className={`font-mono font-bold ${
+                    active
+                      ? 'text-white'
+                      : done
+                      ? 'text-slate-400 dark:text-slate-500'
+                      : itemTheme.text
+                  }`}
+                >
                   L{String(item.level).padStart(2, '0')}
                 </span>
-                <span>{item.title.split('!')[0]}</span>
+                <span className={done && !active ? 'line-through decoration-slate-400/70' : ''}>
+                  {item.title.split('!')[0]}
+                </span>
                 {done && <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
               </button>
             );

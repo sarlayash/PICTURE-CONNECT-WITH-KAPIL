@@ -3,6 +3,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import {
   Award,
   Bell,
+  CheckCircle2,
   Lock,
   LogOut,
   Moon,
@@ -597,23 +598,155 @@ function PictureConnectWorkspace() {
     todayDateKey
   );
 
-  const navItems: { id: AppView; label: string; locked?: boolean }[] = [
-    { id: 'journey', label: 'Journey' },
-    { id: 'levels', label: 'Levels 1–10' },
-    { id: 'wheel', label: 'Wheel' },
-    { id: 'shopping', label: 'Shop & Deals' },
-    { id: 'career', label: 'Career MCQs' },
-    { id: 'universe', label: 'Tech & DSA' },
-    { id: 'advanced', label: 'AI Track' },
+  type TopCategoryId =
+    | 'hub'
+    | 'visual_ai'
+    | 'communication'
+    | 'tech_aptitude'
+    | 'assessments';
+
+  const getCategoryForView = (v: AppView): TopCategoryId => {
+    if (v === 'levels' || v === 'wheel' || v === 'advanced') return 'visual_ai';
+    if (v === 'career' || v === 'shopping') return 'communication';
+    if (v === 'universe') return 'tech_aptitude';
+    if (v === 'daily_mock' || v === 'final' || v === 'achievements')
+      return 'assessments';
+    return 'hub';
+  };
+
+  const activeTopCategory = getCategoryForView(view);
+
+  const isLevelsDone = progress.completedLevels.length >= 10;
+  const isWheelDone = progress.completedWheelPrompts.length >= 5;
+  const isAdvDone = advProgress.completedChallenges.length >= 25;
+  const isShoppingDone =
+    shoppingProgress.answeredMcqs.length >= 50 &&
+    shoppingProgress.roleplayScore >= 60;
+  const isCareerDone = careerProgress.answeredMcqs.length >= 45;
+  const isMasterDone = masterProgress.answeredMcqs.length >= 160;
+  const isDailyMockDone = todayDailyAttempt?.status === 'submitted';
+  const isFinalDone = Boolean(finalAssessment.passed);
+
+  const topCategories: {
+    id: TopCategoryId;
+    label: string;
+    defaultView: AppView;
+    completed: boolean;
+  }[] = [
+    { id: 'hub', label: 'Hub', defaultView: 'journey', completed: false },
     {
-      id: 'daily_mock',
-      label:
-        todayDailyAttempt?.status === 'submitted'
-          ? `Daily Mock (${todayDailyAttempt.scorePercent}%)`
-          : 'Daily 60m',
+      id: 'visual_ai',
+      label: 'Visual & AI',
+      defaultView: 'levels',
+      completed: isLevelsDone && isWheelDone && isAdvDone,
     },
-    { id: 'final', label: 'Final 1000 XP', locked: isFinalLocked },
+    {
+      id: 'communication',
+      label: 'Communication',
+      defaultView: 'career',
+      completed: isCareerDone && isShoppingDone,
+    },
+    {
+      id: 'tech_aptitude',
+      label: 'Tech & Aptitude',
+      defaultView: 'universe',
+      completed: isMasterDone,
+    },
+    {
+      id: 'assessments',
+      label: 'Assessments',
+      defaultView: 'daily_mock',
+      completed: isDailyMockDone && isFinalDone,
+    },
   ];
+
+  const categorySubStudios: Record<
+    Exclude<TopCategoryId, 'hub'>,
+    {
+      id: AppView;
+      label: string;
+      completed: boolean;
+      locked?: boolean;
+      meta?: string;
+    }[]
+  > = {
+    visual_ai: [
+      {
+        id: 'levels',
+        label: 'Picture Connect (Levels 1–10)',
+        completed: isLevelsDone,
+        meta: `${progress.completedLevels.length}/10`,
+      },
+      {
+        id: 'wheel',
+        label: 'Spinning Wheel',
+        completed: isWheelDone,
+        meta: `${Math.min(5, progress.completedWheelPrompts.length)}/5`,
+      },
+      {
+        id: 'advanced',
+        label: 'AI Advanced Track',
+        completed: isAdvDone,
+        meta: `${advProgress.completedChallenges.length}/25`,
+      },
+    ],
+    communication: [
+      {
+        id: 'career',
+        label: 'Indianism, Interview & GD',
+        completed: isCareerDone,
+        meta: `${careerProgress.answeredMcqs.length}/45`,
+      },
+      {
+        id: 'shopping',
+        label: 'Shopping & Negotiation',
+        completed: isShoppingDone,
+        meta: `${shoppingProgress.answeredMcqs.length}/50`,
+      },
+    ],
+    tech_aptitude: [
+      {
+        id: 'universe',
+        label: '16-Track Aptitude, Verbal, Coding & Cloud Studio',
+        completed: isMasterDone,
+        meta: `${masterProgress.answeredMcqs.length}/160`,
+      },
+    ],
+    assessments: [
+      {
+        id: 'daily_mock',
+        label: isDailyMockDone
+          ? `Daily 60m Mock (${todayDailyAttempt.scorePercent}%)`
+          : 'Daily 60-Min Mock',
+        completed: isDailyMockDone,
+        meta: isDailyMockDone ? 'Done Today' : '40 MCQs',
+      },
+      {
+        id: 'final',
+        label: 'Final Capstone (1000 XP)',
+        completed: isFinalDone,
+        locked: isFinalLocked,
+        meta: isFinalDone ? 'Passed' : isFinalLocked ? 'Locked' : '90 Min',
+      },
+      {
+        id: 'achievements',
+        label: 'Badges & Certificates',
+        completed: false,
+        meta: `${progress.unlockedBadges.length}/${BADGES.length}`,
+      },
+    ],
+  };
+
+  const activeSubStudios =
+    activeTopCategory !== 'hub' ? categorySubStudios[activeTopCategory] : [];
+
+  const totalCombinedXp =
+    progress.xp +
+    advProgress.advXp +
+    shoppingProgress.shopXp +
+    careerProgress.careerXp +
+    masterProgress.masterXp +
+    finalAssessment.totalXpAwarded;
 
   const activeSectionTheme = getNavSectionTheme(view);
   const activeLevelObj = LEVELS.find((lvl) => lvl.level === activeLevel);
@@ -632,13 +765,13 @@ function PictureConnectWorkspace() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      {/* Strict 3-Zone Top Bar Contract with Active Section Color Hairline */}
+      {/* Strict 3-Zone Top Bar Contract (Brand — 5 Category Links — 1 Primary Action) */}
       <header className="no-print sticky top-0 z-30 bg-white/95 dark:bg-slate-950/95 backdrop-blur border-b border-slate-200 dark:border-slate-800">
         <div
           className={`h-0.5 w-full bg-gradient-to-r ${activeSectionTheme.topBar} transition-all duration-300`}
           aria-hidden="true"
         />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3 lg:gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-6">
           <button
             type="button"
             onClick={() => handleNavigateView('journey')}
@@ -648,25 +781,30 @@ function PictureConnectWorkspace() {
           </button>
 
           <nav
-            aria-label="Primary navigation"
-            className="hidden xl:flex items-center gap-3.5 text-[13px] font-medium"
+            aria-label="Primary category navigation"
+            className="hidden md:flex items-center gap-6 text-sm font-medium"
           >
-            {navItems.map((item) => {
-              const active = view === item.id;
-              const itemTheme = getNavSectionTheme(item.id);
+            {topCategories.map((cat) => {
+              const active = activeTopCategory === cat.id;
               return (
                 <button
-                  key={item.id}
+                  key={cat.id}
                   type="button"
-                  onClick={() => handleNavigateView(item.id)}
+                  onClick={() => handleNavigateView(cat.defaultView)}
                   className={`inline-flex items-center gap-1.5 py-1 border-b-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                     active
-                      ? `${itemTheme.activeTab} font-semibold`
-                      : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'
+                      ? `${activeSectionTheme.activeTab} font-semibold`
+                      : cat.completed
+                      ? 'border-transparent text-slate-400 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-400'
+                      : 'border-transparent text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white'
                   }`}
                 >
-                  {item.locked && <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
-                  <span>{item.label}</span>
+                  {cat.completed && (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+                  )}
+                  <span className={cat.completed && !active ? 'line-through decoration-slate-400/70' : ''}>
+                    {cat.label}
+                  </span>
                 </button>
               );
             })}
@@ -676,35 +814,79 @@ function PictureConnectWorkspace() {
             <button
               type="button"
               onClick={() => handleNavigateView('achievements')}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-700 via-indigo-700 to-violet-700 hover:from-blue-800 hover:to-violet-800 text-white text-xs font-semibold transition-all whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 tabular-nums shadow-sm"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-900 dark:bg-blue-700 hover:bg-slate-800 dark:hover:bg-blue-600 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 tabular-nums"
             >
               <Award className="w-4 h-4 text-amber-300" />
-              <span>Certificate · {progress.xp} XP</span>
+              <span>Certificates · {totalCombinedXp.toLocaleString()} XP</span>
             </button>
           </div>
         </div>
 
-        <div className="xl:hidden border-t border-slate-100 dark:border-slate-900 px-3 py-1.5 flex items-center gap-1 overflow-x-auto">
-          {navItems.map((item) => {
-            const active = view === item.id;
-            const itemTheme = getNavSectionTheme(item.id);
+        {/* Mobile Category Strip */}
+        <div className="md:hidden border-t border-slate-100 dark:border-slate-900 px-3 py-1.5 flex items-center gap-1.5 overflow-x-auto">
+          {topCategories.map((cat) => {
+            const active = activeTopCategory === cat.id;
             return (
               <button
-                key={item.id}
+                key={cat.id}
                 type="button"
-                onClick={() => handleNavigateView(item.id)}
+                onClick={() => handleNavigateView(cat.defaultView)}
                 className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer ${
                   active
-                    ? itemTheme.activeButton
-                    : 'text-slate-600 dark:text-slate-400'
+                    ? 'bg-slate-900 dark:bg-blue-700 text-white font-semibold'
+                    : cat.completed
+                    ? 'bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-500'
+                    : 'text-slate-600 dark:text-slate-300'
                 }`}
               >
-                {item.locked && <Lock className="w-3 h-3" />}
-                <span>{item.label}</span>
+                {cat.completed && <CheckCircle2 className="w-3 h-3 shrink-0" />}
+                <span>{cat.label}</span>
               </button>
             );
           })}
         </div>
+
+        {/* Contextual Sub-Studio Bar for Active Category (Completed Studios Grayed Out) */}
+        {activeSubStudios.length > 1 && (
+          <div className="border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/90 dark:bg-slate-900/60">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center gap-2 overflow-x-auto">
+              <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500 whitespace-nowrap shrink-0 mr-1">
+                IN THIS CATEGORY:
+              </span>
+              {activeSubStudios.map((sub) => {
+                const isActive = view === sub.id;
+                return (
+                  <button
+                    key={sub.id}
+                    type="button"
+                    onClick={() => handleNavigateView(sub.id)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-all whitespace-nowrap shrink-0 cursor-pointer ${
+                      isActive
+                        ? 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-950 dark:text-white font-semibold shadow-sm'
+                        : sub.completed
+                        ? 'bg-slate-100/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 opacity-75 hover:opacity-100'
+                        : 'bg-white/70 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-400 dark:hover:border-slate-600 font-medium'
+                    }`}
+                  >
+                    {sub.completed ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+                    ) : sub.locked ? (
+                      <Lock className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                    ) : null}
+                    <span className={sub.completed && !isActive ? 'line-through decoration-slate-400/70' : ''}>
+                      {sub.label}
+                    </span>
+                    {sub.meta && (
+                      <span className="font-mono text-[11px] opacity-75 tabular-nums">
+                        · {sub.meta}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Main Content Container */}
@@ -827,6 +1009,10 @@ function PictureConnectWorkspace() {
             dailyMockHardPct={todayDailyAttempt?.hardAccuracyPercent || 0}
             dailyMockStreak={dailyMockStreak}
             dailyMockPaperCode={todayDailyPaper.paperCode}
+            careerCategoryStats={careerStats}
+            masterTrackStats={masterTrackStats}
+            sectionAudit={sectionAudit}
+            totalCombinedXp={totalCombinedXp}
             onNavigateView={handleNavigateView}
             learnerConnections={conceptConnections}
             onAddConnection={async (picture, concept, explanation) => {

@@ -682,6 +682,7 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
               const doneInTheme = theme.challenges.filter((c) =>
                 advProgress.completedChallenges.includes(c.id)
               ).length;
+              const themeDone = doneInTheme >= theme.challenges.length;
               return (
                 <button
                   key={theme.id}
@@ -690,20 +691,31 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
                   className={`text-left rounded-xl border p-4 transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
                     isActive
                       ? THEME_ACCENT_ACTIVE[theme.id]
+                      : themeDone
+                      ? 'border-slate-200 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-900/45 opacity-65 hover:opacity-95'
                       : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-400 dark:hover:border-slate-600'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2 text-xs font-mono">
-                    <span className="font-bold">THEME {theme.number}</span>
-                    <span className="tabular-nums font-semibold">
-                      {doneInTheme}/5 Done
+                    <span className={themeDone && !isActive ? 'font-bold text-slate-400' : 'font-bold'}>
+                      THEME {theme.number}
+                    </span>
+                    <span className="inline-flex items-center gap-1 tabular-nums font-semibold">
+                      {themeDone && <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" />}
+                      <span>{doneInTheme}/5 Done</span>
                     </span>
                   </div>
                   <div>
-                    <div className="font-display font-bold text-base text-slate-950 dark:text-white">
+                    <div
+                      className={`font-display font-bold text-base ${
+                        themeDone && !isActive
+                          ? 'text-slate-500 dark:text-slate-400 line-through decoration-slate-400/70'
+                          : 'text-slate-950 dark:text-white'
+                      }`}
+                    >
                       {theme.title}
                     </div>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 line-clamp-1">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
                       {theme.subtitle}
                     </div>
                   </div>
@@ -741,16 +753,16 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
                       isSelected
                         ? 'border-indigo-700 dark:border-indigo-400 bg-indigo-50/70 dark:bg-indigo-950/40 ring-1 ring-indigo-600/20'
                         : sub
-                        ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20 hover:border-emerald-500'
+                        ? 'border-slate-200 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-900/45 opacity-65 hover:opacity-95'
                         : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 hover:border-slate-400'
                     }`}
                   >
                     <div className="flex items-center justify-between text-[11px] font-mono">
-                      <span className="font-bold text-slate-600 dark:text-slate-300">
+                      <span className={sub && !isSelected ? 'font-bold text-slate-400 dark:text-slate-500' : 'font-bold text-slate-600 dark:text-slate-300'}>
                         #{c.id}
                       </span>
                       {sub ? (
-                        <span className="inline-flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                        <span className="inline-flex items-center gap-1 font-bold text-slate-500 dark:text-slate-400 tabular-nums">
                           <CheckCircle2 className="w-3 h-3" />
                           <span>{sub.totalScore}/100</span>
                         </span>
@@ -758,7 +770,13 @@ export const AdvancedTrackStudio: React.FC<AdvancedTrackStudioProps> = ({
                         <span className="text-slate-400">Open</span>
                       )}
                     </div>
-                    <div className="text-xs font-semibold text-slate-950 dark:text-white leading-snug">
+                    <div
+                      className={`text-xs font-semibold leading-snug ${
+                        sub && !isSelected
+                          ? 'text-slate-500 dark:text-slate-400 line-through decoration-slate-400/70'
+                          : 'text-slate-950 dark:text-white'
+                      }`}
+                    >
                       {c.title.replace(`${c.id} `, '')}
                     </div>
                   </button>

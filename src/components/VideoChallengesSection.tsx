@@ -126,14 +126,20 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
           return (
             <article
               key={video.id}
-              className={`rounded-2xl border overflow-hidden flex flex-col justify-between ${
+              className={`rounded-2xl border overflow-hidden flex flex-col justify-between transition-opacity ${
                 isLanding
                   ? 'border-[#1E3563] bg-[#0B1733]'
+                  : isDone
+                  ? 'border-slate-200 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-900/45 opacity-75 hover:opacity-100'
                   : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'
               }`}
             >
               <div
-                className={`h-1 w-full bg-gradient-to-r ${filmGradient}`}
+                className={`h-1 w-full ${
+                  !isLanding && isDone
+                    ? 'bg-slate-300 dark:bg-slate-700'
+                    : `bg-gradient-to-r ${filmGradient}`
+                }`}
                 aria-hidden="true"
               />
               <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between space-y-5">

@@ -581,6 +581,7 @@ export const CareerSkillsStudio: React.FC<CareerSkillsStudioProps> = ({
           {CAREER_SKILL_CATEGORIES.map((cat) => {
             const st = catStats[cat.id];
             const active = activeTab === cat.id;
+            const done = st.answered >= st.total;
             const cTheme = getCareerTheme(cat.id);
             return (
               <button
@@ -591,13 +592,21 @@ export const CareerSkillsStudio: React.FC<CareerSkillsStudioProps> = ({
                   onActiveTabChange?.(cat.id);
                   setResetConfirmCat(null);
                 }}
-                className={`px-4 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                   active
                     ? `${cTheme.activeButton} shadow-sm`
+                    : done
+                    ? 'border-slate-200 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-900/50 text-slate-400 dark:text-slate-500 opacity-75 hover:opacity-100'
                     : `${cTheme.softBorder} ${cTheme.softSurface} text-slate-800 dark:text-slate-200 ${cTheme.ringHover}`
                 }`}
               >
-                {cat.number} {cat.shortTitle} ({st.correct}/{st.total})
+                {done && <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
+                <span className={done && !active ? 'line-through decoration-slate-400/70' : ''}>
+                  {cat.number} {cat.shortTitle}
+                </span>
+                <span className="font-mono text-[11px] opacity-80 tabular-nums">
+                  ({st.correct}/{st.total})
+                </span>
               </button>
             );
           })}
