@@ -23,6 +23,8 @@ interface VideoChallengesSectionProps {
     reflection: string
   ) => Promise<{ newlyAwardedXp: number; newlyUnlockedBadges: string[] }>;
   onRequestSignIn?: () => void;
+  showPromoShorts?: boolean;
+  showCaseStudies?: boolean;
 }
 
 export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
@@ -31,6 +33,8 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
   sharedVideoPosts = [],
   onSubmitChallenge,
   onRequestSignIn,
+  showPromoShorts = true,
+  showCaseStudies = true,
 }) => {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
@@ -74,8 +78,11 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
   const isLanding = mode === 'landing';
 
   return (
-    <div id="video-case-challenges" className="space-y-14">
-      {isLanding && (
+    <div
+      id={showCaseStudies ? 'video-case-challenges' : 'promotional-videos-wrap'}
+      className="space-y-14"
+    >
+      {isLanding && showPromoShorts && (
         <section
           id="promotional-videos"
           className="space-y-5"
@@ -203,6 +210,7 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
         </section>
       )}
 
+      {showCaseStudies && (
       <section
         className="space-y-5"
         aria-labelledby="video-challenges-heading"
@@ -517,6 +525,7 @@ export const VideoChallengesSection: React.FC<VideoChallengesSectionProps> = ({
         })}
         </div>
       </section>
+      )}
     </div>
   );
 };

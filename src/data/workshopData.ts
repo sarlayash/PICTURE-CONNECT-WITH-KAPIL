@@ -479,6 +479,231 @@ export const ACADEMY_CATEGORIES: AcademyCategory[] = [
   },
 ];
 
+export interface LandingCurriculumModule {
+  id: string;
+  number: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  coverage: string;
+  metrics: string;
+  themeColor: 'sky' | 'violet' | 'amber' | 'indigo' | 'emerald' | 'teal' | 'cyan' | 'rose';
+  image: string;
+  imageAlt: string;
+}
+
+export interface LandingCurriculumPart {
+  id: 'part_1_core' | 'part_2_utility' | 'part_3_dbms_ai';
+  number: string;
+  shortLabel: string;
+  title: string;
+  subtitle: string;
+  summary: string;
+  topAccentGradient: string;
+  accentTextClass: string;
+  buttonClass: string;
+  selectedBorderClass: string;
+  hoverBorderClass: string;
+  modules: LandingCurriculumModule[];
+}
+
+export const LANDING_CURRICULUM_PARTS: LandingCurriculumPart[] = [
+  {
+    id: 'part_1_core',
+    number: 'Part 01',
+    shortLabel: 'Communication, Soft Skills, Aptitude & Coding/DSA',
+    title: '01. Communication, Soft Skills, Aptitude, Programming & DSA',
+    subtitle:
+      'Indianism & Global English · Interview & GD · Negotiation · Quant & Verbal · C, C++, Java, Python & DSA',
+    summary:
+      'Build complete campus-to-corporate readiness—from crisp global communication, STAR interviews, and GD leadership to quantitative speed, grammar precision, and FAANG-grade coding and DSA.',
+    topAccentGradient: 'from-sky-400 via-blue-500 to-indigo-500',
+    accentTextClass: 'text-sky-400',
+    buttonClass: 'bg-sky-600 hover:bg-sky-500 text-white',
+    selectedBorderClass: 'border-sky-400 bg-[#0F234D]',
+    hoverBorderClass: 'hover:border-sky-400/70 hover:bg-[#0E2046]',
+    modules: [
+      {
+        id: 'p1-communication',
+        number: '01A',
+        title: 'Communication & Global Business English',
+        subtitle: 'Indianism Fixes · Executive Writing · Corporate Fluency',
+        description:
+          'Eliminate regional phrasing ("revert back", "do the needful", "prepone") with 12 executive replacement playbooks, client email etiquette, and 15 hinted MCQs.',
+        coverage: 'Global English · Workplace Articulation · 15 MCQs',
+        metrics: '12 Playbooks · 15 Hinted MCQs · PNG Badge',
+        themeColor: 'sky',
+        image: indianismHero,
+        imageAlt: PHOTO_ASSETS.placement_global_english.alt,
+      },
+      {
+        id: 'p1-soft-skills',
+        number: '01B',
+        title: 'Soft Skills, Interview, GD & Negotiation',
+        subtitle: 'STAR Storytelling · Group Discussion · Smart Buyer Cases',
+        description:
+          'Master behavioral STAR interviews, salary framing, PESTLE/PREP group discussions, empathy leadership, 6 buyer archetypes, 25 negotiation cases, and role-play scoring.',
+        coverage: 'Interview · GD · Negotiation · Leadership Empathy',
+        metrics: '80+ MCQs · 25 Cases · 38 Riddles · Role-Play Lab',
+        themeColor: 'emerald',
+        image: interviewHero,
+        imageAlt: PHOTO_ASSETS.placement_interview_panel.alt,
+      },
+      {
+        id: 'p1-aptitude',
+        number: '01C',
+        title: 'Aptitude & Verbal Foundation (7 Tracks)',
+        subtitle: 'Quant Aptitude · Grammar · Syntax · Tenses · Punctuation · Idioms',
+        description:
+          'Crack TCS NQT, Wipro, Capgemini, Cognizant, and MNC screening rounds with Live Crisp Notes, ratio & probability shortcuts, all 12 tenses, and 70 company problems.',
+        coverage: '7 Integrated Tracks · Live Notes · Screening Prep',
+        metrics: '7 Tracks · 70 Solved Problems · 70 MCQs',
+        themeColor: 'amber',
+        image: MASTER_UNIVERSE_IMAGES.aptitudeGrammar,
+        imageAlt: PHOTO_ASSETS.placement_aptitude_desk.alt,
+      },
+      {
+        id: 'p1-programming-dsa',
+        number: '01D',
+        title: 'Programming & DSA (C · C++ · Java · Python · DSA)',
+        subtitle: 'Pointers · OOP & STL · JVM · Pythonic Code · Trees & DP',
+        description:
+          'Solve real technical rounds across C systems memory, C++ STL, Java Collections & Streams, Python generators/decorators, and sliding-window/graph/DP algorithms.',
+        coverage: 'C · C++ · Java · Python · Data Structures & Algorithms',
+        metrics: '5 Coding Tracks · 50 FAANG Problems · 50 MCQs',
+        themeColor: 'violet',
+        image: MASTER_UNIVERSE_IMAGES.programmingDsa,
+        imageAlt: PHOTO_ASSETS.placement_dsa_lab.alt,
+      },
+    ],
+  },
+  {
+    id: 'part_2_utility',
+    number: 'Part 02',
+    shortLabel: 'Utility Tools: MS Office, Excel, Power BI & Tableau',
+    title: '02. Utility Tools — MS Office (Word, PowerPoint), Excel, Power BI & Tableau',
+    subtitle:
+      'MS Word · MS PowerPoint · Microsoft Excel · Power BI DAX · Tableau Visual Storytelling',
+    summary:
+      'Turn raw business spreadsheets and reports into boardroom-ready deliverables using essential workplace utility tools across MS Office, Excel, Power BI, and Tableau.',
+    topAccentGradient: 'from-emerald-400 via-teal-500 to-cyan-500',
+    accentTextClass: 'text-emerald-400',
+    buttonClass: 'bg-emerald-600 hover:bg-emerald-500 text-white',
+    selectedBorderClass: 'border-emerald-400 bg-[#0B2B3C]',
+    hoverBorderClass: 'hover:border-emerald-400/70 hover:bg-[#092434]',
+    modules: [
+      {
+        id: 'p2-ms-office',
+        number: '02A',
+        title: 'MS Office Utility Suite (Word & PowerPoint)',
+        subtitle: 'Executive Word Docs · PowerPoint Decks · Office Workflows',
+        description:
+          'Master structured corporate reports, ATS-clean styling, and mail merge in MS Word alongside executive slide hierarchy, charts, and storytelling decks in MS PowerPoint.',
+        coverage: 'MS Word · MS PowerPoint · Office Productivity Shortcuts',
+        metrics: 'Resume & Deck Templates · Case Briefs · Utility Workflows',
+        themeColor: 'cyan',
+        image: PHOTO_ASSETS.placement_resume_desk.src,
+        imageAlt: PHOTO_ASSETS.placement_resume_desk.alt,
+      },
+      {
+        id: 'p2-excel',
+        number: '02B',
+        title: 'Microsoft Excel Mastery',
+        subtitle: 'XLOOKUP · INDEX-MATCH · Pivot Tables · Power Query',
+        description:
+          'Analyze enterprise datasets rapidly with XLOOKUP, SUMIFS, dynamic arrays, nested conditional formulas, Pivot Table slicing, and automated spreadsheet cleanup.',
+        coverage: 'Spreadsheet Modeling · Lookup Functions · Pivots',
+        metrics: 'Live Crisp Notes · 10 Solved Cases · 10 Formula MCQs',
+        themeColor: 'emerald',
+        image: MASTER_UNIVERSE_IMAGES.excelPowerBi,
+        imageAlt: PHOTO_ASSETS.placement_bi_analytics.alt,
+      },
+      {
+        id: 'p2-power-bi',
+        number: '02C',
+        title: 'Microsoft Power BI Analytics',
+        subtitle: 'Star Schema · DAX CALCULATE · Time Intelligence · RLS',
+        description:
+          'Architect decision-grade BI reports with clean Star Schema relationships, Power Query M transformations, DAX filter context measures, and Row-Level Security.',
+        coverage: 'Data Modeling · DAX Measures · Executive KPIs',
+        metrics: 'Live Crisp Notes · 10 Company Problems · 10 DAX MCQs',
+        themeColor: 'amber',
+        image: PHOTO_ASSETS.placement_analytical_research.src,
+        imageAlt: PHOTO_ASSETS.placement_analytical_research.alt,
+      },
+      {
+        id: 'p2-tableau',
+        number: '02D',
+        title: 'Tableau Visual BI & Storytelling',
+        subtitle: 'LOD Expressions · Calculated Fields · Interactive Dashboards',
+        description:
+          'Design interactive executive storyboards with Tableau dimensions vs measures, FIXED/INCLUDE/EXCLUDE LOD expressions, dynamic parameters, and visual variance alerts.',
+        coverage: 'Visual Analytics · LOD Expressions · BI Storyboards',
+        metrics: 'BI Storytelling Cases · Dashboard Audits · KPI Framing',
+        themeColor: 'teal',
+        image: PHOTO_ASSETS.placement_case_saas.src,
+        imageAlt: PHOTO_ASSETS.placement_case_saas.alt,
+      },
+    ],
+  },
+  {
+    id: 'part_3_dbms_ai',
+    number: 'Part 03',
+    shortLabel: 'DBMS, Cloud Architecture, AI Studio & Assessments',
+    title: '03. DBMS, AI Studio, Cloud & Proctored Assessments',
+    subtitle:
+      'DBMS & SQL · Cloud Architecture · AI Picture Connect · Daily Hard Mock · 1000 XP Final Capstone & LOR',
+    summary:
+      'Combine deep database and cloud systems engineering with applied AI visual thinking, proctored 60-minute timed assessments, PNG badges, certificates, and Placement LOR PDFs.',
+    topAccentGradient: 'from-violet-400 via-fuchsia-500 to-rose-500',
+    accentTextClass: 'text-violet-400',
+    buttonClass: 'bg-violet-600 hover:bg-violet-500 text-white',
+    selectedBorderClass: 'border-violet-400 bg-[#1A1B4D]',
+    hoverBorderClass: 'hover:border-violet-400/70 hover:bg-[#161742]',
+    modules: [
+      {
+        id: 'p3-dbms-cloud',
+        number: '03A',
+        title: 'DBMS, SQL & Cloud Architecture',
+        subtitle: '1NF–BCNF Normalization · Window SQL · ACID · AWS/Azure/GCP',
+        description:
+          'Design normalized relational schemas, write complex SQL Joins & Window Functions, understand B+ Tree indexing & ACID isolation, and master VPC/IAM/Serverless cloud patterns.',
+        coverage: 'DBMS · SQL Querying · Cloud Infrastructure',
+        metrics: '2 Full Tracks · 20 Solved Problems · 20 MCQs',
+        themeColor: 'indigo',
+        image: MASTER_UNIVERSE_IMAGES.dbmsCloud,
+        imageAlt: PHOTO_ASSETS.placement_cloud_dbms.alt,
+      },
+      {
+        id: 'p3-ai-picture-connect',
+        number: '03B',
+        title: 'AI Studio & Picture Connect (Levels 1–10)',
+        subtitle: '25 AI Visual Briefs (SCARE) · 100+ Placement Scenes · Spin Wheel',
+        description:
+          'Train structured AI prompt-to-presentation reasoning across 25 visual challenges auto-scored out of 100 marks alongside 10 Picture Connect placement levels and 18 Wheel prompts.',
+        coverage: 'Applied AI Prompting · SCARE Rubric · Visual Thinking',
+        metrics: '10 Levels · 25 AI Challenges · 18 Wheel Prompts',
+        themeColor: 'rose',
+        image: PHOTO_ASSETS.placement_whiteboard_dsa.src,
+        imageAlt: PHOTO_ASSETS.placement_whiteboard_dsa.alt,
+      },
+      {
+        id: 'p3-assessments-credentials',
+        number: '03C',
+        title: 'Daily Mock, Nov 23 Sprint, Final Capstone & LOR',
+        subtitle: '60-Min Daily Hard Mock · 90-Min 1000 XP Exam · 42 Badges & 6 Certs',
+        description:
+          'Prove placement mastery under real timed conditions in the Daily Mock, Nov 23 Placement Sprint Assessment, and 90-Min Final Capstone to unlock PNG Certificates & LOR PDF.',
+        coverage: 'Daily 40-MCQ Mock · Nov 23 Special · Capstone · LOR PDF',
+        metrics: '42 PNG Badges · 6 Certificates · Placement LOR PDF',
+        themeColor: 'amber',
+        image: LANDING_SHOWCASE_IMAGES.capstoneArena.src,
+        imageAlt: LANDING_SHOWCASE_IMAGES.capstoneArena.alt,
+      },
+    ],
+  },
+];
+
 export function getLearnerRank(xp: number): {
   title: string;
   nextTitle: string | null;

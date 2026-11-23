@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ArrowRight,
   Award,
@@ -11,8 +11,13 @@ import {
 } from 'lucide-react';
 import { signInWithGoogleOnly } from '../firebase';
 import { LANDING_SHOWCASE_IMAGES } from '../data/imageAssets';
-import { getCategoryTheme } from '../data/themeColors';
-import { ACADEMY_CATEGORIES, WORKSHOP_META } from '../data/workshopData';
+import { COLOR_THEMES } from '../data/themeColors';
+import {
+  LANDING_CURRICULUM_PARTS,
+  LandingCurriculumModule,
+  LandingCurriculumPart,
+  WORKSHOP_META,
+} from '../data/workshopData';
 import { FounderNoteSection } from './FounderNoteSection';
 import { LiveClock } from './LiveClock';
 import { SmartImage } from './SmartImage';
@@ -23,14 +28,17 @@ interface GoogleAuthGateProps {
   onOpenAdmin: () => void;
 }
 
+type PartFilterId = 'all' | LandingCurriculumPart['id'];
+
 export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
   authError,
   onOpenAdmin,
 }) => {
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [selectedCatId, setSelectedCatId] = useState<string>(
-    ACADEMY_CATEGORIES[0].id
+  const [partFilter, setPartFilter] = useState<PartFilterId>('all');
+  const [selectedModuleId, setSelectedModuleId] = useState<string>(
+    LANDING_CURRICULUM_PARTS[0].modules[0].id
   );
 
   const handleGoogleLogin = async () => {
@@ -55,24 +63,55 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
     }
   };
 
-  const scrollToVideos = () => {
+  const scrollToPromoVideos = () => {
     document
-      .getElementById('video-case-challenges')
-      ?.scrollIntoView({ behavior: 'smooth' });
+      .getElementById('promotional-videos')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  const scrollToCaseStudies = () => {
+    document
+      .getElementById('video-case-challenges')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const visibleParts = useMemo(
+    () =>
+      partFilter === 'all'
+        ? LANDING_CURRICULUM_PARTS
+        : LANDING_CURRICULUM_PARTS.filter((p) => p.id === partFilter),
+    [partFilter]
+  );
+
+  const selectedModuleInfo = useMemo<{
+    part: LandingCurriculumPart;
+    module: LandingCurriculumModule;
+  }>(() => {
+    for (const part of LANDING_CURRICULUM_PARTS) {
+      const found = part.modules.find((m) => m.id === selectedModuleId);
+      if (found) return { part, module: found };
+    }
+    return {
+      part: LANDING_CURRICULUM_PARTS[0],
+      module: LANDING_CURRICULUM_PARTS[0].modules[0],
+    };
+  }, [selectedModuleId]);
+
   const displayError = localError || authError;
-  const activeCategory =
-    ACADEMY_CATEGORIES.find((c) => c.id === selectedCatId) ??
-    ACADEMY_CATEGORIES[0];
-  const activeCatTheme = getCategoryTheme(activeCategory.id);
+
+  const partFilterTabs: { id: PartFilterId; label: string }[] = [
+    { id: 'all', label: 'All 3 Parts (Complete Mastery)' },
+    { id: 'part_1_core', label: '01 · Comm, Soft Skills, Aptitude & Coding/DSA' },
+    { id: 'part_2_utility', label: '02 · MS Office, Excel, Power BI & Tableau' },
+    { id: 'part_3_dbms_ai', label: '03 · DBMS, AI & Assessments' },
+  ];
 
   return (
     <div className="min-h-screen bg-[#050C1C] bg-[radial-gradient(ellipse_at_top,_rgba(37,99,235,0.24),_transparent_58%),radial-gradient(ellipse_at_bottom_right,_rgba(124,58,237,0.16),_transparent_55%)] text-slate-100 py-6 sm:py-10 px-4 sm:px-8">
       <div className="max-w-6xl mx-auto space-y-14">
         {/* Hero Split */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-          {/* Left: Editorial Academy Hero with Bespoke Atrium Photography */}
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+          {/* Left: Editorial Academy Hero */}
           <div className="lg:col-span-7 rounded-2xl border border-[#1E3563] bg-[#0B1733] overflow-hidden flex flex-col justify-between">
             <div
               className="h-1 w-full bg-gradient-to-r from-sky-400 via-violet-500 to-amber-400"
@@ -96,7 +135,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                   {WORKSHOP_META.title}
                 </h1>
                 <p className="text-xs sm:text-sm font-semibold text-sky-400 tracking-wide">
-                  {WORKSHOP_META.subtitle}
+                  Part 1: Communication, Soft Skills, Aptitude, Coding &amp; DSA · Part 2: MS Office, Excel, Power BI &amp; Tableau · Part 3: DBMS &amp; AI
                 </p>
                 <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
                   {WORKSHOP_META.positioning} — {WORKSHOP_META.corePhilosophy}
@@ -117,39 +156,40 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                   <span className="font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-slate-100">
                     {LANDING_SHOWCASE_IMAGES.heroUniverse.caption}
                   </span>
-                  <span className="font-mono text-[10px] text-amber-300 font-semibold hidden sm:inline">
-                    9 Categories · 42 Badges · 6 Certificates
+                  <span className="font-mono text-[10px] text-amber-300 font-semibold hidden sm:inline tabular-nums">
+                    3 Unified Parts · 42 Badges · 6 Certificates
                   </span>
                 </div>
               </div>
 
+              {/* 3-Part Quick KPI Summary + Promo Reel Jump */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-3 border-t border-[#1E3563] text-xs items-center">
                 <div>
-                  <div className="text-slate-400">Visual &amp; Soft Skills</div>
-                  <div className="font-mono font-semibold text-sky-300 mt-0.5 tabular-nums">
-                    Levels 1–10 + AI + GD
+                  <div className="text-slate-400">Part 01 · Core &amp; Code</div>
+                  <div className="font-mono font-semibold text-sky-300 mt-0.5 truncate">
+                    Comm · Soft · Apt · DSA
                   </div>
                 </div>
                 <div>
-                  <div className="text-slate-400">Aptitude &amp; Verbal</div>
-                  <div className="font-mono font-semibold text-amber-300 mt-0.5 tabular-nums">
-                    7 Tracks · 70 MCQs
+                  <div className="text-slate-400">Part 02 · Utility Tools</div>
+                  <div className="font-mono font-semibold text-emerald-300 mt-0.5 truncate">
+                    Office · Excel · BI · Tableau
                   </div>
                 </div>
                 <div>
-                  <div className="text-slate-400">Code, Data &amp; Cloud</div>
-                  <div className="font-mono font-semibold text-emerald-300 mt-0.5 tabular-nums">
-                    9 Tech Tracks · 90 MCQs
+                  <div className="text-slate-400">Part 03 · Data &amp; AI</div>
+                  <div className="font-mono font-semibold text-violet-300 mt-0.5 truncate">
+                    DBMS · AI · Capstone
                   </div>
                 </div>
                 <div className="flex justify-start sm:justify-end">
                   <button
                     type="button"
-                    onClick={scrollToVideos}
+                    onClick={scrollToPromoVideos}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-400/40 bg-rose-500/15 hover:bg-rose-500/25 text-xs font-semibold text-rose-200 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                   >
                     <Play className="w-3.5 h-3.5" />
-                    <span>Watch 6 Videos</span>
+                    <span>Promo Reels</span>
                   </button>
                 </div>
               </div>
@@ -173,8 +213,8 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                 </h2>
                 <p className="text-sm text-slate-300 leading-relaxed">
                   Your Google display name powers your personal XP ledger across
-                  every category, 42 downloadable PNG badges, 6 verifiable PNG
-                  certificates, and Placement LOR PDF{' '}
+                  all 3 curriculum parts, 42 downloadable PNG badges, 6
+                  verifiable certificates, and Placement LOR PDF{' '}
                   <span className="font-semibold text-amber-300">
                     Powered By Kapil
                   </span>
@@ -186,25 +226,23 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                 <div className="flex items-start gap-2.5">
                   <Trophy className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
                   <span>
-                    Picture Connect (Levels 1–10, 18-Prompt Spin Wheel &amp; 25
-                    AI Briefs) + Smart Buyer Shopping (50 MCQs, 25 Cases),
-                    Negotiation, Indianism, Interview &amp; GD
+                    Part 1: Global Communication, Interview &amp; GD,
+                    Negotiation, Aptitude, Grammar/Tenses/Idioms &amp; C, C++,
+                    Java, Python, DSA
                   </span>
                 </div>
                 <div className="flex items-start gap-2.5">
-                  <Sparkles className="w-4 h-4 text-violet-400 shrink-0 mt-0.5" />
+                  <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                   <span>
-                    16 Placement Tracks: Aptitude, Grammar, Parts of Speech &amp;
-                    Grammar, Tenses, Punctuation, Idioms, C, C++, Java, Python,
-                    DSA, Excel, Power BI, DBMS &amp; Cloud — with Live Crisp
-                    Notes &amp; 160 FAANG/MNC Solved Problems
+                    Part 2: Workplace Utility Tools — MS Office (Word &amp;
+                    PowerPoint), Microsoft Excel, Power BI DAX &amp; Tableau BI
                   </span>
                 </div>
                 <div className="flex items-start gap-2.5">
-                  <Award className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <Award className="w-4 h-4 text-violet-400 shrink-0 mt-0.5" />
                   <span>
-                    255+ Graded Hinted MCQs, 90-Min 1000 XP Final Capstone, 42
-                    PNG Badges, 6 Certificates &amp; Placement LOR PDF
+                    Part 3: DBMS &amp; SQL, Cloud, AI Picture Connect, Daily
+                    60-Min Hard Mock, 1000 XP Final Capstone &amp; LOR PDF
                   </span>
                 </div>
               </div>
@@ -222,7 +260,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                 type="button"
                 disabled={submitting}
                 onClick={handleGoogleLogin}
-                className="w-full inline-flex items-center justify-center gap-3 px-5 py-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-950 text-sm font-semibold transition-colors cursor-pointer disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 shadow-lg shadow-blue-950/40"
+                className="w-full inline-flex items-center justify-center gap-3 px-5 py-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-950 text-sm font-semibold transition-colors cursor-pointer disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 shadow-lg shadow-blue-950/40 whitespace-nowrap"
               >
                 <svg
                   className="w-5 h-5 shrink-0"
@@ -260,14 +298,14 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                     passwords.
                   </div>
                   <div>
-                    Your XP, completed tracks, and certificate credentials sync
-                    automatically.
+                    All saved XP, solved MCQs, badges, and certificates stay
+                    synced under your account with zero data loss.
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={onOpenAdmin}
-                  className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1E3563] bg-[#071127] hover:bg-[#112247] text-xs font-semibold text-slate-200 cursor-pointer transition-colors"
+                  className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1E3563] bg-[#071127] hover:bg-[#112247] text-xs font-semibold text-slate-200 cursor-pointer transition-colors whitespace-nowrap shrink-0"
                 >
                   <Lock className="w-3.5 h-3.5 text-amber-400" />
                   <span>Admin Dashboard</span>
@@ -275,123 +313,195 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Academy Skill Categories Directory — Distinct Color Identity Per Category */}
-        <section className="space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
-            <div>
-              <div className="text-xs font-mono font-semibold text-amber-400">
-                ONE-STOP MASTER CURRICULUM · 9 COLOR-CODED EMPLOYABILITY
-                CATEGORIES
+        {/* TOP SHOWCASE: Promotional Videos Placed Right On Top Before Curriculum */}
+        <VideoChallengesSection
+          mode="landing"
+          showPromoShorts
+          showCaseStudies={false}
+          onRequestSignIn={handleGoogleLogin}
+        />
+
+        {/* RE-ORGANIZED 3-PART CURRICULUM ARCHITECTURE */}
+        <section id="curriculum-3-parts" className="space-y-10">
+          <div className="space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3">
+              <div>
+                <div className="text-xs font-mono font-semibold text-amber-400">
+                  ONE-STOP PLACEMENT ARCHITECTURE · ORGANIZED INTO 3 PARTS
+                </div>
+                <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mt-1 [text-wrap:balance]">
+                  Master Every Placement Skill in 3 Structured Parts
+                </h2>
               </div>
-              <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mt-1">
-                Explore EMPLOYABILITY UNIVERSE Categories
-              </h2>
+              <div className="text-xs text-slate-400 font-mono">
+                01. Core &amp; Code · 02. Utility Tools &amp; BI · 03. DBMS, AI
+                &amp; Credentials
+              </div>
             </div>
-            <div className="text-xs text-slate-400 font-mono">
-              Communication · Aptitude &amp; Verbal · C/C++/Java/Python/DSA ·
-              Excel/BI/DBMS/Cloud · Capstone
+
+            {/* Interactive 3-Part Segmented Filter Bar */}
+            <div
+              role="tablist"
+              aria-label="Filter curriculum by part"
+              className="flex items-center gap-1.5 overflow-x-auto pb-1"
+            >
+              {partFilterTabs.map((tab) => {
+                const active = partFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setPartFilter(tab.id)}
+                    className={`px-3.5 py-2 rounded-lg border text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                      active
+                        ? 'border-sky-400 bg-sky-500/20 text-white'
+                        : 'border-[#1E3563] bg-[#0B1733] text-slate-300 hover:border-slate-500 hover:text-white'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {ACADEMY_CATEGORIES.map((cat) => {
-              const selected = cat.id === activeCategory.id;
-              const theme = getCategoryTheme(cat.id);
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setSelectedCatId(cat.id)}
-                  className={`text-left rounded-2xl border overflow-hidden flex flex-col justify-between transition-all duration-200 cursor-pointer group ${
-                    selected
-                      ? theme.landingCardSelected
-                      : `border-[#1E3563] bg-[#0B1733] ${theme.landingCardHover}`
-                  }`}
-                >
-                  <div>
+          <div className="space-y-12">
+            {visibleParts.map((part) => (
+              <div key={part.id} className="space-y-5">
+                {/* Part Header Band */}
+                <div className="pb-3 border-b border-[#1E3563] flex flex-col lg:flex-row lg:items-end justify-between gap-2">
+                  <div className="space-y-1">
                     <div
-                      className={`h-1 w-full bg-gradient-to-r ${theme.topBar}`}
-                      aria-hidden="true"
-                    />
-                    <div className="aspect-[16/9] w-full overflow-hidden border-b border-[#1E3563] bg-[#071127]">
-                      <SmartImage
-                        src={cat.image}
-                        alt={cat.imageAlt}
-                        fallbackTitle={cat.title}
-                        fallbackSubtitle={cat.subtitle}
-                        className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
-                      />
-                    </div>
-                    <div className="p-5 space-y-2">
-                      <div className="flex items-center justify-between gap-2 text-xs font-mono text-slate-400">
-                        <span
-                          className={`font-bold ${theme.textDarkLanding}`}
-                        >
-                          {cat.number}
-                        </span>
-                        <span className="truncate">
-                          {cat.subtitle.split('·')[0].trim()}
-                        </span>
-                      </div>
-                      <h3 className="font-display text-lg font-bold text-white">
-                        {cat.title}
-                      </h3>
-                      <p className="text-xs text-slate-300 leading-relaxed">
-                        {cat.description}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mx-5 mb-4 pt-3 border-t border-[#1E3563] flex items-center justify-between gap-2 text-[11px] font-mono text-slate-400">
-                    <span>{cat.highlights}</span>
-                    <span
-                      className={`font-semibold ${theme.textDarkLanding}`}
+                      className={`text-xs font-mono font-bold ${part.accentTextClass}`}
                     >
-                      {theme.name}
-                    </span>
+                      {part.number}
+                    </div>
+                    <h3 className="font-display text-xl sm:text-2xl font-bold text-white">
+                      {part.title}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-300 max-w-3xl leading-relaxed">
+                      {part.summary}
+                    </p>
                   </div>
-                </button>
-              );
-            })}
+                  <div className="text-xs font-mono text-slate-400 shrink-0 tabular-nums">
+                    {part.modules.length} Focused Modules
+                  </div>
+                </div>
+
+                {/* Part Module Cards Grid */}
+                <div
+                  className={`grid grid-cols-1 md:grid-cols-2 ${
+                    part.modules.length === 3
+                      ? 'lg:grid-cols-3'
+                      : 'xl:grid-cols-4'
+                  } gap-5 items-stretch`}
+                >
+                  {part.modules.map((mod) => {
+                    const selected = selectedModuleId === mod.id;
+                    const theme = COLOR_THEMES[mod.themeColor];
+                    return (
+                      <button
+                        key={mod.id}
+                        type="button"
+                        onClick={() => setSelectedModuleId(mod.id)}
+                        className={`text-left rounded-2xl border overflow-hidden flex flex-col justify-between transition-all duration-200 cursor-pointer group ${
+                          selected
+                            ? part.selectedBorderClass
+                            : `border-[#1E3563] bg-[#0B1733] ${part.hoverBorderClass}`
+                        }`}
+                      >
+                        <div>
+                          <div
+                            className={`h-1 w-full bg-gradient-to-r ${theme.topBar}`}
+                            aria-hidden="true"
+                          />
+                          <div className="aspect-[16/9] w-full overflow-hidden border-b border-[#1E3563] bg-[#071127]">
+                            <SmartImage
+                              src={mod.image}
+                              alt={mod.imageAlt}
+                              fallbackTitle={mod.title}
+                              fallbackSubtitle={mod.subtitle}
+                              className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+                            />
+                          </div>
+                          <div className="p-5 space-y-2">
+                            <div className="flex items-center justify-between gap-2 text-xs font-mono text-slate-400">
+                              <span
+                                className={`font-bold ${theme.textDarkLanding}`}
+                              >
+                                {mod.number}
+                              </span>
+                              <span className="truncate">{mod.coverage}</span>
+                            </div>
+                            <h4 className="font-display text-base sm:text-lg font-bold text-white leading-snug">
+                              {mod.title}
+                            </h4>
+                            <div className="text-xs font-medium text-sky-300/90">
+                              {mod.subtitle}
+                            </div>
+                            <p className="text-xs text-slate-300 leading-relaxed pt-0.5">
+                              {mod.description}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mx-5 mb-4 pt-3 border-t border-[#1E3563] flex items-center justify-between gap-2 text-[11px] font-mono text-slate-400">
+                          <span className="truncate">{mod.metrics}</span>
+                          <span
+                            className={`font-semibold whitespace-nowrap shrink-0 ${theme.textDarkLanding}`}
+                          >
+                            {selected ? 'Selected' : 'Preview'}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
 
+          {/* Interactive Selected Module Launch Bar */}
           <div className="rounded-xl border border-[#1E3563] bg-[#0B1733] overflow-hidden">
             <div
-              className={`h-1 w-full bg-gradient-to-r ${activeCatTheme.topBar}`}
+              className={`h-1 w-full bg-gradient-to-r ${selectedModuleInfo.part.topAccentGradient}`}
               aria-hidden="true"
             />
             <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">
-                  <span className={activeCatTheme.textDarkLanding}>
-                    {activeCategory.number}
+                  <span className={selectedModuleInfo.part.accentTextClass}>
+                    {selectedModuleInfo.module.number}
                   </span>{' '}
-                  {activeCategory.title} — {activeCategory.subtitle}
+                  {selectedModuleInfo.module.title} —{' '}
+                  {selectedModuleInfo.module.subtitle}
                 </div>
                 <div className="text-xs text-slate-300">
-                  Sign in with Google to save XP, unlock 42 PNG badges, and
-                  download 6 official certificates + Placement LOR PDF.
+                  Sign in with Google to access full interactive notes, solved
+                  company problems, MCQs, and downloadable PNG badges &amp;
+                  certificates.
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-3 shrink-0">
-                {activeCategory.id === 'and-more' && (
-                  <button
-                    type="button"
-                    onClick={scrollToVideos}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#1E3563] bg-[#071127] hover:bg-[#112247] text-xs font-semibold text-slate-200 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-                  >
-                    <Play className="w-3.5 h-3.5 text-sky-400" />
-                    <span>Preview Video Films</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={scrollToCaseStudies}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#1E3563] bg-[#071127] hover:bg-[#112247] text-xs font-semibold text-slate-200 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  <Play className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Watch Case Films</span>
+                </button>
                 <button
                   type="button"
                   disabled={submitting}
                   onClick={handleGoogleLogin}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60 ${activeCatTheme.activeButton}`}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60 ${selectedModuleInfo.part.buttonClass}`}
                 >
-                  <span>Enter {activeCategory.title}</span>
+                  <span>Start Module with Google</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -436,7 +546,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
               </div>
             </div>
             <div className="px-6 pb-6 pt-2 flex items-center justify-between text-xs font-mono text-slate-400 border-t border-[#1E3563] mx-6">
-              <span>Core · AI · Shop · Career · Tech · Capstone</span>
+              <span>Part 01 · Part 02 · Part 03</span>
               <span className="text-amber-300 font-semibold">100% Verifiable</span>
             </div>
           </div>
@@ -485,6 +595,8 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
         {/* Landing Video Case Studies & Challenges (Watch Directly Inside Portal) */}
         <VideoChallengesSection
           mode="landing"
+          showPromoShorts={false}
+          showCaseStudies
           onRequestSignIn={handleGoogleLogin}
         />
       </div>
