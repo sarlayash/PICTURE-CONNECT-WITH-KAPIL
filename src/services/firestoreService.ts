@@ -231,6 +231,7 @@ export interface AdminUserRecord {
   domain?: string;
   pushEnabled?: boolean;
   reminderFrequency?: ProfileReminderFrequency;
+  emailRemindersEnabled?: boolean;
   rankTitle: string;
   xp: number;
   completedLevels: number[];
@@ -823,6 +824,7 @@ export function subscribeAdminLiveData(
       domain?: string;
       pushEnabled?: boolean;
       reminderFrequency?: ProfileReminderFrequency;
+      emailRemindersEnabled?: boolean;
       createdAtMs: number;
       updatedAtMs: number;
     }
@@ -867,6 +869,7 @@ export function subscribeAdminLiveData(
         domain: user?.domain,
         pushEnabled: user?.pushEnabled,
         reminderFrequency: user?.reminderFrequency,
+        emailRemindersEnabled: user?.emailRemindersEnabled ?? true,
         rankTitle: getLearnerRank(xp).title,
         xp,
         completedLevels,
@@ -927,6 +930,10 @@ export function subscribeAdminLiveData(
           domain: data.domain ? String(data.domain) : undefined,
           pushEnabled: Boolean(data.pushEnabled),
           reminderFrequency: freq,
+          emailRemindersEnabled:
+            typeof data.emailRemindersEnabled === 'boolean'
+              ? data.emailRemindersEnabled
+              : true,
           createdAtMs: data.createdAt?.toMillis ? data.createdAt.toMillis() : 0,
           updatedAtMs: data.updatedAt?.toMillis ? data.updatedAt.toMillis() : 0,
         };

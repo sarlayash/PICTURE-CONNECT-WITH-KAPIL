@@ -483,6 +483,31 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidAdminDistributionList(data) {
+      return data.keys().hasAll([
+          'ownerId', 'createdByEmail', 'name', 'description',
+          'recipientUids', 'recipientEmails', 'lastSentAtMs', 'sentCount',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'createdByEmail', 'name', 'description',
+          'recipientUids', 'recipientEmails', 'lastSentAtMs', 'sentCount',
+          'createdAt', 'updatedAt'
+        ])
+        && data.ownerId is string && isValidId(data.ownerId)
+        && data.createdByEmail is string && data.createdByEmail.size() >= 3 && data.createdByEmail.size() <= 160
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
+        && data.description is string && data.description.size() <= 240
+        && data.recipientUids is list && data.recipientUids.size() <= 250
+        && (data.recipientUids.size() == 0 || isValidId(data.recipientUids[0]))
+        && data.recipientEmails is list && data.recipientEmails.size() <= 250
+        && (data.recipientEmails.size() == 0 || (data.recipientEmails[0] is string && data.recipientEmails[0].size() >= 3 && data.recipientEmails[0].size() <= 160))
+        && data.lastSentAtMs is number && data.lastSentAtMs >= 0
+        && data.sentCount is int && data.sentCount >= 0 && data.sentCount <= 100000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
     // 4. Collection Rules
     match /users/{userId} {
       allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
@@ -866,6 +891,32 @@ service cloud.firestore {
           )
         );
       allow delete: if isValidId(attemptId) && isAdmin();
+    }
+
+    match /adminDistributionLists/{listId} {
+      allow get: if isValidId(listId) && isAdmin();
+      allow list: if isAdmin();
+      allow create: if isValidId(listId)
+        && isAdmin()
+        && isValidAdminDistributionList(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdByEmail.lower() == request.auth.token.email.lower()
+        && incoming().lastSentAtMs == 0
+        && incoming().sentCount == 0
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(listId)
+        && isAdmin()
+        && isValidAdminDistributionList(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdByEmail == existing().createdByEmail
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'description', 'recipientUids', 'recipientEmails',
+          'lastSentAtMs', 'sentCount', 'updatedAt'
+        ]);
+      allow delete: if isValidId(listId) && isAdmin();
     }
   }
 }

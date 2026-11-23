@@ -143,6 +143,7 @@ function PictureConnectWorkspace() {
     string | undefined
   >(undefined);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [adminCredentialsUnlocked, setAdminCredentialsUnlocked] = useState(false);
   const [notifDrawerOpen, setNotifDrawerOpen] = useState(false);
   const [emailRequest, setEmailRequest] =
     useState<EmailCredentialRequest | null>(null);
@@ -519,6 +520,8 @@ function PictureConnectWorkspace() {
           open={adminOpen}
           onClose={() => setAdminOpen(false)}
           currentUser={null}
+          credentialsUnlocked={adminCredentialsUnlocked}
+          onCredentialsUnlockedChange={setAdminCredentialsUnlocked}
         />
       </>
     );
@@ -1337,6 +1340,8 @@ function PictureConnectWorkspace() {
         onClose={() => setAdminOpen(false)}
         currentUser={user}
         onRequestEmail={setEmailRequest}
+        credentialsUnlocked={adminCredentialsUnlocked}
+        onCredentialsUnlockedChange={setAdminCredentialsUnlocked}
       />
 
       <EmailCredentialModal

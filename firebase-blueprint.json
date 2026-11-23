@@ -903,6 +903,60 @@
         "resultEmailed",
         "updatedAt"
       ]
+    },
+    "AdminDistributionList": {
+      "title": "AdminDistributionList",
+      "description": "Reusable admin-curated email distribution list containing only verified registered learner UIDs and sign-up email IDs.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdByEmail": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "recipientUids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 250
+        },
+        "recipientEmails": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 250
+        },
+        "lastSentAtMs": { "type": "number", "minimum": 0 },
+        "sentCount": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "ownerId",
+        "createdByEmail",
+        "name",
+        "description",
+        "recipientUids",
+        "recipientEmails",
+        "lastSentAtMs",
+        "sentCount",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -957,6 +1011,10 @@
     "/dailyMockAttempts/{attemptId}": {
       "schema": { "$ref": "#/entities/DailyMockAttempt" },
       "description": "Daily 60-minute timed Mock Test sessions (40 MCQs, 50% Hard across all portal topics) keyed as {uid}_{YYYY-MM-DD}."
+    },
+    "/adminDistributionLists/{listId}": {
+      "schema": { "$ref": "#/entities/AdminDistributionList" },
+      "description": "Admin-managed reusable email distribution lists restricted to verified registered learners."
     }
   }
 }

@@ -12,6 +12,7 @@ export interface EmailAttachmentPayload {
 
 export interface SendGmailParams {
   toEmail: string;
+  bccEmails?: string[];
   subject: string;
   htmlBody: string;
   textFallback: string;
@@ -25,11 +26,11 @@ export interface SendGmailResult {
 }
 
 /**
- * Strips CR/LF to eliminate RFC 2822 header injection risks.
+ * Strips CR/LF/NUL to eliminate RFC 2822 header injection risks.
  */
 export function sanitizeHeaderValue(value: string): string {
   return String(value || '')
-    .replace(/[\r\n]+/g, ' ')
+    .replace(/[\r\n\0]+/g, ' ')
     .trim();
 }
 
@@ -87,11 +88,36 @@ export function toBase64Url(base64: string): string {
 }
 
 export function encodeMimeSubject(subject: string): string {
-  const clean = sanitizeHeaderValue(subject);
+  const clean = sanitizeHeaderValue(subject) || 'EMPLOYABILITY UNIVERSE Update';
   if (/^[\x20-\x7E]*$/.test(clean)) {
     return clean;
   }
   return `=?UTF-8?B?${utf8ToBase64(clean)}?=`;
+}
+
+/**
+ * Normalizes, validates, and deduplicates an array of BCC recipient emails.
+ */
+export function normalizeBccList(
+  bccEmails: string[] | undefined,
+  excludeToEmail?: string
+): string[] {
+  if (!Array.isArray(bccEmails) || bccEmails.length === 0) return [];
+  const toLower = sanitizeHeaderValue(excludeToEmail || '').toLowerCase();
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of bccEmails) {
+    const clean = sanitizeHeaderValue(raw);
+    if (!isValidEmailAddress(clean)) continue;
+    const lower = clean.toLowerCase();
+    if (lower === toLower || seen.has(lower)) continue;
+    seen.add(lower);
+    out.push(clean);
+    if (out.length > 50) {
+      throw new Error('BCC batch limit exceeded (maximum 50 BCC recipients per MIME envelope).');
+    }
+  }
+  return out;
 }
 
 /**
@@ -101,6 +127,7 @@ export function encodeMimeSubject(subject: string): string {
  */
 export function buildMimeEmail(params: {
   toEmail: string;
+  bccEmails?: string[];
   subject: string;
   htmlBody: string;
   textFallback: string;
@@ -112,6 +139,7 @@ export function buildMimeEmail(params: {
     throw new Error('Recipient email address is invalid.');
   }
 
+  const validBcc = normalizeBccList(params.bccEmails, to);
   const encodedSubject = encodeMimeSubject(params.subject);
   const seed = params.boundarySeed || `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
   const altBoundary = `alt_euwk_${seed}`;
@@ -139,6 +167,11 @@ export function buildMimeEmail(params: {
     `--${altBoundary}--`,
   ].join('\r\n');
 
+  const addressHeaders = [`To: ${to}`];
+  if (validBcc.length > 0) {
+    addressHeaders.push(`Bcc: ${validBcc.join(', ')}`);
+  }
+
   let rawMime: string;
 
   if (params.attachment) {
@@ -152,7 +185,7 @@ export function buildMimeEmail(params: {
     }
 
     rawMime = [
-      `To: ${to}`,
+      ...addressHeaders,
       `Subject: ${encodedSubject}`,
       'MIME-Version: 1.0',
       `Content-Type: multipart/mixed; boundary="${mixBoundary}"`,
@@ -172,7 +205,7 @@ export function buildMimeEmail(params: {
     ].join('\r\n');
   } else {
     rawMime = [
-      `To: ${to}`,
+      ...addressHeaders,
       `Subject: ${encodedSubject}`,
       'MIME-Version: 1.0',
       `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
@@ -729,6 +762,111 @@ export function buildAdminDailyCohortDigestEmail(params: {
   return { subject, htmlBody, textFallback };
 }
 
+export function applyCustomEmailTokens(
+  template: string,
+  tokens: { name?: string; email?: string; domain?: string }
+): string {
+  const name = String(tokens.name || 'Learner').trim() || 'Learner';
+  const firstName = name.split(/\s+/)[0] || name;
+  const email = String(tokens.email || '').trim();
+  const domain = String(tokens.domain || 'Career & Placement Track').trim() || 'Career & Placement Track';
+
+  return String(template || '')
+    .replace(/\{\{\s*name\s*\}\}/gi, name)
+    .replace(/\{\{\s*firstName\s*\}\}/gi, firstName)
+    .replace(/\{\{\s*email\s*\}\}/gi, email)
+    .replace(/\{\{\s*domain\s*\}\}/gi, domain);
+}
+
+/**
+ * Builds a clean, escaped, branded Mentor Kapil custom broadcast or targeted email.
+ */
+export function buildAdminCustomBroadcastEmail(params: {
+  learnerName: string;
+  learnerEmail: string;
+  learnerDomain?: string;
+  subject: string;
+  messageBody: string;
+  audienceLabel?: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+}): { subject: string; htmlBody: string; textFallback: string } {
+  const tokenCtx = {
+    name: params.learnerName,
+    email: params.learnerEmail,
+    domain: params.learnerDomain,
+  };
+  const resolvedSubject =
+    sanitizeHeaderValue(applyCustomEmailTokens(params.subject, tokenCtx)) ||
+    'Update from EMPLOYABILITY UNIVERSE With Kapil';
+  const resolvedBody = applyCustomEmailTokens(params.messageBody, tokenCtx).trim();
+
+  const paragraphs = resolvedBody
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  const paragraphsHtml = (paragraphs.length > 0 ? paragraphs : [resolvedBody || 'Please log in to EMPLOYABILITY UNIVERSE With Kapil for your latest update.'])
+    .map(
+      (para) =>
+        `<p style="margin:0 0 14px;font-size:14px;line-height:1.65;color:#1e293b;">${escapeHtml(
+          para
+        ).replace(/\n/g, '<br/>')}</p>`
+    )
+    .join('');
+
+  const cleanCtaUrl = String(params.ctaUrl || '').trim();
+  const safeCtaUrl = /^https?:\/\//i.test(cleanCtaUrl) ? cleanCtaUrl : '';
+  const safeCtaLabel = String(params.ctaLabel || 'Open Portal').trim() || 'Open Portal';
+  const safeAudienceLabel = escapeHtml(
+    params.audienceLabel || 'MENTOR DISPATCH · EMPLOYABILITY UNIVERSE WITH KAPIL'
+  );
+
+  const htmlBody = `<!doctype html>
+<html>
+<body style="margin:0;padding:24px;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
+  <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #cbd5e1;border-radius:14px;overflow:hidden;">
+    <div style="background:linear-gradient(90deg,#0f172a,#1e3a8a,#312e81);padding:24px 28px;color:#ffffff;">
+      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#fde047;font-weight:700;">${safeAudienceLabel}</div>
+      <h1 style="margin:8px 0 4px;font-size:21px;line-height:1.3;">${escapeHtml(resolvedSubject)}</h1>
+      <div style="font-size:13px;color:#cbd5e1;">EMPLOYABILITY UNIVERSE With Kapil · Powered By Kapil</div>
+    </div>
+    <div style="padding:26px 28px;">
+      <p style="margin:0 0 14px;font-size:15px;">Hello <strong>${escapeHtml(params.learnerName)}</strong>,</p>
+      ${paragraphsHtml}
+      ${
+        safeCtaUrl
+          ? `<div style="margin:20px 0 8px;">
+              <a href="${escapeHtml(safeCtaUrl)}" style="display:inline-block;padding:12px 20px;background:#1d4ed8;color:#ffffff;text-decoration:none;border-radius:10px;font-size:13px;font-weight:700;">${escapeHtml(safeCtaLabel)}</a>
+            </div>`
+          : ''
+      }
+      <div style="margin-top:22px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b;">
+        Recipient: ${escapeHtml(params.learnerEmail)}<br/>
+        Warm regards,<br/>
+        <strong style="color:#0f172a;">Kapil Narula</strong> · Architect &amp; Lead Employability Mentor · EMPLOYABILITY UNIVERSE With Kapil
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const textFallback = [
+    `EMPLOYABILITY UNIVERSE WITH KAPIL — ${resolvedSubject}`,
+    `Hello ${params.learnerName},`,
+    '',
+    resolvedBody,
+    '',
+    safeCtaUrl ? `${safeCtaLabel}: ${safeCtaUrl}` : '',
+    'Warm regards,',
+    'Kapil Narula — EMPLOYABILITY UNIVERSE With Kapil',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  return { subject: resolvedSubject, htmlBody, textFallback };
+}
+
 /**
  * Dispatches an email through the authenticated user's Gmail account using
  * Gmail API v1 `users/me/messages/send` with in-memory OAuth access token.
@@ -739,6 +877,7 @@ export async function sendGmailMessage(
 ): Promise<SendGmailResult> {
   const { rawBase64Url } = buildMimeEmail({
     toEmail: params.toEmail,
+    bccEmails: params.bccEmails,
     subject: params.subject,
     htmlBody: params.htmlBody,
     textFallback: params.textFallback,

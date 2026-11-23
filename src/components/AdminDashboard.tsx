@@ -102,6 +102,11 @@ import {
   adminSendReminderNotification,
   computeSectionAudit,
 } from '../services/notificationService';
+import {
+  AdminDistributionListDoc,
+  subscribeAdminDistributionLists,
+} from '../services/adminDistributionService';
+import { AdminEmailHub } from './AdminEmailHub';
 import { EmailCredentialRequest } from './EmailCredentialModal';
 
 interface AdminDashboardProps {
@@ -109,6 +114,8 @@ interface AdminDashboardProps {
   onClose: () => void;
   currentUser: User | null;
   onRequestEmail?: (req: EmailCredentialRequest) => void;
+  credentialsUnlocked?: boolean;
+  onCredentialsUnlockedChange?: (unlocked: boolean) => void;
 }
 
 type FilterStatus = 'all' | 'mastered' | 'active' | 'starter';
@@ -135,6 +142,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onClose,
   currentUser,
   onRequestEmail,
+  credentialsUnlocked: controlledUnlocked,
+  onCredentialsUnlockedChange,
 }) => {
   const [adminReminderBusyUid, setAdminReminderBusyUid] = useState<string | null>(
     null
@@ -143,9 +152,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [userIdInput, setUserIdInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [credError, setCredError] = useState<string | null>(null);
-  const [credentialsUnlocked, setCredentialsUnlocked] = useState(false);
+  const [internalUnlocked, setInternalUnlocked] = useState(false);
+
+  const credentialsUnlocked =
+    controlledUnlocked !== undefined ? controlledUnlocked : internalUnlocked;
+  const setCredentialsUnlocked = (next: boolean) => {
+    if (onCredentialsUnlockedChange) {
+      onCredentialsUnlockedChange(next);
+    } else {
+      setInternalUnlocked(next);
+    }
+  };
 
   const [records, setRecords] = useState<AdminUserRecord[]>([]);
+  const [distributionLists, setDistributionLists] = useState<
+    AdminDistributionListDoc[]
+  >([]);
+  const [emailPreselectedUid, setEmailPreselectedUid] = useState<string | null>(
+    null
+  );
   const [advByUid, setAdvByUid] = useState<
     Record<string, AdminAdvancedUserSummary>
   >({});
@@ -197,6 +222,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     | 'daily_mock'
     | 'final'
     | 'feedback'
+    | 'email_hub'
   >('core');
   const [lastSyncMs, setLastSyncMs] = useState<number>(0);
   const [streamError, setStreamError] = useState<string | null>(null);
@@ -214,6 +240,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   useEffect(() => {
     if (!hasAdminGoogleSession) {
       setRecords([]);
+      setDistributionLists([]);
       setAdvByUid({});
       setFinalByUid({});
       setShopByUid({});
@@ -225,12 +252,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setStreamError(null);
       setLastSyncMs(0);
       if (!open) {
-        setCredentialsUnlocked(false);
+        if (onCredentialsUnlockedChange) {
+          onCredentialsUnlockedChange(false);
+        } else {
+          setInternalUnlocked(false);
+        }
         setUserIdInput('');
         setPasswordInput('');
       }
     }
-  }, [hasAdminGoogleSession, open]);
+  }, [hasAdminGoogleSession, open, onCredentialsUnlockedChange]);
 
   useEffect(() => {
     if (!open || !credentialsUnlocked || !hasAdminGoogleSession) return;
@@ -301,6 +332,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setStreamError(errMsg);
       }
     );
+    const unsubDistLists = subscribeAdminDistributionLists(
+      (lists) => {
+        setDistributionLists(lists);
+      },
+      (errMsg) => {
+        setStreamError(errMsg);
+      }
+    );
 
     return () => {
       unsubCore();
@@ -311,6 +350,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       unsubMaster();
       unsubFeedback();
       unsubDailyMock();
+      unsubDistLists();
     };
   }, [open, credentialsUnlocked, hasAdminGoogleSession]);
 
@@ -552,6 +592,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       ),
     [records, selectedDateAttemptsByUid]
   );
+
+  const dailySubmittedUids = useMemo(
+    () => new Set(dailySubmittedForDate.map((a) => a.ownerId)),
+    [dailySubmittedForDate]
+  );
+
+  const liveInspectedUser = useMemo(() => {
+    if (!inspectedUser) return null;
+    return records.find((r) => r.uid === inspectedUser.uid) || inspectedUser;
+  }, [inspectedUser, records]);
 
   if (!open) return null;
 
@@ -1413,7 +1463,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <button
                     type="button"
                     onClick={() => setAdminTrackView('feedback')}
-                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
                       adminTrackView === 'feedback'
                         ? 'bg-amber-600 text-white shadow-sm'
                         : 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-300'
@@ -1425,6 +1475,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       {feedbackOpenCount > 0 ? ` · ${feedbackOpenCount} New` : ''})
                     </span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdminTrackView('email_hub')}
+                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap shrink-0 ${
+                      adminTrackView === 'email_hub'
+                        ? 'bg-blue-700 text-white shadow-sm'
+                        : 'bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-300'
+                    }`}
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>
+                      Email &amp; Lists ({distributionLists.length})
+                    </span>
+                  </button>
                 </div>
                 <div className="text-xs font-mono text-slate-500 dark:text-slate-400">
                   Daily Mock Today: {dailyTodaySubmittedCount}/{totalLearners} ·{' '}
@@ -1433,8 +1497,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* DEDICATED LEARNER FEEDBACK REPORTS VIEW */}
-              {adminTrackView === 'feedback' ? (
+              {/* DEDICATED EMAIL & DISTRIBUTION LISTS STUDIO */}
+              {adminTrackView === 'email_hub' ? (
+                <AdminEmailHub
+                  adminEmail={currentUser?.email || ADMIN_EMAIL}
+                  records={records}
+                  distributionLists={distributionLists}
+                  dailySubmittedUids={dailySubmittedUids}
+                  preselectedSpecificUid={emailPreselectedUid}
+                  onClearPreselectedSpecificUid={() => setEmailPreselectedUid(null)}
+                />
+              ) : adminTrackView === 'feedback' ? (
                 <div className="space-y-6">
                   {/* Feedback KPI Strip */}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -2237,7 +2310,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <>
                           <th className="py-3 px-3">Shop Rank</th>
                           <th className="py-3 px-3">Shop XP</th>
-                          <th className="py-3 px-3">MCQs (/20)</th>
+                          <th className="py-3 px-3">MCQs (/{SHOPPING_MCQS.length})</th>
                           <th className="py-3 px-3">Accuracy &amp; Hints</th>
                           <th className="py-3 px-3">Role-Play (/100)</th>
                           <th className="py-3 px-3">Badges &amp; Cert ID</th>
@@ -2565,15 +2638,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               {/* Selected Learner Submissions Inspector */}
-              {inspectedUser && (() => {
-                const inspAdv = advByUid[inspectedUser.uid];
-                const inspShop = shopByUid[inspectedUser.uid];
-                const inspCareer = careerByUid[inspectedUser.uid];
-                const inspMaster = masterByUid[inspectedUser.uid];
-                const inspFin = finalByUid[inspectedUser.uid];
+              {liveInspectedUser && (() => {
+                const inspectedTarget = liveInspectedUser;
+                const inspAdv = advByUid[inspectedTarget.uid];
+                const inspShop = shopByUid[inspectedTarget.uid];
+                const inspCareer = careerByUid[inspectedTarget.uid];
+                const inspMaster = masterByUid[inspectedTarget.uid];
+                const inspFin = finalByUid[inspectedTarget.uid];
                 const learnerAudit = computeSectionAudit({
-                  completedLevels: inspectedUser.completedLevels,
-                  completedWheelPrompts: inspectedUser.completedWheelPrompts,
+                  completedLevels: inspectedTarget.completedLevels,
+                  completedWheelPrompts: inspectedTarget.completedWheelPrompts,
                   shoppingAnsweredCount: inspShop?.answeredMcqs.length ?? 0,
                   shoppingRoleplayScore: inspShop?.roleplayScore ?? 0,
                   careerAnsweredCount: inspCareer?.answeredMcqs.length ?? 0,
@@ -2583,27 +2657,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   finalStatus: inspFin?.status ?? 'not_started',
                 });
                 const inspAvatar =
-                  inspectedUser.customPhotoDataUrl || inspectedUser.photoURL;
+                  inspectedTarget.customPhotoDataUrl || inspectedTarget.photoURL;
 
                 const handleAdminPushReminder = async () => {
-                  setAdminReminderBusyUid(inspectedUser.uid);
+                  setAdminReminderBusyUid(inspectedTarget.uid);
                   setAdminReminderNote(null);
                   try {
                     const nextMissing = learnerAudit.missingOrIncompleteItems[0];
                     await adminSendReminderNotification({
-                      targetUid: inspectedUser.uid,
-                      recipientEmail: inspectedUser.email,
+                      targetUid: inspectedTarget.uid,
+                      recipientEmail: inspectedTarget.email,
                       title: nextMissing
                         ? `Mentor Kapil Reminder: ${learnerAudit.missingOrIncompleteItems.length} section(s) remaining`
                         : 'Mentor Kapil Appreciation: 100% Complete!',
                       body: nextMissing
-                        ? `Hi ${inspectedUser.displayName}, you are ${learnerAudit.overallCompletionPct}% done. Next recommended step: ${nextMissing.title} — ${nextMissing.actionHint}`
-                        : `Bravo ${inspectedUser.displayName}! All sections are complete — email your certificates and Placement LOR from My Profile.`,
+                        ? `Hi ${inspectedTarget.displayName}, you are ${learnerAudit.overallCompletionPct}% done. Next recommended step: ${nextMissing.title} — ${nextMissing.actionHint}`
+                        : `Bravo ${inspectedTarget.displayName}! All sections are complete — email your certificates and Placement LOR from My Profile.`,
                       targetView: nextMissing?.targetView || 'achievements',
                       channel: 'in_app',
                     });
                     setAdminReminderNote(
-                      `In-app reminder delivered to ${inspectedUser.displayName}'s Notification Center!`
+                      `In-app reminder delivered to ${inspectedTarget.displayName}'s Notification Center!`
                     );
                   } catch (err) {
                     setAdminReminderNote(
@@ -2615,10 +2689,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 };
 
                 const handleAdminEmailReminder = () => {
-                  if (!onRequestEmail || !inspectedUser.email.includes('@')) return;
+                  if (!onRequestEmail || !inspectedTarget.email.includes('@')) return;
                   const digest = buildMissingSectionsReminderEmail({
-                    learnerName: inspectedUser.displayName,
-                    learnerEmail: inspectedUser.email,
+                    learnerName: inspectedTarget.displayName,
+                    learnerEmail: inspectedTarget.email,
                     overallCompletionPct: learnerAudit.overallCompletionPct,
                     completedSections: learnerAudit.completedItems.map((i) => ({
                       title: i.title,
@@ -2631,10 +2705,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     })),
                   });
                   onRequestEmail({
-                    recipientEmail: inspectedUser.email,
-                    recipientName: inspectedUser.displayName,
+                    recipientEmail: inspectedTarget.email,
+                    recipientName: inspectedTarget.displayName,
                     credentialType: 'reminder_digest',
-                    title: `Missing-Section Reminder for ${inspectedUser.displayName}`,
+                    title: `Missing-Section Reminder for ${inspectedTarget.displayName}`,
                     subject: digest.subject,
                     htmlBody: digest.htmlBody,
                     textFallback: digest.textFallback,
@@ -2642,7 +2716,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       learnerAudit.missingOrIncompleteItems[0]?.targetView ||
                       'journey',
                     sentByAdmin: true,
-                    targetUid: inspectedUser.uid,
+                    targetUid: inspectedTarget.uid,
                   });
                 };
 
@@ -2653,22 +2727,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       {inspAvatar && (
                         <img
                           src={inspAvatar}
-                          alt={inspectedUser.displayName}
+                          alt={inspectedTarget.displayName}
+                          referrerPolicy="no-referrer"
                           className="w-12 h-12 rounded-xl object-cover border border-blue-300/60 shrink-0"
                         />
                       )}
                       <div>
                         <div className="text-xs font-mono text-blue-700 dark:text-blue-400 font-semibold">
-                          LEARNER PORTFOLIO AUDIT · {inspectedUser.certificateId} ·{' '}
+                          LEARNER PORTFOLIO AUDIT · {inspectedTarget.certificateId} ·{' '}
                           {learnerAudit.overallCompletionPct}% UNIVERSE COMPLETE
                         </div>
                         <h3 className="font-display text-xl font-bold text-slate-950 dark:text-white">
-                          {inspectedUser.displayName} ({inspectedUser.email})
+                          {inspectedTarget.displayName} ({inspectedTarget.email})
                         </h3>
                         <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 font-mono">
                           Completed Levels:{' '}
-                          {inspectedUser.completedLevels.length > 0
-                            ? inspectedUser.completedLevels.map((l) => `L${l}`).join(', ')
+                          {inspectedTarget.completedLevels.length > 0
+                            ? inspectedTarget.completedLevels.map((l) => `L${l}`).join(', ')
                             : 'None yet'}
                         </div>
                       </div>
@@ -2676,25 +2751,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
-                        disabled={adminReminderBusyUid === inspectedUser.uid}
+                        disabled={adminReminderBusyUid === inspectedTarget.uid}
                         onClick={handleAdminPushReminder}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold cursor-pointer disabled:opacity-60"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold cursor-pointer disabled:opacity-60 whitespace-nowrap shrink-0"
                       >
                         <BellRing className="w-3.5 h-3.5" />
                         <span>
-                          {adminReminderBusyUid === inspectedUser.uid
+                          {adminReminderBusyUid === inspectedTarget.uid
                             ? 'Sending...'
                             : `Send Alert (${learnerAudit.missingOrIncompleteItems.length} Missing)`}
                         </span>
                       </button>
-                      {onRequestEmail && inspectedUser.email.includes('@') && (
+                      {onRequestEmail && inspectedTarget.email.includes('@') && (
                         <button
                           type="button"
                           onClick={handleAdminEmailReminder}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0"
                         >
                           <Mail className="w-3.5 h-3.5" />
                           <span>Email Reminder</span>
+                        </button>
+                      )}
+                      {inspectedTarget.email.includes('@') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEmailPreselectedUid(inspectedTarget.uid);
+                            setAdminTrackView('email_hub');
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-300 dark:border-blue-800 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-blue-800 dark:text-blue-300 text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          <span>Custom Email</span>
                         </button>
                       )}
                       <button
@@ -2723,10 +2811,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         College / Org &amp; Mobile
                       </div>
                       <div className="font-semibold text-slate-900 dark:text-white mt-0.5">
-                        {inspectedUser.college || 'Not added yet'}
+                        {inspectedTarget.college || 'Not added yet'}
                       </div>
                       <div className="text-slate-600 dark:text-slate-400 font-mono mt-0.5">
-                        {inspectedUser.mobileNumber || 'No mobile'}
+                        {inspectedTarget.mobileNumber || 'No mobile'}
                       </div>
                     </div>
                     <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
@@ -2734,10 +2822,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         Domain &amp; Area of Interest
                       </div>
                       <div className="font-semibold text-slate-900 dark:text-white mt-0.5">
-                        {inspectedUser.domain || 'Not set'}
+                        {inspectedTarget.domain || 'Not set'}
                       </div>
                       <div className="text-slate-600 dark:text-slate-400 mt-0.5 truncate">
-                        {inspectedUser.areaOfInterest || '—'}
+                        {inspectedTarget.areaOfInterest || '—'}
                       </div>
                     </div>
                     <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
@@ -2745,26 +2833,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         LinkedIn &amp; GitHub
                       </div>
                       <div className="space-y-0.5 mt-0.5 truncate">
-                        {inspectedUser.linkedinId ? (
+                        {inspectedTarget.linkedinId ? (
                           <a
-                            href={normalizeLinkedinId(inspectedUser.linkedinId)}
+                            href={normalizeLinkedinId(inspectedTarget.linkedinId)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block text-blue-700 dark:text-blue-400 hover:underline truncate"
                           >
-                            LinkedIn: {inspectedUser.linkedinId}
+                            LinkedIn: {inspectedTarget.linkedinId}
                           </a>
                         ) : (
                           <span className="text-slate-500 block">No LinkedIn</span>
                         )}
-                        {inspectedUser.githubId ? (
+                        {inspectedTarget.githubId ? (
                           <a
-                            href={normalizeGithubId(inspectedUser.githubId)}
+                            href={normalizeGithubId(inspectedTarget.githubId)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block text-indigo-700 dark:text-indigo-400 hover:underline truncate"
                           >
-                            GitHub: {inspectedUser.githubId}
+                            GitHub: {inspectedTarget.githubId}
                           </a>
                         ) : (
                           <span className="text-slate-500 block">No GitHub</span>
@@ -2784,8 +2872,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               .join(', ')}
                       </div>
                       <div className="text-[11px] font-mono text-slate-500 mt-0.5">
-                        Push: {inspectedUser.pushEnabled ? 'ON' : 'OFF'} (
-                        {inspectedUser.reminderFrequency || 'daily'})
+                        Push: {inspectedTarget.pushEnabled ? 'ON' : 'OFF'} (
+                        {inspectedTarget.reminderFrequency || 'daily'})
                       </div>
                     </div>
                   </div>
@@ -2796,7 +2884,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         Level 2 · Impossible Connection
                       </div>
                       <p className="text-slate-600 dark:text-slate-300">
-                        {inspectedUser.workspace.act2Pitch || 'Not submitted yet'}
+                        {inspectedTarget.workspace.act2Pitch || 'Not submitted yet'}
                       </p>
                     </div>
                     <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-1">
@@ -2804,7 +2892,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         Level 3 · Story Architect
                       </div>
                       <p className="text-slate-600 dark:text-slate-300">
-                        {inspectedUser.workspace.act3StoryTitle || 'Not submitted yet'}
+                        {inspectedTarget.workspace.act3StoryTitle || 'Not submitted yet'}
                       </p>
                     </div>
                     <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-1">
@@ -2812,7 +2900,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         Level 5 · CEO Mindset
                       </div>
                       <p className="text-slate-600 dark:text-slate-300">
-                        {inspectedUser.workspace.act5CeoSolution || 'Not submitted yet'}
+                        {inspectedTarget.workspace.act5CeoSolution || 'Not submitted yet'}
                       </p>
                     </div>
                     <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-1">
@@ -2820,12 +2908,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         Level 7 · Product Pitch
                       </div>
                       <p className="text-slate-600 dark:text-slate-300">
-                        {inspectedUser.workspace.act7PitchName
-                          ? `${inspectedUser.workspace.act7PitchName}: ${
-                              inspectedUser.workspace.act7PitchScript || ''
+                        {inspectedTarget.workspace.act7PitchName
+                          ? `${inspectedTarget.workspace.act7PitchName}: ${
+                              inspectedTarget.workspace.act7PitchScript || ''
                             }${
-                              inspectedUser.workspace.act7PitchUsps
-                                ? ` · USPs: ${inspectedUser.workspace.act7PitchUsps}`
+                              inspectedTarget.workspace.act7PitchUsps
+                                ? ` · USPs: ${inspectedTarget.workspace.act7PitchUsps}`
                                 : ''
                             }`
                           : 'Not submitted yet'}
@@ -2836,7 +2924,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         Level 9 · Boardroom Turnaround
                       </div>
                       <p className="text-slate-600 dark:text-slate-300">
-                        {inspectedUser.workspace.act9Proposal || 'Not submitted yet'}
+                        {inspectedTarget.workspace.act9Proposal || 'Not submitted yet'}
                       </p>
                     </div>
                     <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-1">
@@ -2844,22 +2932,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         Level 10 · Capstone Vision
                       </div>
                       <p className="text-slate-600 dark:text-slate-300">
-                        {inspectedUser.workspace.act10Theme
-                          ? `${inspectedUser.workspace.act10Theme} — ${
-                              inspectedUser.workspace.act10Notes || ''
+                        {inspectedTarget.workspace.act10Theme
+                          ? `${inspectedTarget.workspace.act10Theme} — ${
+                              inspectedTarget.workspace.act10Notes || ''
                             }`
                           : 'Not submitted yet'}
                       </p>
                     </div>
                   </div>
 
-                  {inspectedUser.posts.length > 0 && (
+                  {inspectedTarget.posts.length > 0 && (
                     <div className="space-y-2">
                       <div className="text-xs font-semibold text-slate-900 dark:text-white">
-                        Wall &amp; Spinning Wheel Submissions ({inspectedUser.posts.length})
+                        Wall &amp; Spinning Wheel Submissions ({inspectedTarget.posts.length})
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-44 overflow-y-auto">
-                        {inspectedUser.posts.map((post) => (
+                        {inspectedTarget.posts.map((post) => (
                           <div
                             key={post.id}
                             className="p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs"
@@ -2876,13 +2964,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   )}
 
-                  {(advByUid[inspectedUser.uid]?.submissions.length ?? 0) > 0 && (
+                  {(advByUid[inspectedTarget.uid]?.submissions.length ?? 0) > 0 && (
                     <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                       <div className="text-xs font-semibold text-indigo-700 dark:text-indigo-400">
-                        AI Advanced Track Submissions ({advByUid[inspectedUser.uid].submissions.length}/25 · Avg {advByUid[inspectedUser.uid].avgScore}/100)
+                        AI Advanced Track Submissions ({advByUid[inspectedTarget.uid].submissions.length}/25 · Avg {advByUid[inspectedTarget.uid].avgScore}/100)
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-56 overflow-y-auto">
-                        {advByUid[inspectedUser.uid].submissions.map((sub) => (
+                        {advByUid[inspectedTarget.uid].submissions.map((sub) => (
                           <div
                             key={sub.id}
                             className="p-3 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-white dark:bg-slate-900 text-xs flex items-start gap-3"
@@ -2891,6 +2979,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <img
                                 src={sub.imageDataUrl}
                                 alt={`Challenge ${sub.challengeId}`}
+                                referrerPolicy="no-referrer"
                                 className="w-16 h-16 rounded-lg object-cover border border-slate-200 dark:border-slate-800 shrink-0"
                               />
                             )}
@@ -2908,107 +2997,107 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   )}
 
-                  {shopByUid[inspectedUser.uid] && (
+                  {shopByUid[inspectedTarget.uid] && (
                     <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                       <div className="text-xs font-semibold text-teal-700 dark:text-teal-400">
-                        Shopping &amp; Negotiation Skills (Konfi-07) · {shopByUid[inspectedUser.uid].shopXp} XP · MCQs{' '}
-                        {shopByUid[inspectedUser.uid].correctMcqs.length}/{shopByUid[inspectedUser.uid].answeredMcqs.length} ({shopByUid[inspectedUser.uid].accuracyPct}%) · Role-Play{' '}
-                        {shopByUid[inspectedUser.uid].roleplayScore}/100 · Cert {shopByUid[inspectedUser.uid].shopCertificateId}
+                        Shopping &amp; Negotiation Skills (Konfi-07) · {shopByUid[inspectedTarget.uid].shopXp} XP · MCQs{' '}
+                        {shopByUid[inspectedTarget.uid].correctMcqs.length}/{shopByUid[inspectedTarget.uid].answeredMcqs.length} ({shopByUid[inspectedTarget.uid].accuracyPct}%) · Role-Play{' '}
+                        {shopByUid[inspectedTarget.uid].roleplayScore}/100 · Cert {shopByUid[inspectedTarget.uid].shopCertificateId}
                       </div>
-                      {shopByUid[inspectedUser.uid].roleplayDraft && (
+                      {shopByUid[inspectedTarget.uid].roleplayDraft && (
                         <div className="p-3 rounded-xl border border-teal-200 dark:border-teal-900/60 bg-white dark:bg-slate-900 text-xs space-y-1">
                           <div className="font-mono font-bold text-slate-900 dark:text-white">
-                            Role-Play Script Submission ({shopByUid[inspectedUser.uid].unlockedShopBadges.length}/{SHOPPING_BADGES.length} Badges)
+                            Role-Play Script Submission ({shopByUid[inspectedTarget.uid].unlockedShopBadges.length}/{SHOPPING_BADGES.length} Badges)
                           </div>
                           <p className="text-slate-600 dark:text-slate-300">
-                            {shopByUid[inspectedUser.uid].roleplayDraft}
+                            {shopByUid[inspectedTarget.uid].roleplayDraft}
                           </p>
                         </div>
                       )}
                     </div>
                   )}
 
-                  {careerByUid[inspectedUser.uid] && (
+                  {careerByUid[inspectedTarget.uid] && (
                     <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                       <div className="text-xs font-semibold text-sky-700 dark:text-sky-400">
                         Career Skills MCQ Academy (Indianism · Interview · GD) ·{' '}
-                        {careerByUid[inspectedUser.uid].careerXp} XP ·{' '}
-                        {careerByUid[inspectedUser.uid].correctMcqs.length}/{careerByUid[inspectedUser.uid].answeredMcqs.length} ({careerByUid[inspectedUser.uid].accuracyPct}%) ·{' '}
-                        Cert {careerByUid[inspectedUser.uid].careerCertificateId}
+                        {careerByUid[inspectedTarget.uid].careerXp} XP ·{' '}
+                        {careerByUid[inspectedTarget.uid].correctMcqs.length}/{careerByUid[inspectedTarget.uid].answeredMcqs.length} ({careerByUid[inspectedTarget.uid].accuracyPct}%) ·{' '}
+                        Cert {careerByUid[inspectedTarget.uid].careerCertificateId}
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                         <div className="p-2.5 rounded-xl border border-sky-200 dark:border-sky-900/60 bg-white dark:bg-slate-900 font-mono">
                           <div className="text-[11px] text-slate-500">Indianism &amp; Global English</div>
                           <div className="font-bold text-slate-950 dark:text-white mt-0.5 tabular-nums">
-                            {careerByUid[inspectedUser.uid].indianismCorrect}/15 Correct
+                            {careerByUid[inspectedTarget.uid].indianismCorrect}/15 Correct
                           </div>
                         </div>
                         <div className="p-2.5 rounded-xl border border-sky-200 dark:border-sky-900/60 bg-white dark:bg-slate-900 font-mono">
                           <div className="text-[11px] text-slate-500">Interview Skills</div>
                           <div className="font-bold text-slate-950 dark:text-white mt-0.5 tabular-nums">
-                            {careerByUid[inspectedUser.uid].interviewCorrect}/15 Correct
+                            {careerByUid[inspectedTarget.uid].interviewCorrect}/15 Correct
                           </div>
                         </div>
                         <div className="p-2.5 rounded-xl border border-sky-200 dark:border-sky-900/60 bg-white dark:bg-slate-900 font-mono">
                           <div className="text-[11px] text-slate-500">GD Skills (Group Discussion)</div>
                           <div className="font-bold text-slate-950 dark:text-white mt-0.5 tabular-nums">
-                            {careerByUid[inspectedUser.uid].gdCorrect}/15 Correct
+                            {careerByUid[inspectedTarget.uid].gdCorrect}/15 Correct
                           </div>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {masterByUid[inspectedUser.uid] && (
+                  {masterByUid[inspectedTarget.uid] && (
                     <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                       <div className="text-xs font-semibold text-violet-700 dark:text-violet-400">
                         EMPLOYABILITY UNIVERSE · Tech, Python, Verbal &amp; Data ({MASTER_TRACKS.length} Tracks) ·{' '}
-                        {masterByUid[inspectedUser.uid].masterXp} XP ·{' '}
-                        {masterByUid[inspectedUser.uid].correctMcqs.length}/{masterByUid[inspectedUser.uid].answeredMcqs.length} ({masterByUid[inspectedUser.uid].accuracyPct}%) ·{' '}
-                        {masterByUid[inspectedUser.uid].unlockedMasterBadges.length}/{MASTER_BADGES.length} Badges ·{' '}
-                        Cert {masterByUid[inspectedUser.uid].masterCertificateId}
+                        {masterByUid[inspectedTarget.uid].masterXp} XP ·{' '}
+                        {masterByUid[inspectedTarget.uid].correctMcqs.length}/{masterByUid[inspectedTarget.uid].answeredMcqs.length} ({masterByUid[inspectedTarget.uid].accuracyPct}%) ·{' '}
+                        {masterByUid[inspectedTarget.uid].unlockedMasterBadges.length}/{MASTER_BADGES.length} Badges ·{' '}
+                        Cert {masterByUid[inspectedTarget.uid].masterCertificateId}
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                         <div className="p-2.5 rounded-xl border border-violet-200 dark:border-violet-900/60 bg-white dark:bg-slate-900 font-mono">
                           <div className="text-[11px] text-slate-500">Aptitude &amp; Verbal (7 Tracks)</div>
                           <div className="font-bold text-slate-950 dark:text-white mt-0.5 tabular-nums">
-                            {masterByUid[inspectedUser.uid].aptitudeGrammarCorrect}/70 Correct
+                            {masterByUid[inspectedTarget.uid].aptitudeGrammarCorrect}/70 Correct
                           </div>
                         </div>
                         <div className="p-2.5 rounded-xl border border-violet-200 dark:border-violet-900/60 bg-white dark:bg-slate-900 font-mono">
                           <div className="text-[11px] text-slate-500">C, C++, Java, Python &amp; DSA (5)</div>
                           <div className="font-bold text-slate-950 dark:text-white mt-0.5 tabular-nums">
-                            {masterByUid[inspectedUser.uid].codingDsaCorrect}/50 Correct (Py: {masterByUid[inspectedUser.uid].pythonCorrect}/10)
+                            {masterByUid[inspectedTarget.uid].codingDsaCorrect}/50 Correct (Py: {masterByUid[inspectedTarget.uid].pythonCorrect}/10)
                           </div>
                         </div>
                         <div className="p-2.5 rounded-xl border border-violet-200 dark:border-violet-900/60 bg-white dark:bg-slate-900 font-mono">
                           <div className="text-[11px] text-slate-500">Excel, Power BI, DBMS &amp; Cloud</div>
                           <div className="font-bold text-slate-950 dark:text-white mt-0.5 tabular-nums">
-                            {masterByUid[inspectedUser.uid].dataCloudCorrect}/40 Correct
+                            {masterByUid[inspectedTarget.uid].dataCloudCorrect}/40 Correct
                           </div>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {(dailyAttemptsByUid[inspectedUser.uid]?.length ?? 0) > 0 && (
+                  {(dailyAttemptsByUid[inspectedTarget.uid]?.length ?? 0) > 0 && (
                     <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                       <div className="text-xs font-semibold text-rose-700 dark:text-rose-400">
                         Daily 60-Min Mock Tests (50% Hard MCQs) ·{' '}
                         {
-                          dailyAttemptsByUid[inspectedUser.uid].filter(
+                          dailyAttemptsByUid[inspectedTarget.uid].filter(
                             (a) => a.status === 'submitted'
                           ).length
                         }{' '}
                         Submitted · Streak{' '}
                         {computeDailyMockStreak(
-                          dailyAttemptsByUid[inspectedUser.uid],
+                          dailyAttemptsByUid[inspectedTarget.uid],
                           todayDateKey
                         )}
                         d
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                        {dailyAttemptsByUid[inspectedUser.uid]
+                        {dailyAttemptsByUid[inspectedTarget.uid]
                           .slice(0, 4)
                           .map((att) => (
                             <div
@@ -3042,30 +3131,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   )}
 
-                  {finalByUid[inspectedUser.uid] && (
+                  {finalByUid[inspectedTarget.uid] && (
                     <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                          Final 1000 XP Proctored Assessment · Attempt #{Math.max(1, finalByUid[inspectedUser.uid].attemptCount)}{' '}
-                          ({finalByUid[inspectedUser.uid].status.toUpperCase()}) ·{' '}
-                          {finalByUid[inspectedUser.uid].totalXpAwarded}/1000 XP ({finalByUid[inspectedUser.uid].percentageScore}%)
-                          {finalByUid[inspectedUser.uid].status === 'submitted' &&
-                            !finalByUid[inspectedUser.uid].passed &&
-                            Math.max(1, finalByUid[inspectedUser.uid].attemptCount) >= 2 && (
+                          Final 1000 XP Proctored Assessment · Attempt #{Math.max(1, finalByUid[inspectedTarget.uid].attemptCount)}{' '}
+                          ({finalByUid[inspectedTarget.uid].status.toUpperCase()}) ·{' '}
+                          {finalByUid[inspectedTarget.uid].totalXpAwarded}/1000 XP ({finalByUid[inspectedTarget.uid].percentageScore}%)
+                          {finalByUid[inspectedTarget.uid].status === 'submitted' &&
+                            !finalByUid[inspectedTarget.uid].passed &&
+                            Math.max(1, finalByUid[inspectedTarget.uid].attemptCount) >= 2 && (
                               <span className="ml-2 text-amber-700 dark:text-amber-400">
                                 · 2/2 Self-Attempts Used (Admin Retake Needed)
                               </span>
                             )}
                         </div>
 
-                        {finalByUid[inspectedUser.uid].status === 'submitted' && (
+                        {finalByUid[inspectedTarget.uid].status === 'submitted' && (
                           <div className="flex items-center gap-2">
-                            {resetConfirmUid === inspectedUser.uid ? (
+                            {resetConfirmUid === inspectedTarget.uid ? (
                               <>
                                 <button
                                   type="button"
                                   disabled={resetBusy}
-                                  onClick={() => handleResetFinalAttempt(inspectedUser.uid)}
+                                  onClick={() => handleResetFinalAttempt(inspectedTarget.uid)}
                                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-semibold cursor-pointer"
                                 >
                                   {resetBusy ? 'Resetting...' : 'Confirm Retake Reset'}
@@ -3081,7 +3170,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             ) : (
                               <button
                                 type="button"
-                                onClick={() => setResetConfirmUid(inspectedUser.uid)}
+                                onClick={() => setResetConfirmUid(inspectedTarget.uid)}
                                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-amber-300 dark:border-amber-700 text-[11px] font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30 cursor-pointer"
                               >
                                 <RotateCcw className="w-3 h-3" />
@@ -3095,13 +3184,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                         <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-1">
                           <div className="font-mono font-bold text-slate-900 dark:text-white">
-                            Part A: {finalByUid[inspectedUser.uid].mcqScore}/400 · Part B: {finalByUid[inspectedUser.uid].caseScore}/500 · Part C: {finalByUid[inspectedUser.uid].scareScore}/100
+                            Part A: {finalByUid[inspectedTarget.uid].mcqScore}/400 · Part B: {finalByUid[inspectedTarget.uid].caseScore}/500 · Part C: {finalByUid[inspectedTarget.uid].scareScore}/100
                           </div>
                           <div className="text-slate-600 dark:text-slate-300">
-                            Target Role: {finalByUid[inspectedUser.uid].targetRole || '—'} · College: {finalByUid[inspectedUser.uid].collegeOrOrg || '—'}
+                            Target Role: {finalByUid[inspectedTarget.uid].targetRole || '—'} · College: {finalByUid[inspectedTarget.uid].collegeOrOrg || '—'}
                           </div>
                           <div className="font-mono text-[11px] text-blue-700 dark:text-blue-400">
-                            Cert: {finalByUid[inspectedUser.uid].finalCertificateId} · LOR: {finalByUid[inspectedUser.uid].lorVerificationId}
+                            Cert: {finalByUid[inspectedTarget.uid].finalCertificateId} · LOR: {finalByUid[inspectedTarget.uid].lorVerificationId}
                           </div>
                         </div>
                         <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-1">
@@ -3109,7 +3198,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             Part C · SCARE Placement Defense
                           </div>
                           <p className="text-slate-600 dark:text-slate-300 line-clamp-3">
-                            {finalByUid[inspectedUser.uid].capstoneScare || 'Not submitted yet'}
+                            {finalByUid[inspectedTarget.uid].capstoneScare || 'Not submitted yet'}
                           </p>
                         </div>
                       </div>
