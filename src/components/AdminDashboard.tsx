@@ -83,6 +83,7 @@ import {
   generateDailyMockPaper,
   getTodayDateKey,
   gradeDailyMockAttempt,
+  NOV_23_DATE_KEY,
 } from '../data/dailyMockData';
 import {
   adminResetDailyMockAttempt,
@@ -175,9 +176,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [dailyMockAttempts, setDailyMockAttempts] = useState<
     DailyMockAttemptDoc[]
   >([]);
-  const [dailyMockDateFilter, setDailyMockDateFilter] = useState<string>(() =>
-    getTodayDateKey()
-  );
+  const [dailyMockDateFilter, setDailyMockDateFilter] = useState<string>(() => {
+    const t = getTodayDateKey();
+    return t <= NOV_23_DATE_KEY ? NOV_23_DATE_KEY : t;
+  });
   const [dailyBroadcastBusy, setDailyBroadcastBusy] = useState(false);
   const [dailyBroadcastNote, setDailyBroadcastNote] = useState<string | null>(
     null
@@ -496,7 +498,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const todayDateKey = getTodayDateKey();
   const availableDailyDates = useMemo(() => {
-    const set = new Set<string>([todayDateKey]);
+    const set = new Set<string>([todayDateKey, NOV_23_DATE_KEY]);
     for (const a of dailyMockAttempts) {
       if (a.dateKey) set.add(a.dateKey);
     }
@@ -1798,7 +1800,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       >
                         {availableDailyDates.map((dk) => (
                           <option key={dk} value={dk}>
-                            {dk} {dk === todayDateKey ? '(Today)' : ''} · {generateDailyMockPaper(dk).paperCode}
+                            {dk}{' '}
+                            {dk === NOV_23_DATE_KEY
+                              ? '(Nov 23 Special)'
+                              : dk === todayDateKey
+                              ? '(Today)'
+                              : ''}{' '}
+                            · {generateDailyMockPaper(dk).paperCode}
                           </option>
                         ))}
                       </select>

@@ -103,6 +103,7 @@ import {
 import {
   generateDailyMockPaper,
   getTodayDateKey,
+  NOV_23_DATE_KEY,
 } from './data/dailyMockData';
 import { DailyMockStudio } from './components/DailyMockStudio';
 import { FinalAssessmentStudio } from './components/FinalAssessmentStudio';
@@ -138,6 +139,9 @@ function PictureConnectWorkspace() {
   const [activeMasterTrackTitle, setActiveMasterTrackTitle] = useState<string>(
     'Quantitative & Logical Aptitude'
   );
+  const [dailyMockTargetDate, setDailyMockTargetDate] = useState<
+    string | undefined
+  >(undefined);
   const [adminOpen, setAdminOpen] = useState(false);
   const [notifDrawerOpen, setNotifDrawerOpen] = useState(false);
   const [emailRequest, setEmailRequest] =
@@ -424,22 +428,26 @@ function PictureConnectWorkspace() {
     if (!user || userProfile.uid !== user.uid) return;
     if (!dailyMockLoaded || !notificationsLoaded) return;
 
-    const todayKey = getTodayDateKey();
-    const dedupKey = `${user.uid}_${todayKey}`;
+    const localTodayKey = getTodayDateKey();
+    const targetMockKey =
+      localTodayKey <= NOV_23_DATE_KEY ? NOV_23_DATE_KEY : localTodayKey;
+    const dedupKey = `${user.uid}_${targetMockKey}`;
     if (dailyMockNotifiedKeyRef.current === dedupKey) return;
 
-    const todayAttempt = dailyMockAttempts.find((a) => a.dateKey === todayKey);
-    if (todayAttempt?.status === 'submitted') {
+    const targetAttempt = dailyMockAttempts.find(
+      (a) => a.dateKey === targetMockKey
+    );
+    if (targetAttempt?.status === 'submitted') {
       dailyMockNotifiedKeyRef.current = dedupKey;
       return;
     }
 
-    const todayPaper = generateDailyMockPaper(todayKey);
+    const targetPaper = generateDailyMockPaper(targetMockKey);
     const alreadyLoggedToday = notifications.some(
       (n) =>
         n.kind === 'daily_mock_launch' &&
-        (n.title.includes(todayPaper.paperCode) ||
-          n.body.includes(todayPaper.paperCode))
+        (n.title.includes(targetPaper.paperCode) ||
+          n.body.includes(targetPaper.paperCode))
     );
     if (alreadyLoggedToday) {
       dailyMockNotifiedKeyRef.current = dedupKey;
@@ -447,8 +455,12 @@ function PictureConnectWorkspace() {
     }
 
     dailyMockNotifiedKeyRef.current = dedupKey;
-    const title = `Daily 60-Min Mock Live (${todayPaper.paperCode})`;
-    const body = `40 MCQs across all 7 topics (20 Hard / 50%). Complete in 60 min to receive your daily results summary on portal & email.`;
+    const title = targetPaper.isSpecialEdition
+      ? `Nov 23 Assessment Live (${targetPaper.paperCode})`
+      : `Daily 60-Min Mock Live (${targetPaper.paperCode})`;
+    const body = targetPaper.isSpecialEdition
+      ? `40 brand-new MCQs across all 7 pillars (20 Hard / 50%). Complete Nov 23, 2026 Assessment in 60 min to receive your results summary on portal & email.`
+      : `40 MCQs across all 7 topics (20 Hard / 50%). Complete in 60 min to receive your daily results summary on portal & email.`;
 
     (async () => {
       let deliveredPush = false;
@@ -457,7 +469,7 @@ function PictureConnectWorkspace() {
           title,
           body,
           targetView: 'daily_mock',
-          tag: `euwk-daily-mock-${todayKey}`,
+          tag: `euwk-daily-mock-${targetMockKey}`,
         });
         deliveredPush = res.delivered;
       }
@@ -527,7 +539,8 @@ function PictureConnectWorkspace() {
     levelNum?: number,
     careerTab?: CareerCategoryId,
     masterPillar?: MasterPillarId,
-    masterTrack?: MasterTrackId
+    masterTrack?: MasterTrackId,
+    mockDateKey?: string
   ) => {
     if (levelNum) {
       setActiveLevel(levelNum);
@@ -542,6 +555,9 @@ function PictureConnectWorkspace() {
       setActiveMasterTrack(masterTrack);
     } else if (masterPillar) {
       setActiveMasterTrack(undefined);
+    }
+    if (mockDateKey) {
+      setDailyMockTargetDate(mockDateKey);
     }
     setView(target);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -593,9 +609,17 @@ function PictureConnectWorkspace() {
   const todayDailyAttempt = dailyMockAttempts.find(
     (a) => a.dateKey === todayDateKey
   );
+  const nov23DailyAttempt = dailyMockAttempts.find(
+    (a) => a.dateKey === NOV_23_DATE_KEY
+  );
+  const defaultMockDate =
+    todayDateKey <= NOV_23_DATE_KEY ? NOV_23_DATE_KEY : todayDateKey;
+  const activeMockDate = dailyMockTargetDate ?? defaultMockDate;
   const dailyMockStreak = computeDailyMockStreak(
     dailyMockAttempts,
-    todayDateKey
+    nov23DailyAttempt?.status === 'submitted' && todayDateKey < NOV_23_DATE_KEY
+      ? NOV_23_DATE_KEY
+      : todayDateKey
   );
 
   type TopCategoryId =
@@ -624,6 +648,7 @@ function PictureConnectWorkspace() {
     shoppingProgress.roleplayScore >= 60;
   const isCareerDone = careerProgress.answeredMcqs.length >= 45;
   const isMasterDone = masterProgress.answeredMcqs.length >= 160;
+  const isNov23MockDone = nov23DailyAttempt?.status === 'submitted';
   const isDailyMockDone = todayDailyAttempt?.status === 'submitted';
   const isFinalDone = Boolean(finalAssessment.passed);
 
@@ -656,18 +681,20 @@ function PictureConnectWorkspace() {
       id: 'assessments',
       label: 'Assessments',
       defaultView: 'daily_mock',
-      completed: isDailyMockDone && isFinalDone,
+      completed: isNov23MockDone && isDailyMockDone && isFinalDone,
     },
   ];
 
   const categorySubStudios: Record<
     Exclude<TopCategoryId, 'hub'>,
     {
+      key?: string;
       id: AppView;
       label: string;
       completed: boolean;
       locked?: boolean;
       meta?: string;
+      mockDateKey?: string;
     }[]
   > = {
     visual_ai: [
@@ -714,13 +741,29 @@ function PictureConnectWorkspace() {
     ],
     assessments: [
       {
+        key: 'nov23_mock',
         id: 'daily_mock',
-        label: isDailyMockDone
-          ? `Daily 60m Mock (${todayDailyAttempt.scorePercent}%)`
-          : 'Daily 60-Min Mock',
-        completed: isDailyMockDone,
-        meta: isDailyMockDone ? 'Done Today' : '40 MCQs',
+        mockDateKey: NOV_23_DATE_KEY,
+        label: isNov23MockDone
+          ? `Nov 23 Assessment (${nov23DailyAttempt.scorePercent}%)`
+          : 'Nov 23 Assessment',
+        completed: isNov23MockDone,
+        meta: isNov23MockDone ? 'Done' : '40 MCQs · Special',
       },
+      ...(todayDateKey !== NOV_23_DATE_KEY
+        ? [
+            {
+              key: 'today_mock',
+              id: 'daily_mock' as AppView,
+              mockDateKey: todayDateKey,
+              label: isDailyMockDone
+                ? `Daily 60m Mock (${todayDailyAttempt.scorePercent}%)`
+                : 'Daily 60-Min Mock',
+              completed: isDailyMockDone,
+              meta: isDailyMockDone ? 'Done Today' : '40 MCQs',
+            },
+          ]
+        : []),
       {
         id: 'final',
         label: 'Final Capstone (1000 XP)',
@@ -854,12 +897,23 @@ function PictureConnectWorkspace() {
                 IN THIS CATEGORY:
               </span>
               {activeSubStudios.map((sub) => {
-                const isActive = view === sub.id;
+                const isActive = sub.mockDateKey
+                  ? view === 'daily_mock' && activeMockDate === sub.mockDateKey
+                  : view === sub.id;
                 return (
                   <button
-                    key={sub.id}
+                    key={sub.key || sub.id}
                     type="button"
-                    onClick={() => handleNavigateView(sub.id)}
+                    onClick={() =>
+                      handleNavigateView(
+                        sub.id,
+                        undefined,
+                        undefined,
+                        undefined,
+                        undefined,
+                        sub.mockDateKey
+                      )
+                    }
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-all whitespace-nowrap shrink-0 cursor-pointer ${
                       isActive
                         ? 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-950 dark:text-white font-semibold shadow-sm'
@@ -1009,6 +1063,9 @@ function PictureConnectWorkspace() {
             dailyMockHardPct={todayDailyAttempt?.hardAccuracyPercent || 0}
             dailyMockStreak={dailyMockStreak}
             dailyMockPaperCode={todayDailyPaper.paperCode}
+            nov23Status={nov23DailyAttempt?.status || 'not_started'}
+            nov23ScorePct={nov23DailyAttempt?.scorePercent || 0}
+            nov23HardPct={nov23DailyAttempt?.hardAccuracyPercent || 0}
             careerCategoryStats={careerStats}
             masterTrackStats={masterTrackStats}
             sectionAudit={sectionAudit}
@@ -1170,6 +1227,7 @@ function PictureConnectWorkspace() {
             learnerEmail={user.email || ''}
             pushEnabled={userProfile.pushEnabled}
             attempts={dailyMockAttempts}
+            initialDateKey={dailyMockTargetDate}
             onRequestEmail={setEmailRequest}
             onOpenRemindersDrawer={() => setNotifDrawerOpen(true)}
           />

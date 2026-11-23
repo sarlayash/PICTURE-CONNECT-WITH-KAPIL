@@ -30,6 +30,7 @@ import {
   generateDailyMockPaper,
   getTodayDateKey,
   gradeDailyMockAttempt,
+  NOV_23_DATE_KEY,
 } from '../data/dailyMockData';
 import {
   computeDailyMockStreak,
@@ -55,6 +56,7 @@ interface DailyMockStudioProps {
   learnerEmail: string;
   pushEnabled: boolean;
   attempts: DailyMockAttemptDoc[];
+  initialDateKey?: string;
   onRequestEmail: (req: EmailCredentialRequest) => void;
   onOpenRemindersDrawer: () => void;
 }
@@ -75,10 +77,18 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
   learnerEmail,
   pushEnabled,
   attempts,
+  initialDateKey,
   onRequestEmail,
   onOpenRemindersDrawer,
 }) => {
-  const todayKey = useMemo(() => getTodayDateKey(), []);
+  const localTodayKey = useMemo(() => getTodayDateKey(), []);
+  const defaultExamDateKey = useMemo(() => {
+    if (initialDateKey) return initialDateKey;
+    return localTodayKey <= NOV_23_DATE_KEY ? NOV_23_DATE_KEY : localTodayKey;
+  }, [initialDateKey, localTodayKey]);
+
+  const [activeExamDateKey, setActiveExamDateKey] = useState<string>(defaultExamDateKey);
+  const todayKey = activeExamDateKey;
   const todayPaper = useMemo(() => generateDailyMockPaper(todayKey), [todayKey]);
 
   const todayAttempt = useMemo(
@@ -86,12 +96,21 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
     [attempts, todayKey]
   );
 
+  const streakReferenceDate = useMemo(() => {
+    const nov23Done = attempts.some(
+      (a) => a.dateKey === NOV_23_DATE_KEY && a.status === 'submitted'
+    );
+    return nov23Done && localTodayKey < NOV_23_DATE_KEY
+      ? NOV_23_DATE_KEY
+      : localTodayKey;
+  }, [attempts, localTodayKey]);
+
   const streakDays = useMemo(
-    () => computeDailyMockStreak(attempts, todayKey),
-    [attempts, todayKey]
+    () => computeDailyMockStreak(attempts, streakReferenceDate),
+    [attempts, streakReferenceDate]
   );
 
-  const [selectedHistoryDate, setSelectedHistoryDate] = useState<string>(todayKey);
+  const [selectedHistoryDate, setSelectedHistoryDate] = useState<string>(defaultExamDateKey);
   const inspectedAttempt = useMemo(
     () => attempts.find((a) => a.dateKey === selectedHistoryDate) || todayAttempt,
     [attempts, selectedHistoryDate, todayAttempt]
@@ -131,6 +150,13 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
   answersRef.current = answers;
   flaggedRef.current = flagged;
 
+  useEffect(() => {
+    if (initialDateKey && !examStarted) {
+      setActiveExamDateKey(initialDateKey);
+      setSelectedHistoryDate(initialDateKey);
+    }
+  }, [initialDateKey, examStarted]);
+
   // Hydrate live in-progress attempt when Firestore updates or reloads
   useEffect(() => {
     if (todayAttempt?.status === 'in_progress') {
@@ -148,6 +174,8 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
       );
       setExamStarted(true);
     } else if (todayAttempt?.status === 'submitted') {
+      setExamStarted(false);
+    } else {
       setExamStarted(false);
     }
   }, [todayAttempt?.id, todayAttempt?.status]);
@@ -457,6 +485,17 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
         submittedAttempts.length
     );
   }, [submittedAttempts]);
+
+  const editionOptions = useMemo(() => {
+    const keys = Array.from(new Set([NOV_23_DATE_KEY, localTodayKey])).sort((a, b) =>
+      b.localeCompare(a)
+    );
+    return keys.map((dk) => {
+      const paper = generateDailyMockPaper(dk);
+      const attempt = attempts.find((a) => a.dateKey === dk);
+      return { dateKey: dk, paper, attempt };
+    });
+  }, [localTodayKey, attempts]);
 
   // =========================================================================
   // VIEW 1: LIVE 60-MINUTE PROCTORED EXAM ROOM
@@ -823,6 +862,50 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
 
   return (
     <div className="space-y-8">
+      {/* Assessment Edition Switcher (Always surfaces Nov 23, 2026 Special Assessment + Today) */}
+      {editionOptions.length > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5">
+          <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-2">
+            <CalendarDays className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+            <span>Select Assessment Edition:</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {editionOptions.map(({ dateKey: dk, paper, attempt }) => {
+              const selected = activeExamDateKey === dk;
+              const done = attempt?.status === 'submitted';
+              return (
+                <button
+                  key={dk}
+                  type="button"
+                  onClick={() => {
+                    setActiveExamDateKey(dk);
+                    setSelectedHistoryDate(dk);
+                    setJustSubmittedPrompt(false);
+                  }}
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                    selected
+                      ? 'border-rose-600 bg-rose-600 text-white shadow-sm'
+                      : done
+                      ? 'border-slate-200 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-900/50 text-slate-400 dark:text-slate-500 opacity-75 hover:opacity-100'
+                      : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 hover:border-slate-400'
+                  }`}
+                >
+                  {done && <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
+                  <span className={done && !selected ? 'line-through decoration-slate-400/70' : ''}>
+                    {paper.isSpecialEdition
+                      ? `Nov 23, 2026 Special (${paper.paperCode})`
+                      : `${paper.displayDate} (${paper.paperCode})`}
+                  </span>
+                  <span className="font-mono text-[10px] opacity-85">
+                    {done ? `· ${attempt.scorePercent}% Done` : '· 40 Fresh MCQs'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Hero Briefing Card */}
       <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
         <div className="h-1.5 w-full bg-gradient-to-r from-rose-600 via-indigo-600 to-amber-500" />
@@ -830,7 +913,9 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
           <div className="lg:col-span-8 space-y-4">
             <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
               <span className="font-semibold text-rose-700 dark:text-rose-400">
-                Daily 60-Minute Mock Test
+                {todayPaper.isSpecialEdition
+                  ? todayPaper.editionTitle
+                  : 'Daily 60-Minute Mock Test'}
               </span>
               <span aria-hidden="true">·</span>
               <span>{todayPaper.displayDate}</span>
@@ -839,7 +924,9 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-950 dark:text-white max-w-2xl">
-              Master Every Placement Pillar with Today’s 50% Hard Timed Mock
+              {todayPaper.isSpecialEdition
+                ? 'Nov 23, 2026 Placement Sprint Assessment (40 Brand-New MCQs)'
+                : 'Master Every Placement Pillar with Today’s 50% Hard Timed Mock'}
             </h1>
 
             <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl">

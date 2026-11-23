@@ -2,7 +2,15 @@ import { CAREER_MCQS } from './careerSkillsData';
 import { FINAL_MCQS } from './finalAssessmentData';
 import { MASTER_MCQS } from './masterUniverseData';
 import { MASTER_TRACKS, MasterTrackId } from './masterUniverseTypes';
+import {
+  NOV_23_ASSESSMENT_MCQS,
+  NOV_23_DATE_KEY,
+  NOV_23_EDITION_TITLE,
+  NOV_23_PAPER_CODE,
+} from './nov23AssessmentData';
 import { SHOPPING_MCQS } from './shoppingNegotiationData';
+
+export { NOV_23_DATE_KEY, NOV_23_EDITION_TITLE, NOV_23_PAPER_CODE };
 
 export type DailyMockPillarId =
   | 'aptitude_logic'
@@ -108,6 +116,8 @@ export interface DailyMockPaper {
   dateKey: string;
   paperCode: string;
   displayDate: string;
+  editionTitle?: string;
+  isSpecialEdition?: boolean;
   durationSeconds: number;
   totalQuestions: number;
   hardCount: number;
@@ -918,7 +928,10 @@ let cachedUnifiedPool: DailyMockQuestion[] | null = null;
 export function getUnifiedDailyMockPool(): DailyMockQuestion[] {
   if (cachedUnifiedPool) return cachedUnifiedPool;
 
-  const pool: DailyMockQuestion[] = [...DEDICATED_HARD_MOCK_MCQS];
+  const pool: DailyMockQuestion[] = [
+    ...DEDICATED_HARD_MOCK_MCQS,
+    ...NOV_23_ASSESSMENT_MCQS,
+  ];
 
   // 1. All 16 Master Universe tracks (160 MCQs)
   for (const q of MASTER_MCQS) {
@@ -1063,8 +1076,25 @@ export function formatDateKeyReadable(dateKey: string): string {
  * - Guaranteed coverage across all 7 Employability Universe pillars
  */
 export function generateDailyMockPaper(dateKey: string): DailyMockPaper {
-  const pool = getUnifiedDailyMockPool();
   const rand = mulberry32(hashDateKey(`EUWK-DAILY-MOCK-${dateKey}`));
+
+  if (dateKey === NOV_23_DATE_KEY) {
+    const questions = seededShuffle(NOV_23_ASSESSMENT_MCQS, rand);
+    return {
+      dateKey,
+      paperCode: NOV_23_PAPER_CODE,
+      displayDate: formatDateKeyReadable(dateKey),
+      editionTitle: NOV_23_EDITION_TITLE,
+      isSpecialEdition: true,
+      durationSeconds: DAILY_MOCK_CONFIG.durationSeconds,
+      totalQuestions: questions.length,
+      hardCount: questions.filter((q) => q.difficulty === 'Hard').length,
+      standardCount: questions.filter((q) => q.difficulty === 'Standard').length,
+      questions,
+    };
+  }
+
+  const pool = getUnifiedDailyMockPool();
 
   const pickedHard: DailyMockQuestion[] = [];
   const pickedStandard: DailyMockQuestion[] = [];

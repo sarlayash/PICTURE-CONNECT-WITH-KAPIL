@@ -39,6 +39,11 @@ import {
   MasterTrackId,
 } from '../data/masterUniverseTypes';
 import { MasterTrackScoreSummary } from '../data/masterUniverseData';
+import {
+  getTodayDateKey,
+  NOV_23_DATE_KEY,
+  NOV_23_PAPER_CODE,
+} from '../data/dailyMockData';
 import { SectionAuditReport } from '../services/notificationService';
 import { LANDING_SHOWCASE_IMAGES, PHOTO_ASSETS } from '../data/imageAssets';
 
@@ -103,6 +108,9 @@ interface OverviewStudioProps {
   dailyMockHardPct?: number;
   dailyMockStreak?: number;
   dailyMockPaperCode?: string;
+  nov23Status?: 'not_started' | 'in_progress' | 'submitted';
+  nov23ScorePct?: number;
+  nov23HardPct?: number;
   careerCategoryStats?: Record<CareerCategoryId, CareerCategoryStat>;
   masterTrackStats?: Record<MasterTrackId, MasterTrackScoreSummary>;
   sectionAudit?: SectionAuditReport;
@@ -112,7 +120,8 @@ interface OverviewStudioProps {
     levelNum?: number,
     careerTab?: CareerCategoryId,
     masterPillar?: MasterPillarId,
-    masterTrack?: MasterTrackId
+    masterTrack?: MasterTrackId,
+    mockDateKey?: string
   ) => void;
   learnerConnections: {
     id: string;
@@ -180,6 +189,9 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   dailyMockHardPct = 0,
   dailyMockStreak = 0,
   dailyMockPaperCode = '',
+  nov23Status = 'not_started',
+  nov23ScorePct = 0,
+  nov23HardPct = 0,
   careerCategoryStats,
   masterTrackStats,
   sectionAudit,
@@ -452,6 +464,9 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   );
 
   const assessmentCards: HubSectionCard[] = useMemo(() => {
+    const localToday = getTodayDateKey();
+    const isTodayNov23 = localToday === NOV_23_DATE_KEY;
+    const nov23Done = nov23Status === 'submitted';
     const dailyDone = dailyMockStatus === 'submitted';
     const finalPct = finalPassed
       ? 100
@@ -461,32 +476,76 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
       ? 50
       : 0;
 
-    return [
-      {
-        id: 'sec-daily-mock',
-        code: dailyMockPaperCode
-          ? `01 · DAILY MOCK · ${dailyMockPaperCode}`
-          : '01 · DAILY MOCK',
-        title: 'Daily 60-Min All-Topics Mock Test',
-        subtitle: '40 MCQs · 50% Hard FAANG/MNC · Portal & Email Summary',
-        description:
-          'Daily rotating 60-minute exam covering all 7 Employability Universe pillars with instant topic analytics and email results.',
-        progressText: dailyDone
-          ? `Done Today · ${dailyMockScorePct}% (Hard ${dailyMockHardPct}%)`
-          : dailyMockStatus === 'in_progress'
-          ? 'Timer Running · Resume Now'
-          : `Ready · Streak ${dailyMockStreak}d`,
-        percent: dailyDone ? 100 : dailyMockStatus === 'in_progress' ? 50 : 0,
-        completed: dailyDone,
-        accentBar: 'from-rose-600 to-orange-500',
-        accentText: 'text-rose-700 dark:text-rose-400',
-        image: PHOTO_ASSETS.placement_aptitude_desk.src,
-        imageAlt: PHOTO_ASSETS.placement_aptitude_desk.alt,
-        onOpen: () => onNavigateView('daily_mock'),
-      },
+    const nov23Card: HubSectionCard = {
+      id: 'sec-nov23-mock',
+      code: `01 · NOV 23 SPECIAL · ${NOV_23_PAPER_CODE}`,
+      title: 'Nov 23, 2026 Placement Sprint Assessment',
+      subtitle: '40 Brand-New MCQs · 20 Hard (50%) + 20 Standard · 60 Min',
+      description:
+        'Dedicated Nov 23, 2026 full-length 7-pillar timed assessment with 40 fresh placement questions, instant scorecard & email summary.',
+      progressText: nov23Done
+        ? `Done · ${nov23ScorePct}% (Hard ${nov23HardPct}%)`
+        : nov23Status === 'in_progress'
+        ? 'Timer Running · Resume Now'
+        : 'Live Now · 40 Fresh MCQs (+500 XP)',
+      percent: nov23Done ? 100 : nov23Status === 'in_progress' ? 50 : 0,
+      completed: nov23Done,
+      accentBar: 'from-rose-600 to-amber-500',
+      accentText: 'text-rose-700 dark:text-rose-400',
+      image: PHOTO_ASSETS.placement_aptitude_desk.src,
+      imageAlt: PHOTO_ASSETS.placement_aptitude_desk.alt,
+      onOpen: () =>
+        onNavigateView(
+          'daily_mock',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          NOV_23_DATE_KEY
+        ),
+    };
+
+    const dailyRotatingCard: HubSectionCard = {
+      id: 'sec-daily-mock',
+      code: dailyMockPaperCode
+        ? `${isTodayNov23 ? '01' : '02'} · DAILY MOCK · ${dailyMockPaperCode}`
+        : `${isTodayNov23 ? '01' : '02'} · DAILY MOCK`,
+      title: isTodayNov23
+        ? 'Nov 23, 2026 Placement Sprint Assessment'
+        : 'Daily 60-Min All-Topics Mock Test',
+      subtitle: '40 MCQs · 50% Hard FAANG/MNC · Portal & Email Summary',
+      description:
+        'Daily rotating 60-minute exam covering all 7 Employability Universe pillars with instant topic analytics and email results.',
+      progressText: dailyDone
+        ? `Done Today · ${dailyMockScorePct}% (Hard ${dailyMockHardPct}%)`
+        : dailyMockStatus === 'in_progress'
+        ? 'Timer Running · Resume Now'
+        : `Ready · Streak ${dailyMockStreak}d`,
+      percent: dailyDone ? 100 : dailyMockStatus === 'in_progress' ? 50 : 0,
+      completed: dailyDone,
+      accentBar: 'from-rose-600 to-orange-500',
+      accentText: 'text-rose-700 dark:text-rose-400',
+      image: PHOTO_ASSETS.placement_aptitude_desk.src,
+      imageAlt: PHOTO_ASSETS.placement_aptitude_desk.alt,
+      onOpen: () =>
+        onNavigateView(
+          'daily_mock',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          localToday
+        ),
+    };
+
+    const cards: HubSectionCard[] = isTodayNov23
+      ? [nov23Card]
+      : [nov23Card, dailyRotatingCard];
+
+    cards.push(
       {
         id: 'sec-final-capstone',
-        code: '02 · PROCTORED CAPSTONE',
+        code: `${isTodayNov23 ? '02' : '03'} · PROCTORED CAPSTONE`,
         title: 'Final Capstone Assessment (1000 XP) & LOR',
         subtitle: '90 Min · 10 Hard MCQs + 5 Visual Cases + Placement LOR PDF',
         description:
@@ -510,7 +569,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
       },
       {
         id: 'sec-credentials',
-        code: '03 · CREDENTIAL VAULT',
+        code: `${isTodayNov23 ? '03' : '04'} · CREDENTIAL VAULT`,
         title: 'Badges, PNG Certificates & Email Delivery',
         subtitle: `${progress.unlockedBadges.length}/${BADGES.length} Core Badges · ${shopBadgesCount}/10 Shop Badges · Direct Gmail`,
         description:
@@ -525,9 +584,14 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
         image: LANDING_SHOWCASE_IMAGES.credentialsShowcase.src,
         imageAlt: LANDING_SHOWCASE_IMAGES.credentialsShowcase.alt,
         onOpen: () => onNavigateView('achievements'),
-      },
-    ];
+      }
+    );
+
+    return cards;
   }, [
+    nov23Status,
+    nov23ScorePct,
+    nov23HardPct,
     dailyMockStatus,
     dailyMockPaperCode,
     dailyMockScorePct,
@@ -920,18 +984,31 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
 
               <button
                 type="button"
-                onClick={() => onNavigateView('daily_mock')}
+                onClick={() =>
+                  onNavigateView(
+                    'daily_mock',
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    NOV_23_DATE_KEY
+                  )
+                }
                 className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                  dailyMockStatus === 'submitted'
+                  nov23Status === 'submitted'
                     ? 'border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400'
                     : 'border-rose-300 dark:border-rose-800 bg-rose-50/70 dark:bg-rose-950/30 hover:bg-rose-100/70 dark:hover:bg-rose-950/60 text-rose-800 dark:text-rose-300'
                 }`}
               >
-                <Clock className="w-4 h-4" />
+                {nov23Status === 'submitted' ? (
+                  <CheckCircle2 className="w-4 h-4" />
+                ) : (
+                  <Clock className="w-4 h-4" />
+                )}
                 <span>
-                  {dailyMockStatus === 'submitted'
-                    ? `Daily Mock Done (${dailyMockScorePct}%)`
-                    : 'Daily 60m Mock'}
+                  {nov23Status === 'submitted'
+                    ? `Nov 23 Mock Done (${nov23ScorePct}%)`
+                    : 'Nov 23 Assessment (40 MCQs)'}
                 </span>
               </button>
 
@@ -1229,11 +1306,19 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
                 </p>
               </div>
               <span className="font-mono text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-                {countCompleted(assessmentCards)}/2 Exams Completed
+                {countCompleted(assessmentCards)}/
+                {assessmentCards.filter((c) => c.id !== 'sec-credentials').length}{' '}
+                Exams Completed
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div
+              className={`grid grid-cols-1 md:grid-cols-2 ${
+                visibleAssessCards.length >= 4
+                  ? 'xl:grid-cols-4'
+                  : 'lg:grid-cols-3'
+              } gap-5`}
+            >
               {visibleAssessCards.map(renderSectionCard)}
             </div>
           </div>
