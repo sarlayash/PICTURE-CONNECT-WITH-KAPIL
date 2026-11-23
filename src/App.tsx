@@ -94,6 +94,12 @@ import { AchievementsCertificate } from './components/AchievementsCertificate';
 import { AdvancedTrackStudio } from './components/AdvancedTrackStudio';
 import { ShoppingNegotiationStudio } from './components/ShoppingNegotiationStudio';
 import { CareerSkillsStudio } from './components/CareerSkillsStudio';
+import { BodyLanguageStudio } from './components/BodyLanguageStudio';
+import {
+  BodyLanguageProgressDoc,
+  createDefaultBodyLanguageProgress,
+  subscribeBodyLanguageProgress,
+} from './services/bodyLanguageFirestoreService';
 import { MasterUniverseStudio } from './components/MasterUniverseStudio';
 import {
   computeDailyMockStreak,
@@ -104,6 +110,7 @@ import {
   generateDailyMockPaper,
   getTodayDateKey,
   NOV_23_DATE_KEY,
+  NOV_24_DATE_KEY,
 } from './data/dailyMockData';
 import { DailyMockStudio } from './components/DailyMockStudio';
 import { FinalAssessmentStudio } from './components/FinalAssessmentStudio';
@@ -174,6 +181,9 @@ function PictureConnectWorkspace() {
   const [careerProgress, setCareerProgress] = useState<CareerSkillsProgressDoc>(() =>
     createDefaultCareerSkillsProgress('pending')
   );
+  const [bodyProgress, setBodyProgress] = useState<BodyLanguageProgressDoc>(() =>
+    createDefaultBodyLanguageProgress('pending')
+  );
   const [masterProgress, setMasterProgress] = useState<MasterSkillsProgressDoc>(() =>
     createDefaultMasterProgress('pending')
   );
@@ -224,6 +234,7 @@ function PictureConnectWorkspace() {
         setFinalAssessment(createDefaultFinalAssessment('pending'));
         setShoppingProgress(createDefaultShoppingProgress('pending'));
         setCareerProgress(createDefaultCareerSkillsProgress('pending'));
+        setBodyProgress(createDefaultBodyLanguageProgress('pending'));
         setMasterProgress(createDefaultMasterProgress('pending'));
         setAuthReady(true);
         return;
@@ -272,6 +283,13 @@ function PictureConnectWorkspace() {
       );
       setCareerProgress(
         createDefaultCareerSkillsProgress(
+          nextUser.uid,
+          nextUser.displayName || nextUser.email?.split('@')[0] || 'Verified Learner',
+          nextUser.email || ''
+        )
+      );
+      setBodyProgress(
+        createDefaultBodyLanguageProgress(
           nextUser.uid,
           nextUser.displayName || nextUser.email?.split('@')[0] || 'Verified Learner',
           nextUser.email || ''
@@ -332,6 +350,7 @@ function PictureConnectWorkspace() {
     const unsubFinal = subscribeFinalAssessment(user, setFinalAssessment);
     const unsubShopping = subscribeShoppingProgress(user, setShoppingProgress);
     const unsubCareer = subscribeCareerSkillsProgress(user, setCareerProgress);
+    const unsubBody = subscribeBodyLanguageProgress(user, setBodyProgress);
     const unsubMaster = subscribeMasterProgress(user, setMasterProgress);
     const unsubDailyMock = subscribeMyDailyMockAttempts(user.uid, (items) => {
       setDailyMockAttempts(items);
@@ -349,6 +368,7 @@ function PictureConnectWorkspace() {
       unsubFinal();
       unsubShopping();
       unsubCareer();
+      unsubBody();
       unsubMaster();
       unsubDailyMock();
     };
@@ -362,6 +382,8 @@ function PictureConnectWorkspace() {
         shoppingAnsweredCount: shoppingProgress.answeredMcqs.length,
         shoppingRoleplayScore: shoppingProgress.roleplayScore,
         careerAnsweredCount: careerProgress.answeredMcqs.length,
+        bodyLanguageAnsweredCount: bodyProgress.answeredMcqs.length,
+        bodyLanguageChallengesCount: bodyProgress.solvedChallenges.length,
         masterAnsweredCount: masterProgress.answeredMcqs.length,
         advCompletedCount: advProgress.completedChallenges.length,
         finalPassed: finalAssessment.passed,
@@ -373,6 +395,8 @@ function PictureConnectWorkspace() {
       shoppingProgress.answeredMcqs.length,
       shoppingProgress.roleplayScore,
       careerProgress.answeredMcqs.length,
+      bodyProgress.answeredMcqs.length,
+      bodyProgress.solvedChallenges.length,
       masterProgress.answeredMcqs.length,
       advProgress.completedChallenges.length,
       finalAssessment.passed,
@@ -431,7 +455,7 @@ function PictureConnectWorkspace() {
 
     const localTodayKey = getTodayDateKey();
     const targetMockKey =
-      localTodayKey <= NOV_23_DATE_KEY ? NOV_23_DATE_KEY : localTodayKey;
+      localTodayKey <= NOV_24_DATE_KEY ? NOV_24_DATE_KEY : localTodayKey;
     const dedupKey = `${user.uid}_${targetMockKey}`;
     if (dailyMockNotifiedKeyRef.current === dedupKey) return;
 
@@ -457,10 +481,12 @@ function PictureConnectWorkspace() {
 
     dailyMockNotifiedKeyRef.current = dedupKey;
     const title = targetPaper.isSpecialEdition
-      ? `Nov 23 Assessment Live (${targetPaper.paperCode})`
+      ? targetMockKey === NOV_24_DATE_KEY
+        ? `Nov 24 Assessment Live (${targetPaper.paperCode})`
+        : `Nov 23 Assessment Live (${targetPaper.paperCode})`
       : `Daily 60-Min Mock Live (${targetPaper.paperCode})`;
     const body = targetPaper.isSpecialEdition
-      ? `40 brand-new MCQs across all 7 pillars (20 Hard / 50%). Complete Nov 23, 2026 Assessment in 60 min to receive your results summary on portal & email.`
+      ? `40 brand-new MCQs across all 7 pillars (20 Hard / 50%) including Body Language scenarios. Complete in 60 min to receive your results summary on portal & email.`
       : `40 MCQs across all 7 topics (20 Hard / 50%). Complete in 60 min to receive your daily results summary on portal & email.`;
 
     (async () => {
@@ -615,12 +641,17 @@ function PictureConnectWorkspace() {
   const nov23DailyAttempt = dailyMockAttempts.find(
     (a) => a.dateKey === NOV_23_DATE_KEY
   );
+  const nov24DailyAttempt = dailyMockAttempts.find(
+    (a) => a.dateKey === NOV_24_DATE_KEY
+  );
   const defaultMockDate =
-    todayDateKey <= NOV_23_DATE_KEY ? NOV_23_DATE_KEY : todayDateKey;
+    todayDateKey <= NOV_24_DATE_KEY ? NOV_24_DATE_KEY : todayDateKey;
   const activeMockDate = dailyMockTargetDate ?? defaultMockDate;
   const dailyMockStreak = computeDailyMockStreak(
     dailyMockAttempts,
-    nov23DailyAttempt?.status === 'submitted' && todayDateKey < NOV_23_DATE_KEY
+    nov24DailyAttempt?.status === 'submitted' && todayDateKey < NOV_24_DATE_KEY
+      ? NOV_24_DATE_KEY
+      : nov23DailyAttempt?.status === 'submitted' && todayDateKey < NOV_23_DATE_KEY
       ? NOV_23_DATE_KEY
       : todayDateKey
   );
@@ -634,7 +665,8 @@ function PictureConnectWorkspace() {
 
   const getCategoryForView = (v: AppView): TopCategoryId => {
     if (v === 'levels' || v === 'wheel' || v === 'advanced') return 'visual_ai';
-    if (v === 'career' || v === 'shopping') return 'communication';
+    if (v === 'career' || v === 'shopping' || v === 'body_language')
+      return 'communication';
     if (v === 'universe') return 'tech_aptitude';
     if (v === 'daily_mock' || v === 'final' || v === 'achievements')
       return 'assessments';
@@ -650,7 +682,11 @@ function PictureConnectWorkspace() {
     shoppingProgress.answeredMcqs.length >= 50 &&
     shoppingProgress.roleplayScore >= 60;
   const isCareerDone = careerProgress.answeredMcqs.length >= 45;
+  const isBodyLanguageDone =
+    bodyProgress.solvedChallenges.length >= 6 &&
+    bodyProgress.answeredMcqs.length >= 15;
   const isMasterDone = masterProgress.answeredMcqs.length >= 160;
+  const isNov24MockDone = nov24DailyAttempt?.status === 'submitted';
   const isNov23MockDone = nov23DailyAttempt?.status === 'submitted';
   const isDailyMockDone = todayDailyAttempt?.status === 'submitted';
   const isFinalDone = Boolean(finalAssessment.passed);
@@ -672,7 +708,7 @@ function PictureConnectWorkspace() {
       id: 'communication',
       label: 'Communication',
       defaultView: 'career',
-      completed: isCareerDone && isShoppingDone,
+      completed: isCareerDone && isShoppingDone && isBodyLanguageDone,
     },
     {
       id: 'tech_aptitude',
@@ -684,7 +720,7 @@ function PictureConnectWorkspace() {
       id: 'assessments',
       label: 'Assessments',
       defaultView: 'daily_mock',
-      completed: isNov23MockDone && isDailyMockDone && isFinalDone,
+      completed: isNov24MockDone && isNov23MockDone && isDailyMockDone && isFinalDone,
     },
   ];
 
@@ -722,6 +758,12 @@ function PictureConnectWorkspace() {
     ],
     communication: [
       {
+        id: 'body_language',
+        label: 'Body Language & Presence',
+        completed: isBodyLanguageDone,
+        meta: `${bodyProgress.solvedChallenges.length}/6 · ${bodyProgress.answeredMcqs.length}/15`,
+      },
+      {
         id: 'career',
         label: 'Indianism, Interview & GD',
         completed: isCareerDone,
@@ -744,6 +786,16 @@ function PictureConnectWorkspace() {
     ],
     assessments: [
       {
+        key: 'nov24_mock',
+        id: 'daily_mock',
+        mockDateKey: NOV_24_DATE_KEY,
+        label: isNov24MockDone
+          ? `Nov 24 Assessment (${nov24DailyAttempt.scorePercent}%)`
+          : 'Nov 24 Assessment',
+        completed: isNov24MockDone,
+        meta: isNov24MockDone ? 'Done' : '40 MCQs · New',
+      },
+      {
         key: 'nov23_mock',
         id: 'daily_mock',
         mockDateKey: NOV_23_DATE_KEY,
@@ -753,7 +805,7 @@ function PictureConnectWorkspace() {
         completed: isNov23MockDone,
         meta: isNov23MockDone ? 'Done' : '40 MCQs · Special',
       },
-      ...(todayDateKey !== NOV_23_DATE_KEY
+      ...(todayDateKey !== NOV_23_DATE_KEY && todayDateKey !== NOV_24_DATE_KEY
         ? [
             {
               key: 'today_mock',
@@ -791,6 +843,7 @@ function PictureConnectWorkspace() {
     advProgress.advXp +
     shoppingProgress.shopXp +
     careerProgress.careerXp +
+    bodyProgress.bodyXp +
     masterProgress.masterXp +
     finalAssessment.totalXpAwarded;
 
@@ -1046,6 +1099,10 @@ function PictureConnectWorkspace() {
             careerAnswered={careerProgress.answeredMcqs.length}
             careerCorrect={careerProgress.correctMcqs.length}
             careerXp={careerProgress.careerXp}
+            bodySolvedCount={bodyProgress.solvedChallenges.length}
+            bodyAnsweredCount={bodyProgress.answeredMcqs.length}
+            bodyCorrectCount={bodyProgress.correctMcqs.length}
+            bodyXp={bodyProgress.bodyXp}
             indianismScore={`${careerStats.indianism.correct}/${careerStats.indianism.total} Correct`}
             interviewScore={`${careerStats.interview.correct}/${careerStats.interview.total} Correct`}
             gdScore={`${careerStats.gd.correct}/${careerStats.gd.total} Correct`}
@@ -1069,6 +1126,9 @@ function PictureConnectWorkspace() {
             nov23Status={nov23DailyAttempt?.status || 'not_started'}
             nov23ScorePct={nov23DailyAttempt?.scorePercent || 0}
             nov23HardPct={nov23DailyAttempt?.hardAccuracyPercent || 0}
+            nov24Status={nov24DailyAttempt?.status || 'not_started'}
+            nov24ScorePct={nov24DailyAttempt?.scorePercent || 0}
+            nov24HardPct={nov24DailyAttempt?.hardAccuracyPercent || 0}
             careerCategoryStats={careerStats}
             masterTrackStats={masterTrackStats}
             sectionAudit={sectionAudit}
@@ -1199,6 +1259,16 @@ function PictureConnectWorkspace() {
           />
         )}
 
+        {view === 'body_language' && (
+          <BodyLanguageStudio
+            user={user}
+            learnerName={learnerName}
+            learnerEmail={user.email || ''}
+            bodyProgress={bodyProgress}
+            onRequestEmail={setEmailRequest}
+          />
+        )}
+
         {view === 'universe' && (
           <MasterUniverseStudio
             user={user}
@@ -1270,6 +1340,7 @@ function PictureConnectWorkspace() {
             progress={progress}
             shoppingProgress={shoppingProgress}
             careerProgress={careerProgress}
+            bodyProgress={bodyProgress}
             masterProgress={masterProgress}
             advProgress={advProgress}
             advAvgScore={advAvgScore}

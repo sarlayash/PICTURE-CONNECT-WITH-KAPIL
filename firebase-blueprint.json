@@ -691,6 +691,7 @@
             "wheel",
             "shopping",
             "career",
+            "body_language",
             "universe",
             "advanced",
             "final",
@@ -775,6 +776,7 @@
             "wheel",
             "shopping",
             "career",
+            "body_language",
             "universe",
             "advanced",
             "final",
@@ -957,6 +959,74 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "BodyLanguageProgress": {
+      "title": "BodyLanguageProgress",
+      "description": "Isolated Body Language & Executive Presence Studio progress covering 6 visual placement scenarios, 6 live action challenges, 15 graded MCQs with hint tracking, XP, 4 PNG badges, and PNG certificate ID.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "authorEmail": { "type": "string", "maxLength": 160 },
+        "bodyXp": { "type": "number", "minimum": 0, "maximum": 15000 },
+        "exploredScenarios": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 12
+        },
+        "solvedChallenges": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 12
+        },
+        "answeredMcqs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 15
+        },
+        "correctMcqs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 15
+        },
+        "hintUsedMcqs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 15
+        },
+        "mcqChoices": {
+          "type": "array",
+          "items": { "type": "number" },
+          "maxItems": 15
+        },
+        "unlockedBodyBadges": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 8
+        },
+        "bodyCertificateId": { "type": "string", "minLength": 4, "maxLength": 64 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "ownerId",
+        "authorName",
+        "authorEmail",
+        "bodyXp",
+        "exploredScenarios",
+        "solvedChallenges",
+        "answeredMcqs",
+        "correctMcqs",
+        "hintUsedMcqs",
+        "mcqChoices",
+        "unlockedBodyBadges",
+        "bodyCertificateId",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -1015,6 +1085,10 @@
     "/adminDistributionLists/{listId}": {
       "schema": { "$ref": "#/entities/AdminDistributionList" },
       "description": "Admin-managed reusable email distribution lists restricted to verified registered learners."
+    },
+    "/bodyLanguageProgress/{userId}": {
+      "schema": { "$ref": "#/entities/BodyLanguageProgress" },
+      "description": "Isolated Body Language & Executive Presence visual scenario labs, challenges, 15 MCQs, XP, 4 badges, and Certificate ID."
     }
   }
 }

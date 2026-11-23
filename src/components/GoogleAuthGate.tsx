@@ -135,7 +135,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                   {WORKSHOP_META.title}
                 </h1>
                 <p className="text-xs sm:text-sm font-semibold text-sky-400 tracking-wide">
-                  Part 1: Communication, Soft Skills, Aptitude, Coding &amp; DSA · Part 2: MS Office, Excel, Power BI &amp; Tableau · Part 3: DBMS &amp; AI
+                  Part 1: Communication, Body Language, Soft Skills, Aptitude, Coding &amp; DSA · Part 2: MS Office, Excel, Power BI &amp; Tableau · Part 3: DBMS &amp; AI
                 </p>
                 <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
                   {WORKSHOP_META.positioning} — {WORKSHOP_META.corePhilosophy}
@@ -522,7 +522,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                   src={LANDING_SHOWCASE_IMAGES.credentialsShowcase.src}
                   alt={LANDING_SHOWCASE_IMAGES.credentialsShowcase.alt}
                   fallbackTitle="Verified Credentials Vault"
-                  fallbackSubtitle="42 PNG Badges · 6 Certificates · Placement LOR PDF"
+                  fallbackSubtitle="46 PNG Badges · 7 Certificates · Placement LOR PDF"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -532,7 +532,7 @@ export const GoogleAuthGate: React.FC<GoogleAuthGateProps> = ({
                   <span>RECRUITER-READY CREDENTIALS · INSTANT DOWNLOAD</span>
                 </div>
                 <h3 className="font-display text-xl font-bold text-white">
-                  42 PNG Badges, 6 Official Certificates &amp; Placement LOR PDF
+                  46 PNG Badges, 7 Official Certificates &amp; Placement LOR PDF
                 </h3>
                 <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
                   Every track awards high-resolution 1200×1200 PNG mastery

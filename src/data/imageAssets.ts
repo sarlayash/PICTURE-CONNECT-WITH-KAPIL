@@ -59,6 +59,41 @@ import placementOnboardingDay1 from '../assets/images/placement_onboarding_day1_
 import placementGlobalEnglish from '../assets/images/indianism_global_english_1795156086055.jpg';
 import placementAnalyticalResearch from '../assets/images/buyer_analytical_researcher_1795222885096.jpg';
 import placementUrgentSla from '../assets/images/buyer_urgent_service_seeker_1795222884947.jpg';
+import blInterviewPosture from '../assets/images/bl_interview_posture_1795459730603.jpg';
+import blHandshakeEntrance from '../assets/images/bl_handshake_entrance_1795459730608.jpg';
+import blVirtualCamera from '../assets/images/bl_virtual_camera_1795459731346.jpg';
+import blGdListening from '../assets/images/bl_gd_listening_1795459732230.jpg';
+import blBoardroomPresence from '../assets/images/bl_boardroom_presence_1795459733056.jpg';
+
+export const BODY_LANGUAGE_IMAGES = {
+  interview_posture: {
+    src: blInterviewPosture,
+    alt: 'Candidate demonstrating ideal seated 1-on-1 interview posture with upright spine, hands calmly above table, uncrossed ankles, and warm eye contact',
+    caption: '1-on-1 Interview · Open Seated Posture & Eye Triangle',
+  },
+  handshake_entrance: {
+    src: blHandshakeEntrance,
+    alt: 'Graduate offering a confident web-to-web professional handshake with upright carriage and genuine smile in a modern corporate lobby',
+    caption: 'First 7 Seconds · Walk-In Carriage & Balanced Handshake',
+  },
+  virtual_camera: {
+    src: blVirtualCamera,
+    alt: 'Remote interview setup with laptop elevated to eye level, natural daylight key light, clean backdrop, and open palm framing into webcam',
+    caption: 'Virtual Screen · Eye-Level Webcam & Golden-Ratio Framing',
+  },
+  gd_listening: {
+    src: blGdListening,
+    alt: 'Six-person corporate group discussion where one speaker uses open-palm gestures while attentive peers nod and take notes without crossed arms',
+    caption: 'Group Discussion · Active Listening & Open-Palm Turn-Taking',
+  },
+  boardroom_presence: {
+    src: blBoardroomPresence,
+    alt: 'Emerging leader standing beside a glass boardroom table with calm steepled hands and composed expression during an executive Q&A panel',
+    caption: 'Stress Round & Q&A · Grounded Stance & Executive Poise',
+  },
+} as const;
+
+export type BodyLanguageImageKey = keyof typeof BODY_LANGUAGE_IMAGES;
 
 export const LANDING_SHOWCASE_IMAGES = {
   heroUniverse: {

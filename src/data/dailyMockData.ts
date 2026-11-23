@@ -8,9 +8,22 @@ import {
   NOV_23_EDITION_TITLE,
   NOV_23_PAPER_CODE,
 } from './nov23AssessmentData';
+import {
+  NOV_24_ASSESSMENT_MCQS,
+  NOV_24_DATE_KEY,
+  NOV_24_EDITION_TITLE,
+  NOV_24_PAPER_CODE,
+} from './nov24AssessmentData';
 import { SHOPPING_MCQS } from './shoppingNegotiationData';
 
-export { NOV_23_DATE_KEY, NOV_23_EDITION_TITLE, NOV_23_PAPER_CODE };
+export {
+  NOV_23_DATE_KEY,
+  NOV_23_EDITION_TITLE,
+  NOV_23_PAPER_CODE,
+  NOV_24_DATE_KEY,
+  NOV_24_EDITION_TITLE,
+  NOV_24_PAPER_CODE,
+};
 
 export type DailyMockPillarId =
   | 'aptitude_logic'
@@ -65,9 +78,9 @@ export const DAILY_MOCK_PILLARS: DailyMockPillarMeta[] = [
   },
   {
     id: 'career_comm',
-    title: 'Indianism, Interview & GD Skills',
-    shortTitle: 'Career & Comm',
-    topicsLabel: 'Global English, STAR/SCARE Interviews, Executive GD',
+    title: 'Indianism, Body Language, Interview & GD Skills',
+    shortTitle: 'Career & Presence',
+    topicsLabel: 'Global English, Body Language & Posture, STAR Interviews, Executive GD',
     targetHard: 3,
     targetStandard: 3,
   },
@@ -931,6 +944,7 @@ export function getUnifiedDailyMockPool(): DailyMockQuestion[] {
   const pool: DailyMockQuestion[] = [
     ...DEDICATED_HARD_MOCK_MCQS,
     ...NOV_23_ASSESSMENT_MCQS,
+    ...NOV_24_ASSESSMENT_MCQS,
   ];
 
   // 1. All 16 Master Universe tracks (160 MCQs)
@@ -1085,6 +1099,22 @@ export function generateDailyMockPaper(dateKey: string): DailyMockPaper {
       paperCode: NOV_23_PAPER_CODE,
       displayDate: formatDateKeyReadable(dateKey),
       editionTitle: NOV_23_EDITION_TITLE,
+      isSpecialEdition: true,
+      durationSeconds: DAILY_MOCK_CONFIG.durationSeconds,
+      totalQuestions: questions.length,
+      hardCount: questions.filter((q) => q.difficulty === 'Hard').length,
+      standardCount: questions.filter((q) => q.difficulty === 'Standard').length,
+      questions,
+    };
+  }
+
+  if (dateKey === NOV_24_DATE_KEY) {
+    const questions = seededShuffle(NOV_24_ASSESSMENT_MCQS, rand);
+    return {
+      dateKey,
+      paperCode: NOV_24_PAPER_CODE,
+      displayDate: formatDateKeyReadable(dateKey),
+      editionTitle: NOV_24_EDITION_TITLE,
       isSpecialEdition: true,
       durationSeconds: DAILY_MOCK_CONFIG.durationSeconds,
       totalQuestions: questions.length,

@@ -343,6 +343,7 @@ export const WORKSHOP_META = {
   poweredBy: 'Powered By Kapil',
   pillars: [
     'Picture Connect',
+    'Body Language & Presence',
     'Shopping & Negotiation',
     'Indianism, Interview & GD',
     'Aptitude, Grammar, Tenses, Punctuation & Idioms',
@@ -539,12 +540,12 @@ export const LANDING_CURRICULUM_PARTS: LandingCurriculumPart[] = [
       {
         id: 'p1-soft-skills',
         number: '01B',
-        title: 'Soft Skills, Interview, GD & Negotiation',
-        subtitle: 'STAR Storytelling · Group Discussion · Smart Buyer Cases',
+        title: 'Body Language, Soft Skills, Interview, GD & Negotiation',
+        subtitle: '6 Visual Scenarios · STAR Storytelling · Group Discussion · Smart Buyer Cases',
         description:
-          'Master behavioral STAR interviews, salary framing, PESTLE/PREP group discussions, empathy leadership, 6 buyer archetypes, 25 negotiation cases, and role-play scoring.',
-        coverage: 'Interview · GD · Negotiation · Leadership Empathy',
-        metrics: '80+ MCQs · 25 Cases · 38 Riddles · Role-Play Lab',
+          'Master executive body language & posture across 6 visual placement scenarios (handshakes, camera eye-line, GD listening & stress rounds) alongside STAR interviews, negotiation & 95+ MCQs.',
+        coverage: 'Body Language · Interview · GD · Negotiation · Empathy',
+        metrics: '6 Visual Labs · 95+ MCQs · 25 Cases · Role-Play Lab',
         themeColor: 'emerald',
         image: interviewHero,
         imageAlt: PHOTO_ASSETS.placement_interview_panel.alt,
@@ -690,12 +691,12 @@ export const LANDING_CURRICULUM_PARTS: LandingCurriculumPart[] = [
       {
         id: 'p3-assessments-credentials',
         number: '03C',
-        title: 'Daily Mock, Nov 23 Sprint, Final Capstone & LOR',
-        subtitle: '60-Min Daily Hard Mock · 90-Min 1000 XP Exam · 42 Badges & 6 Certs',
+        title: 'Daily Mock, Nov 23 & Nov 24 Sprints, Capstone & LOR',
+        subtitle: 'Nov 24 Body Language Sprint · Nov 23 Mock · 90-Min 1000 XP Exam · 46 Badges & 7 Certs',
         description:
-          'Prove placement mastery under real timed conditions in the Daily Mock, Nov 23 Placement Sprint Assessment, and 90-Min Final Capstone to unlock PNG Certificates & LOR PDF.',
-        coverage: 'Daily 40-MCQ Mock · Nov 23 Special · Capstone · LOR PDF',
-        metrics: '42 PNG Badges · 6 Certificates · Placement LOR PDF',
+          'Prove placement mastery under real timed conditions in the Daily Mock, Nov 24 & Nov 23 Placement Sprint Assessments, and 90-Min Final Capstone to unlock PNG Certificates & LOR PDF.',
+        coverage: 'Nov 24 Sprint · Nov 23 Special · Daily Mock · Capstone & LOR',
+        metrics: '46 PNG Badges · 7 Certificates · Placement LOR PDF',
         themeColor: 'amber',
         image: LANDING_SHOWCASE_IMAGES.capstoneArena.src,
         imageAlt: LANDING_SHOWCASE_IMAGES.capstoneArena.alt,

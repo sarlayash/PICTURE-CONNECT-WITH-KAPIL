@@ -17,8 +17,15 @@ import {
   getAdvancedRank,
 } from '../data/advancedTrackData';
 import { CAREER_BADGES, CAREER_MCQS } from '../data/careerSkillsData';
+import {
+  BODY_LANGUAGE_BADGES,
+  BODY_LANGUAGE_MCQS,
+  BODY_LANGUAGE_SCENARIOS,
+  BodyLanguageBadge,
+} from '../data/bodyLanguageData';
 import { MASTER_BADGES, MASTER_MCQS } from '../data/masterUniverseData';
 import { AdvancedProgressDoc } from '../services/advancedFirestoreService';
+import { BodyLanguageProgressDoc } from '../services/bodyLanguageFirestoreService';
 import { CareerSkillsProgressDoc } from '../services/careerSkillsFirestoreService';
 import { FinalAssessmentDoc } from '../services/finalAssessmentService';
 import { LearnerProgressDoc } from '../services/firestoreService';
@@ -31,6 +38,7 @@ const PALETTE: Record<
 > = {
   blue: { primary: '#2563EB', glow: '#60A5FA', light: '#DBEAFE' },
   emerald: { primary: '#059669', glow: '#34D399', light: '#D1FAE5' },
+  teal: { primary: '#0D9488', glow: '#2DD4BF', light: '#CCFBF1' },
   amber: { primary: '#D97706', glow: '#FBBF24', light: '#FEF3C7' },
   violet: { primary: '#7C3AED', glow: '#A78BFA', light: '#EDE9FE' },
   rose: { primary: '#E11D48', glow: '#FB7185', light: '#FFE4E6' },
@@ -216,6 +224,22 @@ export function buildAdvBadgePngDataUrl(
     stampLabel: 'POWERED BY KAPIL · AI TRACK',
     learnerName,
     certificateId: advCertificateId,
+  });
+}
+
+export function buildBodyLanguageBadgePngDataUrl(
+  badge: BodyLanguageBadge,
+  learnerName: string,
+  bodyCertificateId: string
+): string {
+  return buildBadgePngDataUrl({
+    title: badge.title,
+    criteriaLabel: badge.criteriaLabel,
+    accent: badge.accent,
+    trackHeader: 'EMPLOYABILITY UNIVERSE WITH KAPIL · BODY LANGUAGE & PRESENCE',
+    stampLabel: 'EXECUTIVE PRESENCE',
+    learnerName,
+    certificateId: bodyCertificateId,
   });
 }
 
@@ -507,6 +531,42 @@ export function buildCareerCertificateDataUrl(
     certificateId: careerProgress.careerCertificateId,
     sealTop: 'CAREER READY',
     accentColor: '#0E7490',
+  });
+}
+
+export function buildBodyLanguageCertificateDataUrl(
+  learnerName: string,
+  learnerEmail: string,
+  bodyProgress: BodyLanguageProgressDoc
+): string {
+  const ans = bodyProgress.answeredMcqs.length;
+  const cor = bodyProgress.correctMcqs.length;
+  const acc = ans > 0 ? Math.round((cor / ans) * 100) : 0;
+
+  return buildExecutiveCertificatePngDataUrl({
+    headerBanner: 'EMPLOYABILITY UNIVERSE WITH KAPIL  ·  BODY LANGUAGE STUDIO',
+    mainTitle: 'CERTIFICATE OF EXECUTIVE BODY LANGUAGE',
+    subtitle: 'First 7 Seconds · Open Posture · Camera Eye-Line · Stress Composure',
+    learnerName,
+    learnerEmail,
+    citationLine1:
+      'for decoding non-verbal cues across visual placement scenarios, virtual calls & GD panels',
+    citationLine2: `with ${bodyProgress.solvedChallenges.length}/${BODY_LANGUAGE_SCENARIOS.length} Action Labs solved and ${cor}/${BODY_LANGUAGE_MCQS.length} MCQs (${acc}%).`,
+    metrics: [
+      { label: 'PRESENCE XP', value: `${bodyProgress.bodyXp} XP` },
+      {
+        label: 'ACTION LABS',
+        value: `${bodyProgress.solvedChallenges.length} / ${BODY_LANGUAGE_SCENARIOS.length}`,
+      },
+      { label: 'MCQ SCORE', value: `${cor}/${BODY_LANGUAGE_MCQS.length} (${acc}%)` },
+      {
+        label: 'BADGES',
+        value: `${bodyProgress.unlockedBodyBadges.length} / ${BODY_LANGUAGE_BADGES.length}`,
+      },
+    ],
+    certificateId: bodyProgress.bodyCertificateId,
+    sealTop: 'PRESENCE PRO',
+    accentColor: '#0F766E',
   });
 }
 

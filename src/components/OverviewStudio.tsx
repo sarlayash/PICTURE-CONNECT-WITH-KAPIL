@@ -43,9 +43,15 @@ import {
   getTodayDateKey,
   NOV_23_DATE_KEY,
   NOV_23_PAPER_CODE,
+  NOV_24_DATE_KEY,
+  NOV_24_PAPER_CODE,
 } from '../data/dailyMockData';
 import { SectionAuditReport } from '../services/notificationService';
-import { LANDING_SHOWCASE_IMAGES, PHOTO_ASSETS } from '../data/imageAssets';
+import {
+  BODY_LANGUAGE_IMAGES,
+  LANDING_SHOWCASE_IMAGES,
+  PHOTO_ASSETS,
+} from '../data/imageAssets';
 
 export type AppView =
   | 'journey'
@@ -53,6 +59,7 @@ export type AppView =
   | 'wheel'
   | 'shopping'
   | 'career'
+  | 'body_language'
   | 'universe'
   | 'advanced'
   | 'daily_mock'
@@ -88,6 +95,10 @@ interface OverviewStudioProps {
   careerAnswered?: number;
   careerCorrect?: number;
   careerXp?: number;
+  bodySolvedCount?: number;
+  bodyAnsweredCount?: number;
+  bodyCorrectCount?: number;
+  bodyXp?: number;
   indianismScore?: string;
   interviewScore?: string;
   gdScore?: string;
@@ -111,6 +122,9 @@ interface OverviewStudioProps {
   nov23Status?: 'not_started' | 'in_progress' | 'submitted';
   nov23ScorePct?: number;
   nov23HardPct?: number;
+  nov24Status?: 'not_started' | 'in_progress' | 'submitted';
+  nov24ScorePct?: number;
+  nov24HardPct?: number;
   careerCategoryStats?: Record<CareerCategoryId, CareerCategoryStat>;
   masterTrackStats?: Record<MasterTrackId, MasterTrackScoreSummary>;
   sectionAudit?: SectionAuditReport;
@@ -173,6 +187,10 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   shopRoleplayScore = 0,
   careerAnswered = 0,
   careerXp = 0,
+  bodySolvedCount = 0,
+  bodyAnsweredCount = 0,
+  bodyCorrectCount = 0,
+  bodyXp = 0,
   indianismScore = '0/15 Correct',
   interviewScore = '0/15 Correct',
   gdScore = '0/15 Correct',
@@ -192,6 +210,9 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   nov23Status = 'not_started',
   nov23ScorePct = 0,
   nov23HardPct = 0,
+  nov24Status = 'not_started',
+  nov24ScorePct = 0,
+  nov24HardPct = 0,
   careerCategoryStats,
   masterTrackStats,
   sectionAudit,
@@ -232,7 +253,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
 
   const combinedXp =
     totalCombinedXp ??
-    progress.xp + advXp + shopXp + careerXp + masterXp + finalXp;
+    progress.xp + advXp + shopXp + careerXp + bodyXp + masterXp + finalXp;
 
   const overallPct =
     sectionAudit?.overallCompletionPct ??
@@ -361,10 +382,35 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
       )
     );
 
+    const bodyComplete = bodySolvedCount >= 6 && bodyAnsweredCount >= 15;
+    const bodyPct = Math.min(
+      100,
+      Math.round(
+        (Math.min(15, bodyAnsweredCount) / 15) * 70 +
+          (Math.min(6, bodySolvedCount) / 6) * 30
+      )
+    );
+
     return [
       {
+        id: 'sec-body-language',
+        code: '01 · BODY LANGUAGE',
+        title: 'Body Language & Executive Presence Studio',
+        subtitle: '5 Real-Scene Images · 6 Action Labs · 15 MCQs · PNG Cert',
+        description:
+          'Master lobby walk-in, firm handshakes, open spine posture, webcam eye-line framing, GD listening, and stress composure cues.',
+        progressText: `${bodySolvedCount}/6 Labs · ${bodyCorrectCount}/15 MCQs`,
+        percent: bodyPct,
+        completed: bodyComplete,
+        accentBar: 'from-teal-600 to-cyan-500',
+        accentText: 'text-teal-700 dark:text-teal-400',
+        image: BODY_LANGUAGE_IMAGES.interview_posture.src,
+        imageAlt: BODY_LANGUAGE_IMAGES.interview_posture.alt,
+        onOpen: () => onNavigateView('body_language'),
+      },
+      {
         id: 'sec-indianism',
-        code: '01 · GLOBAL ENGLISH',
+        code: '02 · GLOBAL ENGLISH',
         title: 'Indianism & Global Business English',
         subtitle: '15 Graded MCQs · Executive Replacement Playbooks',
         description:
@@ -384,7 +430,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
       },
       {
         id: 'sec-interview',
-        code: '02 · INTERVIEW PREP',
+        code: '03 · INTERVIEW PREP',
         title: 'Interview Skills & STAR Mastery',
         subtitle: '15 Graded MCQs · Behavioral & Salary Playbooks',
         description:
@@ -404,7 +450,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
       },
       {
         id: 'sec-gd',
-        code: '03 · GROUP DISCUSSION',
+        code: '04 · GROUP DISCUSSION',
         title: 'Group Discussion (GD) Leadership',
         subtitle: '15 Graded MCQs · PESTLE & Consensus Playbooks',
         description:
@@ -424,7 +470,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
       },
       {
         id: 'sec-shopping',
-        code: '04 · NEGOTIATION',
+        code: '05 · NEGOTIATION',
         title: 'Shopping, Smart Buyer & Negotiation',
         subtitle: '50 MCQs · 25 Domain Cases · 6 Buyer Types · Role-Play Lab',
         description:
@@ -440,6 +486,9 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
       },
     ];
   }, [
+    bodySolvedCount,
+    bodyAnsweredCount,
+    bodyCorrectCount,
     careerCategoryStats,
     indianismScore,
     interviewScore,
@@ -466,6 +515,8 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
   const assessmentCards: HubSectionCard[] = useMemo(() => {
     const localToday = getTodayDateKey();
     const isTodayNov23 = localToday === NOV_23_DATE_KEY;
+    const isTodayNov24 = localToday === NOV_24_DATE_KEY;
+    const nov24Done = nov24Status === 'submitted';
     const nov23Done = nov23Status === 'submitted';
     const dailyDone = dailyMockStatus === 'submitted';
     const finalPct = finalPassed
@@ -476,9 +527,38 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
       ? 50
       : 0;
 
+    const nov24Card: HubSectionCard = {
+      id: 'sec-nov24-mock',
+      code: `01 · NOV 24 SPECIAL · ${NOV_24_PAPER_CODE}`,
+      title: 'Nov 24, 2026 Body Language & Placement Sprint',
+      subtitle: '40 Brand-New MCQs · Body Language + 7 Pillars · 20 Hard (50%)',
+      description:
+        'Brand-new Nov 24, 2026 full-length 7-pillar timed assessment integrating Executive Body Language scenarios alongside Coding, Aptitude, Grammar & Data.',
+      progressText: nov24Done
+        ? `Done · ${nov24ScorePct}% (Hard ${nov24HardPct}%)`
+        : nov24Status === 'in_progress'
+        ? 'Timer Running · Resume Now'
+        : 'Live Now · 40 Fresh MCQs (+500 XP)',
+      percent: nov24Done ? 100 : nov24Status === 'in_progress' ? 50 : 0,
+      completed: nov24Done,
+      accentBar: 'from-teal-600 to-emerald-500',
+      accentText: 'text-teal-700 dark:text-teal-400',
+      image: BODY_LANGUAGE_IMAGES.boardroom_presence.src,
+      imageAlt: BODY_LANGUAGE_IMAGES.boardroom_presence.alt,
+      onOpen: () =>
+        onNavigateView(
+          'daily_mock',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          NOV_24_DATE_KEY
+        ),
+    };
+
     const nov23Card: HubSectionCard = {
       id: 'sec-nov23-mock',
-      code: `01 · NOV 23 SPECIAL · ${NOV_23_PAPER_CODE}`,
+      code: `02 · NOV 23 SPECIAL · ${NOV_23_PAPER_CODE}`,
       title: 'Nov 23, 2026 Placement Sprint Assessment',
       subtitle: '40 Brand-New MCQs · 20 Hard (50%) + 20 Standard · 60 Min',
       description:
@@ -508,11 +588,9 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
     const dailyRotatingCard: HubSectionCard = {
       id: 'sec-daily-mock',
       code: dailyMockPaperCode
-        ? `${isTodayNov23 ? '01' : '02'} · DAILY MOCK · ${dailyMockPaperCode}`
-        : `${isTodayNov23 ? '01' : '02'} · DAILY MOCK`,
-      title: isTodayNov23
-        ? 'Nov 23, 2026 Placement Sprint Assessment'
-        : 'Daily 60-Min All-Topics Mock Test',
+        ? `03 · DAILY MOCK · ${dailyMockPaperCode}`
+        : '03 · DAILY MOCK',
+      title: 'Daily 60-Min All-Topics Mock Test',
       subtitle: '40 MCQs · 50% Hard FAANG/MNC · Portal & Email Summary',
       description:
         'Daily rotating 60-minute exam covering all 7 Employability Universe pillars with instant topic analytics and email results.',
@@ -538,14 +616,15 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
         ),
     };
 
-    const cards: HubSectionCard[] = isTodayNov23
-      ? [nov23Card]
-      : [nov23Card, dailyRotatingCard];
+    const cards: HubSectionCard[] =
+      isTodayNov23 || isTodayNov24
+        ? [nov24Card, nov23Card]
+        : [nov24Card, nov23Card, dailyRotatingCard];
 
     cards.push(
       {
         id: 'sec-final-capstone',
-        code: `${isTodayNov23 ? '02' : '03'} · PROCTORED CAPSTONE`,
+        code: '04 · PROCTORED CAPSTONE',
         title: 'Final Capstone Assessment (1000 XP) & LOR',
         subtitle: '90 Min · 10 Hard MCQs + 5 Visual Cases + Placement LOR PDF',
         description:
@@ -569,7 +648,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
       },
       {
         id: 'sec-credentials',
-        code: `${isTodayNov23 ? '03' : '04'} · CREDENTIAL VAULT`,
+        code: '05 · CREDENTIAL VAULT',
         title: 'Badges, PNG Certificates & Email Delivery',
         subtitle: `${progress.unlockedBadges.length}/${BADGES.length} Core Badges · ${shopBadgesCount}/10 Shop Badges · Direct Gmail`,
         description:
@@ -589,6 +668,9 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
 
     return cards;
   }, [
+    nov24Status,
+    nov24ScorePct,
+    nov24HardPct,
     nov23Status,
     nov23ScorePct,
     nov23HardPct,
@@ -991,25 +1073,34 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
                     undefined,
                     undefined,
                     undefined,
-                    NOV_23_DATE_KEY
+                    NOV_24_DATE_KEY
                   )
                 }
                 className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                  nov23Status === 'submitted'
+                  nov24Status === 'submitted'
                     ? 'border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400'
-                    : 'border-rose-300 dark:border-rose-800 bg-rose-50/70 dark:bg-rose-950/30 hover:bg-rose-100/70 dark:hover:bg-rose-950/60 text-rose-800 dark:text-rose-300'
+                    : 'border-teal-300 dark:border-teal-800 bg-teal-50/70 dark:bg-teal-950/30 hover:bg-teal-100/70 dark:hover:bg-teal-950/60 text-teal-800 dark:text-teal-300'
                 }`}
               >
-                {nov23Status === 'submitted' ? (
+                {nov24Status === 'submitted' ? (
                   <CheckCircle2 className="w-4 h-4" />
                 ) : (
                   <Clock className="w-4 h-4" />
                 )}
                 <span>
-                  {nov23Status === 'submitted'
-                    ? `Nov 23 Mock Done (${nov23ScorePct}%)`
-                    : 'Nov 23 Assessment (40 MCQs)'}
+                  {nov24Status === 'submitted'
+                    ? `Nov 24 Mock Done (${nov24ScorePct}%)`
+                    : 'Nov 24 Assessment (40 MCQs)'}
                 </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onNavigateView('body_language')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                <span>Body Language Lab</span>
               </button>
 
               <button
@@ -1086,7 +1177,7 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
             MCQs Completed (All Tracks)
           </div>
           <div className="font-mono tabular-nums text-2xl font-bold text-slate-950 dark:text-white mt-1">
-            {masterAnswered + careerAnswered + shopCompletedMcqs} / 255
+            {masterAnswered + careerAnswered + shopCompletedMcqs + bodyAnsweredCount} / 270
           </div>
         </div>
         <div>
@@ -1206,10 +1297,10 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
             <div className="flex flex-wrap items-baseline justify-between gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
               <div>
                 <h3 className="font-display text-lg font-bold text-slate-950 dark:text-white">
-                  02. Communication, Interview &amp; Negotiation Readiness
+                  02. Communication, Body Language &amp; Negotiation Readiness
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Global Business English, STAR Interview Mastery, Group Discussion Leadership &amp; Smart Buyer Negotiation Lab.
+                  Visual Body Language Labs, Global Business English, STAR Interview Mastery, Group Discussion Leadership &amp; Smart Buyer Negotiation Lab.
                 </p>
               </div>
               <span className="font-mono text-xs text-slate-500 dark:text-slate-400 tabular-nums">
@@ -1222,11 +1313,11 @@ export const OverviewStudio: React.FC<OverviewStudioProps> = ({
               <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/40 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>
-                  All Communication &amp; Negotiation sections are completed.
+                  All Communication, Body Language &amp; Negotiation sections are completed.
                 </span>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {visibleCommCards.map(renderSectionCard)}
               </div>
             )}

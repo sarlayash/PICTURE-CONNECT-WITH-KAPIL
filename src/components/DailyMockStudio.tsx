@@ -31,6 +31,7 @@ import {
   getTodayDateKey,
   gradeDailyMockAttempt,
   NOV_23_DATE_KEY,
+  NOV_24_DATE_KEY,
 } from '../data/dailyMockData';
 import {
   computeDailyMockStreak,
@@ -84,7 +85,8 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
   const localTodayKey = useMemo(() => getTodayDateKey(), []);
   const defaultExamDateKey = useMemo(() => {
     if (initialDateKey) return initialDateKey;
-    return localTodayKey <= NOV_23_DATE_KEY ? NOV_23_DATE_KEY : localTodayKey;
+    if (localTodayKey <= NOV_24_DATE_KEY) return NOV_24_DATE_KEY;
+    return localTodayKey;
   }, [initialDateKey, localTodayKey]);
 
   const [activeExamDateKey, setActiveExamDateKey] = useState<string>(defaultExamDateKey);
@@ -97,12 +99,19 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
   );
 
   const streakReferenceDate = useMemo(() => {
+    const nov24Done = attempts.some(
+      (a) => a.dateKey === NOV_24_DATE_KEY && a.status === 'submitted'
+    );
+    if (nov24Done && localTodayKey < NOV_24_DATE_KEY) {
+      return NOV_24_DATE_KEY;
+    }
     const nov23Done = attempts.some(
       (a) => a.dateKey === NOV_23_DATE_KEY && a.status === 'submitted'
     );
-    return nov23Done && localTodayKey < NOV_23_DATE_KEY
-      ? NOV_23_DATE_KEY
-      : localTodayKey;
+    if (nov23Done && localTodayKey < NOV_23_DATE_KEY) {
+      return NOV_23_DATE_KEY;
+    }
+    return localTodayKey;
   }, [attempts, localTodayKey]);
 
   const streakDays = useMemo(
@@ -487,9 +496,9 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
   }, [submittedAttempts]);
 
   const editionOptions = useMemo(() => {
-    const keys = Array.from(new Set([NOV_23_DATE_KEY, localTodayKey])).sort((a, b) =>
-      b.localeCompare(a)
-    );
+    const keys = Array.from(
+      new Set([NOV_24_DATE_KEY, NOV_23_DATE_KEY, localTodayKey])
+    ).sort((a, b) => b.localeCompare(a));
     return keys.map((dk) => {
       const paper = generateDailyMockPaper(dk);
       const attempt = attempts.find((a) => a.dateKey === dk);
@@ -892,7 +901,9 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
                 >
                   {done && <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
                   <span className={done && !selected ? 'line-through decoration-slate-400/70' : ''}>
-                    {paper.isSpecialEdition
+                    {paper.dateKey === NOV_24_DATE_KEY
+                      ? `Nov 24, 2026 Special (${paper.paperCode})`
+                      : paper.dateKey === NOV_23_DATE_KEY
                       ? `Nov 23, 2026 Special (${paper.paperCode})`
                       : `${paper.displayDate} (${paper.paperCode})`}
                   </span>
@@ -924,7 +935,9 @@ export const DailyMockStudio: React.FC<DailyMockStudioProps> = ({
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-950 dark:text-white max-w-2xl">
-              {todayPaper.isSpecialEdition
+              {todayPaper.dateKey === NOV_24_DATE_KEY
+                ? 'Nov 24, 2026 Body Language & Placement Sprint (40 Brand-New MCQs)'
+                : todayPaper.dateKey === NOV_23_DATE_KEY
                 ? 'Nov 23, 2026 Placement Sprint Assessment (40 Brand-New MCQs)'
                 : 'Master Every Placement Pillar with Today’s 50% Hard Timed Mock'}
             </h1>

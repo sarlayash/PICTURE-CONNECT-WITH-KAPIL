@@ -22,6 +22,7 @@ export type NotificationTargetView =
   | 'wheel'
   | 'shopping'
   | 'career'
+  | 'body_language'
   | 'universe'
   | 'advanced'
   | 'final'
@@ -95,6 +96,8 @@ export interface ProgressAuditSnapshot {
   shoppingAnsweredCount: number;
   shoppingRoleplayScore: number;
   careerAnsweredCount: number;
+  bodyLanguageAnsweredCount?: number;
+  bodyLanguageChallengesCount?: number;
   masterAnsweredCount: number;
   advCompletedCount: number;
   finalPassed: boolean;
@@ -139,6 +142,13 @@ export function computeSectionAudit(
   const careerTotal = CAREER_MCQS.length; // 45
   const careerAnswered = Math.min(careerTotal, snapshot.careerAnsweredCount);
   const careerPct = Math.round((careerAnswered / careerTotal) * 100);
+
+  const blMcqTotal = 15;
+  const blChalTotal = 6;
+  const blAnswered = Math.min(blMcqTotal, snapshot.bodyLanguageAnsweredCount ?? 0);
+  const blChallenges = Math.min(blChalTotal, snapshot.bodyLanguageChallengesCount ?? 0);
+  const blComplete = blAnswered >= blMcqTotal && blChallenges >= blChalTotal;
+  const blPct = Math.round((blAnswered / blMcqTotal) * 70 + (blChallenges / blChalTotal) * 30);
 
   const masterTotal = MASTER_MCQS.length; // 160
   const masterAnswered = Math.min(masterTotal, snapshot.masterAnsweredCount);
@@ -241,6 +251,21 @@ export function computeSectionAudit(
         careerAnswered >= careerTotal
           ? 'All 45 Career Skills MCQs completed!'
           : `Complete ${careerTotal - careerAnswered} more MCQs across Indianism, Interview & GD Skills.`,
+    },
+    {
+      id: 'body_language',
+      title: 'Body Language & Executive Presence Studio',
+      targetView: 'body_language',
+      status: blComplete
+        ? 'completed'
+        : blAnswered > 0 || blChallenges > 0
+        ? 'in_progress'
+        : 'missing',
+      percent: Math.min(100, blPct),
+      currentLabel: `${blChallenges}/${blChalTotal} Labs · ${blAnswered}/${blMcqTotal} MCQs`,
+      actionHint: blComplete
+        ? 'Body Language & Presence mastered!'
+        : `Solve ${blChalTotal - blChallenges} visual scenario labs and ${blMcqTotal - blAnswered} MCQs.`,
     },
     {
       id: 'universe',

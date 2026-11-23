@@ -86,7 +86,7 @@ service cloud.firestore {
         && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
         && data.body is string && data.body.size() >= 1 && data.body.size() <= 600
         && data.targetView in [
-          'journey', 'levels', 'wheel', 'shopping', 'career',
+          'journey', 'levels', 'wheel', 'shopping', 'career', 'body_language',
           'universe', 'advanced', 'final', 'achievements', 'profile', 'daily_mock'
         ]
         && data.credentialType in [
@@ -351,7 +351,7 @@ service cloud.firestore {
         && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100
         && data.authorEmail is string && data.authorEmail.size() >= 3 && data.authorEmail.size() <= 160
         && data.sectionId in [
-          'journey', 'levels', 'wheel', 'shopping', 'career',
+          'journey', 'levels', 'wheel', 'shopping', 'career', 'body_language',
           'universe', 'advanced', 'final', 'achievements', 'daily_mock'
         ]
         && data.sectionLabel is string && data.sectionLabel.size() >= 1 && data.sectionLabel.size() <= 80
@@ -505,6 +505,39 @@ service cloud.firestore {
         && data.lastSentAtMs is number && data.lastSentAtMs >= 0
         && data.sentCount is int && data.sentCount >= 0 && data.sentCount <= 100000
         && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidBodyLanguageProgress(data, userId) {
+      return data.keys().hasAll([
+          'ownerId', 'authorName', 'authorEmail', 'bodyXp', 'exploredScenarios',
+          'solvedChallenges', 'answeredMcqs', 'correctMcqs', 'hintUsedMcqs',
+          'mcqChoices', 'unlockedBodyBadges', 'bodyCertificateId', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'authorName', 'authorEmail', 'bodyXp', 'exploredScenarios',
+          'solvedChallenges', 'answeredMcqs', 'correctMcqs', 'hintUsedMcqs',
+          'mcqChoices', 'unlockedBodyBadges', 'bodyCertificateId', 'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId == userId && isValidId(data.ownerId)
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100
+        && data.authorEmail is string && data.authorEmail.size() <= 160
+        && data.bodyXp is number && data.bodyXp >= 0 && data.bodyXp <= 15000
+        && data.exploredScenarios is list && data.exploredScenarios.size() <= 12
+        && (data.exploredScenarios.size() == 0 || (data.exploredScenarios[0] is string && data.exploredScenarios[0].size() <= 40))
+        && data.solvedChallenges is list && data.solvedChallenges.size() <= 12
+        && (data.solvedChallenges.size() == 0 || (data.solvedChallenges[0] is string && data.solvedChallenges[0].size() <= 40))
+        && data.answeredMcqs is list && data.answeredMcqs.size() <= 15
+        && (data.answeredMcqs.size() == 0 || (data.answeredMcqs[0] is string && data.answeredMcqs[0].size() <= 20))
+        && data.correctMcqs is list && data.correctMcqs.size() <= 15
+        && (data.correctMcqs.size() == 0 || (data.correctMcqs[0] is string && data.correctMcqs[0].size() <= 20))
+        && data.hintUsedMcqs is list && data.hintUsedMcqs.size() <= 15
+        && (data.hintUsedMcqs.size() == 0 || (data.hintUsedMcqs[0] is string && data.hintUsedMcqs[0].size() <= 20))
+        && data.mcqChoices is list && data.mcqChoices.size() <= 15
+        && (data.mcqChoices.size() == 0 || (data.mcqChoices[0] is number && data.mcqChoices[0] >= -1 && data.mcqChoices[0] <= 3))
+        && data.unlockedBodyBadges is list && data.unlockedBodyBadges.size() <= 8
+        && (data.unlockedBodyBadges.size() == 0 || (data.unlockedBodyBadges[0] is string && data.unlockedBodyBadges[0].size() <= 60))
+        && data.bodyCertificateId is string && data.bodyCertificateId.size() >= 4 && data.bodyCertificateId.size() <= 64
         && data.updatedAt is timestamp;
     }
 
@@ -917,6 +950,26 @@ service cloud.firestore {
           'lastSentAtMs', 'sentCount', 'updatedAt'
         ]);
       allow delete: if isValidId(listId) && isAdmin();
+    }
+
+    match /bodyLanguageProgress/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isGenuineGoogleUser() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidBodyLanguageProgress(incoming(), userId)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isValidBodyLanguageProgress(incoming(), userId)
+        && (isOwner(userId) || isAdmin())
+        && incoming().ownerId == existing().ownerId
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'authorName', 'authorEmail', 'bodyXp', 'exploredScenarios',
+          'solvedChallenges', 'answeredMcqs', 'correctMcqs', 'hintUsedMcqs',
+          'mcqChoices', 'unlockedBodyBadges', 'bodyCertificateId', 'updatedAt'
+        ]);
+      allow delete: if false;
     }
   }
 }

@@ -26,9 +26,15 @@ import {
 import { BADGES } from '../data/workshopData';
 import { ADVANCED_BADGES } from '../data/advancedTrackData';
 import { CAREER_BADGES, CAREER_MCQS } from '../data/careerSkillsData';
+import {
+  BODY_LANGUAGE_BADGES,
+  BODY_LANGUAGE_MCQS,
+  BODY_LANGUAGE_SCENARIOS,
+} from '../data/bodyLanguageData';
 import { MASTER_BADGES, MASTER_MCQS } from '../data/masterUniverseData';
 import { SHOPPING_BADGES, SHOPPING_MCQS } from '../data/shoppingNegotiationData';
 import { AdvancedProgressDoc } from '../services/advancedFirestoreService';
+import { BodyLanguageProgressDoc } from '../services/bodyLanguageFirestoreService';
 import { CareerSkillsProgressDoc } from '../services/careerSkillsFirestoreService';
 import { FinalAssessmentDoc } from '../services/finalAssessmentService';
 import {
@@ -58,6 +64,7 @@ import {
 import { ShoppingProgressDoc } from '../services/shoppingFirestoreService';
 import {
   buildAdvancedCertificateDataUrl,
+  buildBodyLanguageCertificateDataUrl,
   buildCareerCertificateDataUrl,
   buildCoreBadgePngDataUrl,
   buildCoreCertificateDataUrl,
@@ -74,6 +81,7 @@ interface MyProfileStudioProps {
   progress: LearnerProgressDoc;
   shoppingProgress: ShoppingProgressDoc;
   careerProgress: CareerSkillsProgressDoc;
+  bodyProgress?: BodyLanguageProgressDoc;
   masterProgress: MasterSkillsProgressDoc;
   advProgress: AdvancedProgressDoc;
   advAvgScore: number;
@@ -142,6 +150,7 @@ export const MyProfileStudio: React.FC<MyProfileStudioProps> = ({
   progress,
   shoppingProgress,
   careerProgress,
+  bodyProgress,
   masterProgress,
   advProgress,
   advAvgScore,
@@ -429,7 +438,14 @@ export const MyProfileStudio: React.FC<MyProfileStudioProps> = ({
   };
 
   const handleEmailCertificate = (
-    kind: 'core' | 'shopping' | 'career' | 'master' | 'advanced' | 'final'
+    kind:
+      | 'core'
+      | 'shopping'
+      | 'career'
+      | 'body_language'
+      | 'master'
+      | 'advanced'
+      | 'final'
   ) => {
     if (!signupEmail) return;
     const name = displayName.trim() || profile.displayName;
@@ -473,6 +489,17 @@ export const MyProfileStudio: React.FC<MyProfileStudioProps> = ({
         `Badges Unlocked: ${careerProgress.unlockedCareerBadges.length}/${CAREER_BADGES.length}`,
       ];
       targetView = 'career';
+    } else if (kind === 'body_language' && bodyProgress) {
+      dataUrl = buildBodyLanguageCertificateDataUrl(name, signupEmail, bodyProgress);
+      filename = 'Employability-Universe-Body-Language-Certificate-Kapil.png';
+      title = 'Executive Body Language Certificate (PNG)';
+      certId = bodyProgress.bodyCertificateId;
+      summaryPoints = [
+        `Body Language Action Labs: ${bodyProgress.solvedChallenges.length}/${BODY_LANGUAGE_SCENARIOS.length}`,
+        `Scenario MCQs Correct: ${bodyProgress.correctMcqs.length}/${BODY_LANGUAGE_MCQS.length}`,
+        `Presence XP: ${bodyProgress.bodyXp} XP · Badges: ${bodyProgress.unlockedBodyBadges.length}/${BODY_LANGUAGE_BADGES.length}`,
+      ];
+      targetView = 'body_language';
     } else if (kind === 'master') {
       dataUrl = buildMasterUniverseCertificateDataUrl(name, signupEmail, masterProgress);
       filename = 'Employability-Universe-16-Track-Master-Certificate-Kapil.png';
@@ -1105,6 +1132,22 @@ export const MyProfileStudio: React.FC<MyProfileStudioProps> = ({
                   Email →
                 </span>
               </button>
+
+              {bodyProgress && (
+                <button
+                  type="button"
+                  onClick={() => handleEmailCertificate('body_language')}
+                  className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-teal-500 bg-slate-50/70 dark:bg-slate-950/60 text-left cursor-pointer transition-colors"
+                >
+                  <span className="flex items-center gap-2.5 text-xs font-semibold text-slate-900 dark:text-white">
+                    <Award className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span>Body Language &amp; Presence Certificate (PNG)</span>
+                  </span>
+                  <span className="text-[11px] font-mono font-semibold text-teal-700 dark:text-teal-400 shrink-0">
+                    Email →
+                  </span>
+                </button>
+              )}
 
               <button
                 type="button"

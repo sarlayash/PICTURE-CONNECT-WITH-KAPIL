@@ -84,7 +84,12 @@ import {
   getTodayDateKey,
   gradeDailyMockAttempt,
   NOV_23_DATE_KEY,
+  NOV_24_DATE_KEY,
 } from '../data/dailyMockData';
+import {
+  AdminBodyLanguageSummary,
+  subscribeAdminBodyLanguageData,
+} from '../services/bodyLanguageFirestoreService';
 import {
   adminResetDailyMockAttempt,
   computeDailyMockStreak,
@@ -186,6 +191,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [masterByUid, setMasterByUid] = useState<
     Record<string, AdminMasterSkillsSummary>
   >({});
+  const [bodyByUid, setBodyByUid] = useState<
+    Record<string, AdminBodyLanguageSummary>
+  >({});
   const [feedbackItems, setFeedbackItems] = useState<SectionFeedbackDoc[]>([]);
   const [fbSectionFilter, setFbSectionFilter] = useState<
     FeedbackSectionId | 'all'
@@ -203,7 +211,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   >([]);
   const [dailyMockDateFilter, setDailyMockDateFilter] = useState<string>(() => {
     const t = getTodayDateKey();
-    return t <= NOV_23_DATE_KEY ? NOV_23_DATE_KEY : t;
+    return t <= NOV_24_DATE_KEY ? NOV_24_DATE_KEY : t;
   });
   const [dailyBroadcastBusy, setDailyBroadcastBusy] = useState(false);
   const [dailyBroadcastNote, setDailyBroadcastNote] = useState<string | null>(
@@ -340,6 +348,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setStreamError(errMsg);
       }
     );
+    const unsubBody = subscribeAdminBodyLanguageData(
+      (bodyMap) => {
+        setBodyByUid(bodyMap);
+      },
+      (errMsg) => {
+        setStreamError(errMsg);
+      }
+    );
 
     return () => {
       unsubCore();
@@ -351,6 +367,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       unsubFeedback();
       unsubDailyMock();
       unsubDistLists();
+      unsubBody();
     };
   }, [open, credentialsUnlocked, hasAdminGoogleSession]);
 
@@ -538,7 +555,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const todayDateKey = getTodayDateKey();
   const availableDailyDates = useMemo(() => {
-    const set = new Set<string>([todayDateKey, NOV_23_DATE_KEY]);
+    const set = new Set<string>([todayDateKey, NOV_24_DATE_KEY, NOV_23_DATE_KEY]);
     for (const a of dailyMockAttempts) {
       if (a.dateKey) set.add(a.dateKey);
     }
@@ -680,6 +697,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       'Career Accuracy %',
       'Career Badges (/6)',
       'Career Cert ID',
+      'Body Language XP',
+      'Body Labs (/6)',
+      'Body MCQs (/15)',
+      'Body Cert ID',
       'Universe Tech XP',
       'Universe Rank',
       `Universe MCQs (/${MASTER_MCQS.length})`,
@@ -718,6 +739,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const shop = shopByUid[r.uid];
       const career = careerByUid[r.uid];
       const master = masterByUid[r.uid];
+      const body = bodyByUid[r.uid];
       return [
         r.displayName,
         r.email,
@@ -760,6 +782,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         `${career?.accuracyPct ?? 0}%`,
         `${career?.unlockedCareerBadges.length ?? 0}/${CAREER_BADGES.length}`,
         career?.careerCertificateId ?? '',
+        body?.bodyXp ?? 0,
+        `${body?.solvedChallenges.length ?? 0}/6`,
+        `${body?.answeredMcqs.length ?? 0}/15`,
+        body?.bodyCertificateId ?? '',
         master?.masterXp ?? 0,
         master?.masterRankTitle ?? 'Universe Explorer',
         `${master?.answeredMcqs.length ?? 0}/${MASTER_MCQS.length}`,
@@ -1874,7 +1900,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {availableDailyDates.map((dk) => (
                           <option key={dk} value={dk}>
                             {dk}{' '}
-                            {dk === NOV_23_DATE_KEY
+                            {dk === NOV_24_DATE_KEY
+                              ? '(Nov 24 Special)'
+                              : dk === NOV_23_DATE_KEY
                               ? '(Nov 23 Special)'
                               : dk === todayDateKey
                               ? '(Today)'

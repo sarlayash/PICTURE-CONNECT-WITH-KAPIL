@@ -242,6 +242,7 @@ export const NAV_SECTION_COLOR_KEYS: Record<string, ThemeColorKey> = {
   wheel: 'fuchsia',
   shopping: 'emerald',
   career: 'cyan',
+  body_language: 'teal',
   universe: 'violet',
   advanced: 'rose',
   final: 'amber',

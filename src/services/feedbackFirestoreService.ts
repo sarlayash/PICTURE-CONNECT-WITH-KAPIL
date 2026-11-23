@@ -18,6 +18,7 @@ export type FeedbackSectionId =
   | 'wheel'
   | 'shopping'
   | 'career'
+  | 'body_language'
   | 'universe'
   | 'advanced'
   | 'final'
@@ -57,6 +58,7 @@ export const FEEDBACK_SECTION_LABELS: Record<FeedbackSectionId, string> = {
   wheel: 'Spinning Wheel Challenge',
   shopping: 'Shopping & Negotiation Skills',
   career: 'Indianism, Interview & GD Academy',
+  body_language: 'Body Language & Executive Presence Studio',
   universe: '16-Track Tech, Python, Grammar & Data Universe',
   advanced: 'AI-Powered Visual Reasoning Lab',
   final: 'Final Assessment & Placement LOR',
